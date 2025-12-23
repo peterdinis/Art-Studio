@@ -1,9 +1,8 @@
+import HomeWrapper from "@/components/home/HomeWrapper";
 import { NextPage } from "next";
 
 const App: NextPage = () => {
-  return (
-    <>ABCD</>
-  )
+  return <HomeWrapper />
 }
 
-export default App; 
+export default App;
