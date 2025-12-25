@@ -76,6 +76,7 @@ import {
 } from "@/components/ui/tooltip";
 import { useArtStudioStore } from "@/stores/artStudioStore";
 import { toast } from "sonner";
+import { TemplatesDialog } from "../templates/TemplatesDialog";
 
 interface MenuItemConfig {
 	label: string;
@@ -833,7 +834,7 @@ export const TopMenuBar: React.FC = () => {
 					<TooltipContent>Help</TooltipContent>
 				</Tooltip>
 			</div>
-			TODO TEMPLATES DIALOG
+			<TemplatesDialog open={showTemplates} onOpenChange={setShowTemplates} />
 		</div>
 	);
 };

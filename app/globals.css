@@ -229,6 +229,81 @@
     border-radius: 3px;
   }
   
+  /* Hide scrollbar completely but keep functionality */
+  .scrollbar-hide {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;     /* Firefox */
+  }
+  
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;  /* Chrome, Safari, Opera */
+  }
+  
+  /* Hide scrollbar but show on hover */
+  .scrollbar-hide-hover {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  .scrollbar-hide-hover::-webkit-scrollbar {
+    display: none;
+    width: 6px;
+  }
+  
+  .scrollbar-hide-hover:hover::-webkit-scrollbar {
+    display: block;
+  }
+  
+  .scrollbar-hide-hover:hover {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-muted) transparent;
+  }
+  
+  .scrollbar-hide-hover:hover::-webkit-scrollbar-thumb {
+    background: var(--color-muted);
+    border-radius: 3px;
+  }
+  
+  /* Hide vertical scrollbar only */
+  .scrollbar-hide-y {
+    overflow-y: scroll;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  .scrollbar-hide-y::-webkit-scrollbar {
+    display: none;
+    width: 0;
+  }
+  
+  /* Hide horizontal scrollbar only */
+  .scrollbar-hide-x {
+    overflow-x: scroll;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  .scrollbar-hide-x::-webkit-scrollbar {
+    display: none;
+    height: 0;
+  }
+  
+  /* Completely disable scrolling */
+  .no-scroll {
+    overflow: hidden !important;
+  }
+  
+  /* Allow scrolling but hide scrollbar - universal */
+  .overflow-auto-scrollbar-hide {
+    overflow: auto;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  .overflow-auto-scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  
   .no-drag {
     -webkit-user-drag: none;
     user-select: none;
