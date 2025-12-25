@@ -409,7 +409,6 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 					});
 
 					canvas.add(bgRect);
-					// TODO: Later fix //bgRect.sendToBack();
 					canvas.renderAll();
 					saveCanvasState("Background filled");
 				}
