@@ -6,6 +6,7 @@ import { BrushPanel } from "../panels/BrushPanel";
 import { ColorPanel } from "../panels/ColorPanel";
 import { HistoryPanel } from "../panels/HistoryPanel";
 import { LayersPanel } from "../panels/LayersPanel";
+import { StatusBar } from "../layout/StatusBar";
 
 const HomeWrapper: FC = () => {
     return (
@@ -30,7 +31,7 @@ const HomeWrapper: FC = () => {
           </div>
         </div>
 
-        STATUS BAR
+        <StatusBar />
       </div>
     </TooltipProvider>
   );

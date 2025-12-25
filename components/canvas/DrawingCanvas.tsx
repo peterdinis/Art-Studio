@@ -15,7 +15,13 @@ import {
   Ellipse,
   TPointerEvent,
   TPointerEventInfo,
-  BaseBrush
+  BaseBrush,
+  FabricImage as FabricImageType,
+  ActiveSelection,
+  Group,
+  Path,
+  TClassProperties,
+  Pattern
 } from 'fabric';
 
 // Extended type definitions for Fabric.js
@@ -70,32 +76,32 @@ const useArtStudioStore = () => {
   const [loadedImages, setLoadedImages] = useState<LoadedImage[]>([]);
   const [canvasSize, setCanvasSize] = useState<CanvasSize | null>(null);
 
-  const addToHistory = (canvasData: string, thumbnail: string, action: string) => {
+  const addToHistory = useCallback((canvasData: string, thumbnail: string, action: string) => {
     const newEntry = { canvasData, thumbnail, action };
     const newHistory = [...history.slice(0, historyIndex + 1), newEntry];
     setHistory(newHistory);
     setHistoryIndex(newHistory.length - 1);
-  };
+  }, [history, historyIndex]);
 
-  const undo = () => {
+  const undo = useCallback(() => {
     if (historyIndex > 0) {
       setHistoryIndex(historyIndex - 1);
       return history[historyIndex - 1];
     }
     return null;
-  };
+  }, [history, historyIndex]);
 
-  const redo = () => {
+  const redo = useCallback(() => {
     if (historyIndex < history.length - 1) {
       setHistoryIndex(historyIndex + 1);
       return history[historyIndex + 1];
     }
     return null;
-  };
+  }, [history, historyIndex]);
 
-  const addLoadedImage = (image: LoadedImage) => {
-    setLoadedImages([...loadedImages, image]);
-  };
+  const addLoadedImage = useCallback((image: LoadedImage) => {
+    setLoadedImages(prev => [...prev, image]);
+  }, []);
 
   return {
     activeTool,
@@ -325,7 +331,8 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
         return;
       }
       
-      const pointer = e.pointer;
+      const pointer = canvas.getPointer(e.e);
+      if (!pointer) return;
       
       // Shape tools
       if (shapeTools.includes(activeTool)) {
@@ -413,7 +420,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
       
       // Fill tool
       if (activeTool === 'fill') {
-        const target = canvas.findTarget(e.e, false);
+        const target = canvas.findTarget(e.e) as unknown as FabricObject | null;
         if (target && target.type !== 'image') {
           target.set({ fill: primaryColor });
           canvas.renderAll();
@@ -439,7 +446,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
       
       // Gradient tool
       if (activeTool === 'gradient') {
-        const target = canvas.findTarget(e.e, false);
+        const target = canvas.findTarget(e.e) as unknown as FabricObject | null;
         if (target) {
           const targetWidth = typeof target.width === 'number' ? target.width : 100;
           const targetHeight = typeof target.height === 'number' ? target.height : 100;
@@ -466,13 +473,13 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
       
       // Eyedropper tool
       if (activeTool === 'eyedropper') {
-        const target = canvas.findTarget(e.e, false);
+        const target = canvas.findTarget(e.e) as unknown as FabricObject | null;
         if (target) {
           let color = target.fill;
           if (typeof color === 'string') {
             setPrimaryColor(color);
             toast.success(`Color sampled: ${color}`);
-          } else if (color && typeof color === 'object') {
+          } else if (color && typeof color === 'object' && 'colorStops' in color) {
             const gradient = color as Gradient<'linear'>;
             if (gradient.colorStops && gradient.colorStops[0]) {
               setPrimaryColor(gradient.colorStops[0].color);
@@ -496,7 +503,8 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
       // Hand tool (panning)
       if (activeTool === 'hand') {
         isPanning.current = true;
-        lastPanPos.current = { x: e.e.clientX, y: e.e.clientY };
+        const mouseEvent = e.e as MouseEvent;
+        lastPanPos.current = { x: mouseEvent.clientX, y: mouseEvent.clientY };
         canvas.defaultCursor = 'grabbing';
         return;
       }
@@ -508,6 +516,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
       }
       
       const pointer = canvas.getPointer(e.e);
+      if (!pointer) return;
       
       // Shape drawing
       if (isDrawingShape.current && shapeStartPoint.current && currentShape.current) {
@@ -553,21 +562,22 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
           polygon.set({ points });
         }
         
-        canvas.renderAll();
+        canvas.requestRenderAll();
         return;
       }
       
       // Panning
       if (isPanning.current && activeTool === 'hand') {
-        const deltaX = e.e.clientX - lastPanPos.current.x;
-        const deltaY = e.e.clientY - lastPanPos.current.y;
+        const mouseEvent = e.e as MouseEvent;
+        const deltaX = mouseEvent.clientX - lastPanPos.current.x;
+        const deltaY = mouseEvent.clientY - lastPanPos.current.y;
         
         setPanOffset({
           x: panOffset.x + deltaX,
           y: panOffset.y + deltaY,
         });
         
-        lastPanPos.current = { x: e.e.clientX, y: e.e.clientY };
+        lastPanPos.current = { x: mouseEvent.clientX, y: mouseEvent.clientY };
         return;
       }
     };
@@ -582,24 +592,24 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
         let shouldSave = true;
         
         if (shape instanceof Rect) {
-          const rectWidth = typeof shape.width === 'number' ? shape.width : 0;
-          const rectHeight = typeof shape.height === 'number' ? shape.height : 0;
+          const rectWidth = shape.width || 0;
+          const rectHeight = shape.height || 0;
           if (rectWidth === 0 || rectHeight === 0) {
             shouldSave = false;
             canvas.remove(shape);
           }
         } else if (shape instanceof Ellipse) {
-          const ellipseRx = typeof shape.rx === 'number' ? shape.rx : 0;
-          const ellipseRy = typeof shape.ry === 'number' ? shape.ry : 0;
+          const ellipseRx = shape.rx || 0;
+          const ellipseRy = shape.ry || 0;
           if (ellipseRx === 0 || ellipseRy === 0) {
             shouldSave = false;
             canvas.remove(shape);
           }
         } else if (shape instanceof Line) {
-          const lineX1 = typeof shape.x1 === 'number' ? shape.x1 : 0;
-          const lineY1 = typeof shape.y1 === 'number' ? shape.y1 : 0;
-          const lineX2 = typeof shape.x2 === 'number' ? shape.x2 : 0;
-          const lineY2 = typeof shape.y2 === 'number' ? shape.y2 : 0;
+          const lineX1 = shape.x1 || 0;
+          const lineY1 = shape.y1 || 0;
+          const lineX2 = shape.x2 || 0;
+          const lineY2 = shape.y2 || 0;
           if (lineX1 === lineX2 && lineY1 === lineY2) {
             shouldSave = false;
             canvas.remove(shape);
@@ -625,7 +635,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
         canvas.defaultCursor = 'grab';
       }
       
-      canvas.renderAll();
+      canvas.requestRenderAll();
     };
 
     canvas.on('mouse:down', handleMouseDown);
@@ -663,10 +673,8 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
     const currentState = JSON.stringify(fabricRef.current.toJSON());
     if (currentState === entry.canvasData) return;
     
-    fabricRef.current.loadFromJSON(JSON.parse(entry.canvasData)).then(() => {
+    fabricRef.current.loadFromJSON(JSON.parse(entry.canvasData), () => {
       fabricRef.current?.renderAll();
-    }).catch(err => {
-      console.error('Failed to load canvas state:', err);
     });
   }, [historyIndex, isReady, history]);
 
@@ -714,14 +722,14 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
         if (e.shiftKey) {
           const entry = redo();
           if (entry && fabricRef.current) {
-            fabricRef.current.loadFromJSON(JSON.parse(entry.canvasData)).then(() => {
+            fabricRef.current.loadFromJSON(JSON.parse(entry.canvasData), () => {
               fabricRef.current?.renderAll();
             });
           }
         } else {
           const entry = undo();
           if (entry && fabricRef.current) {
-            fabricRef.current.loadFromJSON(JSON.parse(entry.canvasData)).then(() => {
+            fabricRef.current.loadFromJSON(JSON.parse(entry.canvasData), () => {
               fabricRef.current?.renderAll();
             });
           }
@@ -735,7 +743,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
           if (activeObjects.length > 0) {
             fabricRef.current.remove(...activeObjects);
             fabricRef.current.discardActiveObject();
-            fabricRef.current.renderAll();
+            fabricRef.current.requestRenderAll();
             saveCanvasState('Object deleted');
           }
         }
@@ -763,10 +771,10 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
       try {
         const img = await FabricImage.fromURL(imageData.src);
         
-        const canvasWidth = typeof canvas.width === 'number' ? canvas.width : 800;
-        const canvasHeight = typeof canvas.height === 'number' ? canvas.height : 600;
-        const imgWidth = typeof img.width === 'number' ? img.width : 100;
-        const imgHeight = typeof img.height === 'number' ? img.height : 100;
+        const canvasWidth = canvas.getWidth() || 800;
+        const canvasHeight = canvas.getHeight() || 600;
+        const imgWidth = img.width || 100;
+        const imgHeight = img.height || 100;
         
         const scale = Math.min(
           (canvasWidth * 0.8) / imgWidth,
@@ -786,7 +794,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
         
         canvas.add(img);
         canvas.setActiveObject(img);
-        canvas.renderAll();
+        canvas.requestRenderAll();
         
         toast.success(`Image loaded: ${imageData.name}`);
         saveCanvasState('Image added');
