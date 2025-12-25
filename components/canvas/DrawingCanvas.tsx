@@ -23,6 +23,8 @@ import {
   TClassProperties,
   Pattern
 } from 'fabric';
+import { useArtStudioStore } from '@/stores/artStudioStore';
+import { toast } from 'sonner';
 
 // Extended type definitions for Fabric.js
 type FabricObjectWithImageId = FabricObject & { imageId?: string };
@@ -62,77 +64,6 @@ interface DrawingCanvasProps {
   height?: number;
   backgroundColor?: string;
 }
-
-// Mock store - nahraďte skutočným useArtStudioStore
-const useArtStudioStore = () => {
-  const [activeTool, setActiveTool] = useState<string>('brush');
-  const [primaryColor, setPrimaryColor] = useState('#000000');
-  const [secondaryColor, setSecondaryColor] = useState('#ffffff');
-  const [brushSettings, setBrushSettings] = useState<BrushSettings>({ size: 5, opacity: 1, hardness: 1 });
-  const [zoom, setZoom] = useState(100);
-  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
-  const [history, setHistory] = useState<HistoryEntry[]>([]);
-  const [historyIndex, setHistoryIndex] = useState(-1);
-  const [loadedImages, setLoadedImages] = useState<LoadedImage[]>([]);
-  const [canvasSize, setCanvasSize] = useState<CanvasSize | null>(null);
-
-  const addToHistory = useCallback((canvasData: string, thumbnail: string, action: string) => {
-    const newEntry = { canvasData, thumbnail, action };
-    const newHistory = [...history.slice(0, historyIndex + 1), newEntry];
-    setHistory(newHistory);
-    setHistoryIndex(newHistory.length - 1);
-  }, [history, historyIndex]);
-
-  const undo = useCallback(() => {
-    if (historyIndex > 0) {
-      setHistoryIndex(historyIndex - 1);
-      return history[historyIndex - 1];
-    }
-    return null;
-  }, [history, historyIndex]);
-
-  const redo = useCallback(() => {
-    if (historyIndex < history.length - 1) {
-      setHistoryIndex(historyIndex + 1);
-      return history[historyIndex + 1];
-    }
-    return null;
-  }, [history, historyIndex]);
-
-  const addLoadedImage = useCallback((image: LoadedImage) => {
-    setLoadedImages(prev => [...prev, image]);
-  }, []);
-
-  return {
-    activeTool,
-    setActiveTool,
-    primaryColor,
-    setPrimaryColor,
-    secondaryColor,
-    setSecondaryColor,
-    brushSettings,
-    setBrushSettings,
-    zoom,
-    setZoom,
-    panOffset,
-    setPanOffset,
-    history,
-    historyIndex,
-    addToHistory,
-    undo,
-    redo,
-    loadedImages,
-    addLoadedImage,
-    canvasSize,
-    setCanvasSize,
-  };
-};
-
-// Mock toast
-const toast = {
-  success: (msg: string) => console.log('Success:', msg),
-  error: (msg: string) => console.error('Error:', msg),
-};
 
 export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ 
   width = 1920, 
