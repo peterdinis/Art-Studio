@@ -1,3 +1,5 @@
+"use client"
+
 import React from 'react';
 import { useArtStudioStore, Tool } from '@/stores/artStudioStore';
 import { Slider } from '@/components/ui/slider';

@@ -3,6 +3,8 @@ import { TooltipProvider } from "../ui/tooltip";
 import { TopMenuBar } from "../layout/TopMenuBar";
 import { ToolSidebar } from "../toolbar/ToolSidebar";
 import { BrushPanel } from "../panels/BrushPanel";
+import { ColorPanel } from "../panels/ColorPanel";
+import { HistoryPanel } from "../panels/HistoryPanel";
 
 const HomeWrapper: FC = () => {
     return (
@@ -20,7 +22,9 @@ const HomeWrapper: FC = () => {
 
           {/* Right Panels */}
           <div className="w-72 flex flex-col gap-2 p-2 overflow-y-auto scrollbar-thin">
-            RIGHT SIDE
+            <BrushPanel />
+            <ColorPanel />
+            <HistoryPanel />
           </div>
         </div>
 
