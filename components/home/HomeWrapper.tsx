@@ -5,6 +5,7 @@ import { ToolSidebar } from "../toolbar/ToolSidebar";
 import { BrushPanel } from "../panels/BrushPanel";
 import { ColorPanel } from "../panels/ColorPanel";
 import { HistoryPanel } from "../panels/HistoryPanel";
+import { LayersPanel } from "../panels/LayersPanel";
 
 const HomeWrapper: FC = () => {
     return (
@@ -25,6 +26,7 @@ const HomeWrapper: FC = () => {
             <BrushPanel />
             <ColorPanel />
             <HistoryPanel />
+            <LayersPanel />
           </div>
         </div>
 

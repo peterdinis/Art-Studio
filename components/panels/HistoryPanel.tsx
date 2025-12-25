@@ -1,3 +1,5 @@
+"use client"
+
 import React from 'react';
 import { useArtStudioStore } from '@/stores/artStudioStore';
 import { History, RotateCcw, Trash2 } from 'lucide-react';
