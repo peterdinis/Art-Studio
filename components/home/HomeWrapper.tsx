@@ -94,7 +94,7 @@ const HomeWrapper: FC = () => {
 					</Suspense>
 
 					{/* Right Panels - Photoshop style */}
-					<div className="w-72 flex flex-col gap-4 p-3 overflow-y-auto scrollbar-thin bg-gradient-to-b from-[#2a2a2a] to-[#1e1e1e] border-l border-[#404040]">
+					<div className="w-72 flex flex-col gap-4 p-5 overflow-y-auto scrollbar-thin bg-gradient-to-b from-[#2a2a2a] to-[#1e1e1e] border-l border-[#404040]">
 						{/* Brush Panel */}
 						<Suspense fallback={
 							<div className="rounded bg-[#2a2a2a] border border-[#404040] p-3">

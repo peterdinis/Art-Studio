@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import ScrollToTop from "@/components/shared/ScrollToTop";
 
 // Použijeme Inter font z vášho globálneho CSS namiesto Geist
 const inter = Inter({
@@ -163,6 +164,7 @@ export default function RootLayout({
         {/* Main content */}
         <main className="min-h-screen overflow-hidden">
           {children}
+		  <ScrollToTop />
         </main>
       </body>
     </html>
