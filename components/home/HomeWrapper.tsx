@@ -7,6 +7,7 @@ import { ColorPanel } from "../panels/ColorPanel";
 import { HistoryPanel } from "../panels/HistoryPanel";
 import { LayersPanel } from "../panels/LayersPanel";
 import { StatusBar } from "../layout/StatusBar";
+import { DrawingCanvas } from "../canvas/DrawingCanvas";
 
 const HomeWrapper: FC = () => {
     return (
@@ -20,7 +21,7 @@ const HomeWrapper: FC = () => {
           {/* Left Tool Sidebar */}
           <ToolSidebar />
 
-          CANVAS
+          <DrawingCanvas />
 
           {/* Right Panels */}
           <div className="w-72 flex flex-col gap-2 p-2 overflow-y-auto scrollbar-thin">
