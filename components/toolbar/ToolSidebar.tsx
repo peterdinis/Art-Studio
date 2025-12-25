@@ -10,6 +10,7 @@ import {
 	Circle,
 	Minus,
 	MousePointer,
+	Move,
 	Undo2,
 	Redo2,
 	Lasso,
@@ -22,8 +23,11 @@ import {
 	Droplet,
 	Blend,
 	Sparkles,
+	Scissors,
+	Grid3X3,
 	RectangleHorizontal,
 	Hexagon,
+	Triangle,
 	Spline,
 } from "lucide-react";
 import { useArtStudioStore, Tool } from "@/stores/artStudioStore";
@@ -301,7 +305,7 @@ export const ToolSidebar: React.FC = () => {
 						</TooltipTrigger>
 						<TooltipContent
 							side="right"
-							className="max-w-70 p-3"
+							className="max-w-[280px] p-3"
 							sideOffset={8}
 						>
 							<div className="space-y-1.5">
@@ -365,7 +369,11 @@ export const ToolSidebar: React.FC = () => {
 						<Undo2 className="w-5 h-5" />
 					</button>
 				</TooltipTrigger>
-				<TooltipContent side="right" className="max-w-70 p-3" sideOffset={8}>
+				<TooltipContent
+					side="right"
+					className="max-w-[280px] p-3"
+					sideOffset={8}
+				>
 					<div className="space-y-1.5">
 						<div className="flex items-center justify-between gap-4">
 							<span className="font-semibold text-foreground">Undo</span>
@@ -390,7 +398,11 @@ export const ToolSidebar: React.FC = () => {
 						<Redo2 className="w-5 h-5" />
 					</button>
 				</TooltipTrigger>
-				<TooltipContent side="right" className="max-w-70 p-3" sideOffset={8}>
+				<TooltipContent
+					side="right"
+					className="max-w-[280px] p-3"
+					sideOffset={8}
+				>
 					<div className="space-y-1.5">
 						<div className="flex items-center justify-between gap-4">
 							<span className="font-semibold text-foreground">Redo</span>
@@ -420,7 +432,11 @@ export const ToolSidebar: React.FC = () => {
 							/>
 						</div>
 					</TooltipTrigger>
-					<TooltipContent side="right" className="max-w-70 p-3" sideOffset={8}>
+					<TooltipContent
+						side="right"
+						className="max-w-[280px] p-3"
+						sideOffset={8}
+					>
 						<div className="space-y-1.5">
 							<div className="flex items-center justify-between gap-4">
 								<span className="font-semibold text-foreground">Colors</span>
