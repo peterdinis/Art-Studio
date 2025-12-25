@@ -20,7 +20,7 @@ const HomeWrapper: FC = () => {
 
           {/* Right Panels */}
           <div className="w-72 flex flex-col gap-2 p-2 overflow-y-auto scrollbar-thin">
-            <BrushPanel />
+            RIGHT SIDE
           </div>
         </div>
 

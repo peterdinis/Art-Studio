@@ -14,8 +14,18 @@ import {
   Gradient, 
   Ellipse,
   TPointerEvent,
-  TPointerEventInfo
+  TPointerEventInfo,
+  BaseBrush
 } from 'fabric';
+
+// Extended type definitions for Fabric.js
+type FabricObjectWithImageId = FabricObject & { imageId?: string };
+type FabricBrush = BaseBrush & {
+  color: string;
+  width: number;
+  strokeLineCap?: CanvasLineCap;
+  strokeLineJoin?: CanvasLineJoin;
+};
 
 interface LoadedImage {
   id: string;
@@ -266,8 +276,8 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
         canvas.freeDrawingBrush = new PencilBrush(canvas);
       }
       
-      // Configure brush
-      const brush = canvas.freeDrawingBrush;
+      // Configure brush with type safety
+      const brush = canvas.freeDrawingBrush as FabricBrush;
       brush.color = activeTool === 'eraser' ? actualBackground : primaryColor;
       brush.width = brushSettings.size;
       
@@ -315,7 +325,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
         return;
       }
       
-      const pointer = canvas.getPointer(e.e);
+      const pointer = e.pointer;
       
       // Shape tools
       if (shapeTools.includes(activeTool)) {
@@ -431,13 +441,16 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
       if (activeTool === 'gradient') {
         const target = canvas.findTarget(e.e, false);
         if (target) {
+          const targetWidth = typeof target.width === 'number' ? target.width : 100;
+          const targetHeight = typeof target.height === 'number' ? target.height : 100;
+          
           const gradient = new Gradient({
             type: 'linear',
             coords: {
               x1: 0,
               y1: 0,
-              x2: (target.width as number) || 100,
-              y2: (target.height as number) || 100,
+              x2: targetWidth,
+              y2: targetHeight,
             },
             colorStops: [
               { offset: 0, color: primaryColor },
@@ -568,18 +581,26 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
         const shape = currentShape.current;
         let shouldSave = true;
         
-        if (shape instanceof Rect && ((shape.width as number) === 0 || (shape.height as number) === 0)) {
-          shouldSave = false;
-          canvas.remove(shape);
-        } else if (shape instanceof Ellipse && ((shape.rx as number) === 0 || (shape.ry as number) === 0)) {
-          shouldSave = false;
-          canvas.remove(shape);
+        if (shape instanceof Rect) {
+          const rectWidth = typeof shape.width === 'number' ? shape.width : 0;
+          const rectHeight = typeof shape.height === 'number' ? shape.height : 0;
+          if (rectWidth === 0 || rectHeight === 0) {
+            shouldSave = false;
+            canvas.remove(shape);
+          }
+        } else if (shape instanceof Ellipse) {
+          const ellipseRx = typeof shape.rx === 'number' ? shape.rx : 0;
+          const ellipseRy = typeof shape.ry === 'number' ? shape.ry : 0;
+          if (ellipseRx === 0 || ellipseRy === 0) {
+            shouldSave = false;
+            canvas.remove(shape);
+          }
         } else if (shape instanceof Line) {
-          const x1 = shape.x1 as number;
-          const y1 = shape.y1 as number;
-          const x2 = shape.x2 as number;
-          const y2 = shape.y2 as number;
-          if (x1 === x2 && y1 === y2) {
+          const lineX1 = typeof shape.x1 === 'number' ? shape.x1 : 0;
+          const lineY1 = typeof shape.y1 === 'number' ? shape.y1 : 0;
+          const lineX2 = typeof shape.x2 === 'number' ? shape.x2 : 0;
+          const lineY2 = typeof shape.y2 === 'number' ? shape.y2 : 0;
+          if (lineX1 === lineX2 && lineY1 === lineY2) {
             shouldSave = false;
             canvas.remove(shape);
           }
@@ -734,26 +755,34 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
     
     loadedImages.forEach(async (imageData) => {
       const existingObjects = canvas.getObjects();
-      const alreadyLoaded = existingObjects.some((obj: any) => obj.imageId === imageData.id);
+      const alreadyLoaded = existingObjects.some((obj) => 
+        (obj as FabricObjectWithImageId).imageId === imageData.id
+      );
       if (alreadyLoaded) return;
       
       try {
         const img = await FabricImage.fromURL(imageData.src);
+        
+        const canvasWidth = typeof canvas.width === 'number' ? canvas.width : 800;
+        const canvasHeight = typeof canvas.height === 'number' ? canvas.height : 600;
+        const imgWidth = typeof img.width === 'number' ? img.width : 100;
+        const imgHeight = typeof img.height === 'number' ? img.height : 100;
+        
         const scale = Math.min(
-          ((canvas.width as number) * 0.8) / (img.width as number),
-          ((canvas.height as number) * 0.8) / (img.height as number),
+          (canvasWidth * 0.8) / imgWidth,
+          (canvasHeight * 0.8) / imgHeight,
           1
         );
         
         img.scale(scale);
         img.set({
-          left: ((canvas.width as number) - (img.width as number) * scale) / 2,
-          top: ((canvas.height as number) - (img.height as number) * scale) / 2,
+          left: (canvasWidth - imgWidth * scale) / 2,
+          top: (canvasHeight - imgHeight * scale) / 2,
           selectable: true,
           evented: true,
         });
         
-        (img as any).imageId = imageData.id;
+        (img as FabricObjectWithImageId).imageId = imageData.id;
         
         canvas.add(img);
         canvas.setActiveObject(img);
