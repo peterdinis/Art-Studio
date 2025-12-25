@@ -65,6 +65,10 @@ interface DrawingCanvasProps {
   backgroundColor?: string;
 }
 
+type CustomFabricCanvas = {
+  getPoiner: (...args: any[]) => void;
+} & FabricCanvas;
+
 export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ 
   width = 1920, 
   height = 1080,
@@ -78,7 +82,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
   // Shape drawing state
   const isDrawingShape = useRef(false);
   const shapeStartPoint = useRef<{ x: number; y: number } | null>(null);
-  const currentShape = useRef<FabricObject | null>(null);
+  const currentShape = useRef<FabricObject| null>(null);
   
   // Panning state
   const isPanning = useRef(false);
@@ -368,7 +372,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
           });
           
           canvas.add(bgRect);
-          bgRect.sendToBack();
+          // TODO: Later fix //bgRect.sendToBack();
           canvas.renderAll();
           saveCanvasState('Background filled');
         }
