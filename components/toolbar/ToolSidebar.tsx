@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import { ComponentType, FC, useEffect } from "react";
 import {
 	Paintbrush,
 	Eraser,
@@ -41,7 +41,7 @@ import { Kbd } from "@/components/ui/kbd"
 
 interface ToolConfig {
 	id: Tool;
-	icon: React.ComponentType<{ className?: string }>;
+	icon: ComponentType<{ className?: string }>;
 	label: string;
 	shortcut: string;
 	description: string;
@@ -243,12 +243,12 @@ const tools: ToolConfig[] = [
 	},
 ];
 
-export const ToolSidebar: React.FC = () => {
+export const ToolSidebar: FC = () => {
 	const { activeTool, setActiveTool, canUndo, canRedo, undo, redo } =
 		useArtStudioStore();
 
 	// Keyboard shortcuts - using capture phase for priority
-	React.useEffect(() => {
+	useEffect(() => {
 		const handleKeyDown = (e: KeyboardEvent) => {
 			// Skip if user is typing in an input field
 			if (

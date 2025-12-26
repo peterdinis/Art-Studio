@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import { ComponentType, FC, useState } from "react";
 import {
 	File,
 	FolderOpen,
@@ -81,7 +81,7 @@ import { ModeToggle } from "../shared/ModeToggle";
 
 interface MenuItemConfig {
 	label: string;
-	icon?: React.ComponentType<{ className?: string }>;
+	icon?: ComponentType<{ className?: string }>;
 	shortcut?: string;
 	action?: () => void;
 	disabled?: boolean;
@@ -97,7 +97,7 @@ declare global {
 	}
 }
 
-export const TopMenuBar: React.FC = () => {
+export const TopMenuBar: FC = () => {
 	const [showTemplates, setShowTemplates] = useState(false);
 
 	const {
