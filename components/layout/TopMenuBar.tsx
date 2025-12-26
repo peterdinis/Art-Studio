@@ -881,7 +881,7 @@ export const TopMenuBar: React.FC = () => {
 							)}
 							<span>{item.label}</span>
 						</DropdownMenuSubTrigger>
-						<DropdownMenuSubContent className="min-w-[200px]">
+						<DropdownMenuSubContent className="min-w-50">
 							{renderMenuItems(item.submenu)}
 						</DropdownMenuSubContent>
 					</DropdownMenuSub>
@@ -911,7 +911,7 @@ export const TopMenuBar: React.FC = () => {
 			<div className="flex items-center gap-1">
 				{/* Logo */}
 				<div className="flex items-center gap-2 px-3">
-					<div className="w-6 h-6 rounded-md bg-gradient-to-br from-primary to-primary/50 flex items-center justify-center">
+					<div className="w-6 h-6 rounded-md bg-linear-to-br from-primary to-primary/50 flex items-center justify-center">
 						<Palette className="w-4 h-4 text-primary-foreground" />
 					</div>
 					<span className="font-semibold text-sm text-foreground">
@@ -929,7 +929,7 @@ export const TopMenuBar: React.FC = () => {
 								{menu.label}
 							</button>
 						</DropdownMenuTrigger>
-						<DropdownMenuContent align="start" className="min-w-[220px]">
+						<DropdownMenuContent align="start" className="min-w-55">
 							{renderMenuItems(menu.items)}
 						</DropdownMenuContent>
 					</DropdownMenu>

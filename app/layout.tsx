@@ -4,7 +4,6 @@ import "./globals.css";
 import ScrollToTop from "@/components/shared/ScrollToTop";
 import { ThemeProvider } from "@/components/shared/ThemeProvider";
 
-// Použijeme Inter font z vášho globálneho CSS namiesto Geist
 const inter = Inter({
 	variable: "--font-inter",
 	subsets: ["latin", "latin-ext"],
