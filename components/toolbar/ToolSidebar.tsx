@@ -37,6 +37,7 @@ import {
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Separator } from "@/components/ui/separator";
+import { Kbd } from "@/components/ui/kbd"
 
 interface ToolConfig {
 	id: Tool;
@@ -311,9 +312,9 @@ export const ToolSidebar: React.FC = () => {
 							<div className="space-y-1.5">
 								<div className="flex items-center justify-between gap-4">
 									<span className="font-semibold text-black">{tool.label}</span>
-									<kbd className="px-1.5 py-0.5 text-xs text-black rounded font-mono">
+									<Kbd>
 										{tool.shortcut}
-									</kbd>
+									</Kbd>
 								</div>
 								<p className="text-xs text-muted-foreground leading-relaxed">
 									{tool.description}
