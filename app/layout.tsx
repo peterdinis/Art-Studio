@@ -3,7 +3,6 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import ScrollToTop from "@/components/shared/ScrollToTop";
 
-// Použijeme Inter font z vášho globálneho CSS namiesto Geist
 const inter = Inter({
   variable: "--font-inter",
   subsets: ["latin", "latin-ext"],
