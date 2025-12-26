@@ -1006,7 +1006,6 @@ export const TopMenuBar: React.FC = () => {
 					<TooltipContent>Help</TooltipContent>
 				</Tooltip>
 
-
 				<ModeToggle />
 			</div>
 

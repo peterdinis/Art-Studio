@@ -19,7 +19,11 @@ import {
 } from "fabric";
 import { useArtStudioStore } from "@/stores/artStudioStore";
 import { toast } from "sonner";
-import { DrawingCanvasProps, FabricBrush, FabricObjectWithImageId } from "@/types/CanvasTypes";
+import {
+	DrawingCanvasProps,
+	FabricBrush,
+	FabricObjectWithImageId,
+} from "@/types/CanvasTypes";
 
 export const DrawingCanvas: FC<DrawingCanvasProps> = ({
 	width = 1920,
