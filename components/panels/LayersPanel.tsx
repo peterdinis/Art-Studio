@@ -141,7 +141,7 @@ export const LayersPanel: React.FC = () => {
 			</div>
 
 			{/* Layer List */}
-			<div className="flex-1 space-y-1 max-h-[300px] overflow-y-auto scrollbar-thin">
+			<div className="flex-1 space-y-1 max-h-75 overflow-y-auto scrollbar-thin">
 				{layers.map((layer, index) => (
 					<div
 						key={layer.id}
@@ -149,7 +149,7 @@ export const LayersPanel: React.FC = () => {
 						className={`layer-item group ${activeLayerId === layer.id ? "selected" : ""}`}
 					>
 						{/* Drag Handle */}
-						<GripVertical className="w-4 h-4 text-muted-foreground/50 cursor-grab opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+						<GripVertical className="w-4 h-4 text-muted-foreground/50 cursor-grab opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
 
 						{/* Visibility Toggle */}
 						<Tooltip>
@@ -159,7 +159,7 @@ export const LayersPanel: React.FC = () => {
 										e.stopPropagation();
 										toggleLayerVisibility(layer.id);
 									}}
-									className={`flex-shrink-0 transition-colors ${layer.visible ? "text-foreground" : "text-muted-foreground/50"}`}
+									className={`shrink-0 transition-colors ${layer.visible ? "text-foreground" : "text-muted-foreground/50"}`}
 								>
 									{layer.visible ? (
 										<Eye className="w-4 h-4" />
@@ -181,7 +181,7 @@ export const LayersPanel: React.FC = () => {
 										e.stopPropagation();
 										toggleLayerLock(layer.id);
 									}}
-									className={`flex-shrink-0 transition-colors ${layer.locked ? "text-yellow-500" : "text-muted-foreground/50 opacity-0 group-hover:opacity-100"}`}
+									className={`shrink-0 transition-colors ${layer.locked ? "text-yellow-500" : "text-muted-foreground/50 opacity-0 group-hover:opacity-100"}`}
 								>
 									{layer.locked ? (
 										<Lock className="w-3.5 h-3.5" />
@@ -225,14 +225,14 @@ export const LayersPanel: React.FC = () => {
 						</div>
 
 						{/* Opacity Badge */}
-						<span className="text-xs font-mono text-muted-foreground flex-shrink-0">
+						<span className="text-xs font-mono text-muted-foreground shrink-0">
 							{layer.opacity}%
 						</span>
 
 						{/* Layer Menu */}
 						<DropdownMenu>
 							<DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-								<button className="text-muted-foreground hover:text-foreground transition-colors opacity-0 group-hover:opacity-100 flex-shrink-0">
+								<button className="text-muted-foreground hover:text-foreground transition-colors opacity-0 group-hover:opacity-100 shrink-0">
 									<MoreHorizontal className="w-4 h-4" />
 								</button>
 							</DropdownMenuTrigger>
