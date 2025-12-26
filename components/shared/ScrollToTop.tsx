@@ -5,30 +5,30 @@ import { ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const ScrollToTop: FC = () => {
-  const [isVisible, setIsVisible] = useState(false);
-  const [hovered, setHovered] = useState(false);
+	const [isVisible, setIsVisible] = useState(false);
+	const [hovered, setHovered] = useState(false);
 
-  // Check scroll position
-  useEffect(() => {
-    const toggleVisibility = () => {
-      if (window.scrollY > 300) {
-        setIsVisible(true);
-      } else {
-        setIsVisible(false);
-      }
-    };
+	// Check scroll position
+	useEffect(() => {
+		const toggleVisibility = () => {
+			if (window.scrollY > 300) {
+				setIsVisible(true);
+			} else {
+				setIsVisible(false);
+			}
+		};
 
-    window.addEventListener("scroll", toggleVisibility);
-    return () => window.removeEventListener("scroll", toggleVisibility);
-  }, []);
+		window.addEventListener("scroll", toggleVisibility);
+		return () => window.removeEventListener("scroll", toggleVisibility);
+	}, []);
 
-  // Scroll to top function
-  const scrollToTop = () => {
-    window.scrollTo({
-      top: 0,
-      behavior: "smooth",
-    });
-  };
+	// Scroll to top function
+	const scrollToTop = () => {
+		window.scrollTo({
+			top: 0,
+			behavior: "smooth",
+		});
+	};
 
   return (
     <button

@@ -77,6 +77,7 @@ import {
 import { useArtStudioStore, Tool } from "@/stores/artStudioStore";
 import { toast } from "sonner";
 import { TemplatesDialog } from "../templates/TemplatesDialog";
+import { ModeToggle } from "../shared/ModeToggle";
 
 interface MenuItemConfig {
 	label: string;
@@ -1004,6 +1005,9 @@ export const TopMenuBar: React.FC = () => {
 					</TooltipTrigger>
 					<TooltipContent>Help</TooltipContent>
 				</Tooltip>
+
+
+				<ModeToggle />
 			</div>
 
 			{/* Templates Dialog */}
