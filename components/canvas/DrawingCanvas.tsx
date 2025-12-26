@@ -1,9 +1,23 @@
-"use client"
+"use client";
 
-import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { Canvas as FabricCanvas, PencilBrush, FabricImage, Rect, Circle, Line, Polygon, IText, FabricObject, Gradient, Ellipse, Path, Point } from 'fabric';
-import { useArtStudioStore } from '@/stores/artStudioStore';
-import { toast } from 'sonner';
+import React, { useRef, useEffect, useState, useCallback } from "react";
+import {
+	Canvas as FabricCanvas,
+	PencilBrush,
+	FabricImage,
+	Rect,
+	Circle,
+	Line,
+	Polygon,
+	IText,
+	FabricObject,
+	Gradient,
+	Ellipse,
+	Path,
+	Point,
+} from "fabric";
+import { useArtStudioStore } from "@/stores/artStudioStore";
+import { toast } from "sonner";
 
 interface DrawingCanvasProps {
 	width?: number;
@@ -14,7 +28,7 @@ interface DrawingCanvasProps {
 export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 	width = 1920,
 	height = 1080,
-	backgroundColor = '#2d3748'
+	backgroundColor = "#2d3748",
 }) => {
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const containerRef = useRef<HTMLDivElement>(null);
@@ -65,16 +79,23 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 	const actualBackground = canvasSize?.backgroundColor || backgroundColor;
 
 	// Save canvas state helper
-	const saveCanvasState = useCallback((action: string) => {
-		if (!fabricRef.current) return;
-		try {
-			const state = JSON.stringify(fabricRef.current.toJSON());
-			const thumbnail = fabricRef.current.toDataURL({ format: 'png', quality: 0.3, multiplier: 0.2 });
-			addToHistory(state, thumbnail, action);
-		} catch (err) {
-			console.error('Failed to save canvas state:', err);
-		}
-	}, [addToHistory]);
+	const saveCanvasState = useCallback(
+		(action: string) => {
+			if (!fabricRef.current) return;
+			try {
+				const state = JSON.stringify(fabricRef.current.toJSON());
+				const thumbnail = fabricRef.current.toDataURL({
+					format: "png",
+					quality: 0.3,
+					multiplier: 0.2,
+				});
+				addToHistory(state, thumbnail, action);
+			} catch (err) {
+				console.error("Failed to save canvas state:", err);
+			}
+		},
+		[addToHistory],
+	);
 
 	// Initialize canvas
 	useEffect(() => {
@@ -103,32 +124,44 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 		setTimeout(() => {
 			try {
 				const initialState = JSON.stringify(canvas.toJSON());
-				const initialThumbnail = canvas.toDataURL({ format: 'png', quality: 0.3, multiplier: 0.2 });
-				addToHistory(initialState, initialThumbnail, 'Initial state');
+				const initialThumbnail = canvas.toDataURL({
+					format: "png",
+					quality: 0.3,
+					multiplier: 0.2,
+				});
+				addToHistory(initialState, initialThumbnail, "Initial state");
 			} catch (err) {
-				console.error('Failed to save initial state:', err);
+				console.error("Failed to save initial state:", err);
 			}
 		}, 100);
 
 		// Save state after each drawing path
-		canvas.on('path:created', () => {
+		canvas.on("path:created", () => {
 			try {
 				const state = JSON.stringify(canvas.toJSON());
-				const thumbnail = canvas.toDataURL({ format: 'png', quality: 0.3, multiplier: 0.2 });
-				addToHistory(state, thumbnail, 'Stroke added');
+				const thumbnail = canvas.toDataURL({
+					format: "png",
+					quality: 0.3,
+					multiplier: 0.2,
+				});
+				addToHistory(state, thumbnail, "Stroke added");
 			} catch (err) {
-				console.error('Failed to save path state:', err);
+				console.error("Failed to save path state:", err);
 			}
 		});
 
 		// Save state after object modified
-		canvas.on('object:modified', () => {
+		canvas.on("object:modified", () => {
 			try {
 				const state = JSON.stringify(canvas.toJSON());
-				const thumbnail = canvas.toDataURL({ format: 'png', quality: 0.3, multiplier: 0.2 });
-				addToHistory(state, thumbnail, 'Object modified');
+				const thumbnail = canvas.toDataURL({
+					format: "png",
+					quality: 0.3,
+					multiplier: 0.2,
+				});
+				addToHistory(state, thumbnail, "Object modified");
 			} catch (err) {
-				console.error('Failed to save modified state:', err);
+				console.error("Failed to save modified state:", err);
 			}
 		});
 
@@ -143,11 +176,11 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 		if (!fabricRef.current || !isReady) return;
 
 		const canvas = fabricRef.current;
-		const drawingTools = ['brush', 'pencil', 'eraser'];
-		const selectionTools = ['select', 'move'];
-		const shapeTools = ['rectangle', 'ellipse', 'line', 'polygon', 'pen'];
-		const clickTools = ['fill', 'gradient', 'eyedropper', 'text', 'zoom'];
-		const panTools = ['hand'];
+		const drawingTools = ["brush", "pencil", "eraser"];
+		const selectionTools = ["select", "move"];
+		const shapeTools = ["rectangle", "ellipse", "line", "polygon", "pen"];
+		const clickTools = ["fill", "gradient", "eyedropper", "text", "zoom"];
+		const panTools = ["hand"];
 
 		// Reset all modes
 		canvas.isDrawingMode = false;
@@ -161,13 +194,16 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 				canvas.freeDrawingBrush = new PencilBrush(canvas);
 			}
 
-			canvas.freeDrawingBrush.color = activeTool === 'eraser' ? actualBackground : primaryColor;
+			canvas.freeDrawingBrush.color =
+				activeTool === "eraser" ? actualBackground : primaryColor;
 			canvas.freeDrawingBrush.width = brushSettings.size;
 
-			if (activeTool === 'eraser') {
-				(canvas.freeDrawingBrush as any).globalCompositeOperation = 'destination-out';
+			if (activeTool === "eraser") {
+				(canvas.freeDrawingBrush as any).globalCompositeOperation =
+					"destination-out";
 			} else {
-				(canvas.freeDrawingBrush as any).globalCompositeOperation = 'source-over';
+				(canvas.freeDrawingBrush as any).globalCompositeOperation =
+					"source-over";
 			}
 		} else if (selectionTools.includes(activeTool)) {
 			// Selection mode
@@ -176,7 +212,11 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 				obj.selectable = true;
 				obj.evented = true;
 			});
-		} else if (shapeTools.includes(activeTool) || clickTools.includes(activeTool) || panTools.includes(activeTool)) {
+		} else if (
+			shapeTools.includes(activeTool) ||
+			clickTools.includes(activeTool) ||
+			panTools.includes(activeTool)
+		) {
 			// Custom tool handling - disable default modes
 			canvas.selection = false;
 			canvas.forEachObject((obj) => {
@@ -193,21 +233,24 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 		if (!fabricRef.current || !isReady) return;
 
 		const canvas = fabricRef.current;
-		const shapeTools = ['rectangle', 'ellipse', 'line', 'polygon'];
-		const nativeSelectionTools = ['select', 'move'];
-		const drawingTools = ['brush', 'pencil', 'eraser'];
-		const customSelectionTools = ['marquee', 'lasso', 'magicwand'];
+		const shapeTools = ["rectangle", "ellipse", "line", "polygon"];
+		const nativeSelectionTools = ["select", "move"];
+		const drawingTools = ["brush", "pencil", "eraser"];
+		const customSelectionTools = ["marquee", "lasso", "magicwand"];
 
 		const handleMouseDown = (e: any) => {
 			// Let Fabric.js handle native selection/move and drawing tools
-			if (nativeSelectionTools.includes(activeTool) || drawingTools.includes(activeTool)) {
+			if (
+				nativeSelectionTools.includes(activeTool) ||
+				drawingTools.includes(activeTool)
+			) {
 				return;
 			}
 
 			const pointer = canvas.getPointer(e.e);
 
 			// Marquee selection tool
-			if (activeTool === 'marquee') {
+			if (activeTool === "marquee") {
 				isDrawingShape.current = true;
 				shapeStartPoint.current = { x: pointer.x, y: pointer.y };
 
@@ -216,8 +259,8 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 					top: pointer.y,
 					width: 1,
 					height: 1,
-					fill: 'rgba(0, 120, 255, 0.1)',
-					stroke: '#0078ff',
+					fill: "rgba(0, 120, 255, 0.1)",
+					stroke: "#0078ff",
 					strokeWidth: 1,
 					strokeDashArray: [5, 5],
 					selectable: false,
@@ -231,14 +274,14 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 			}
 
 			// Lasso selection tool
-			if (activeTool === 'lasso') {
+			if (activeTool === "lasso") {
 				selectionPoints.current = [{ x: pointer.x, y: pointer.y }];
 				isDrawingShape.current = true;
 
 				const pathData = `M ${pointer.x} ${pointer.y}`;
 				const path = new Path(pathData, {
-					fill: 'rgba(0, 120, 255, 0.1)',
-					stroke: '#0078ff',
+					fill: "rgba(0, 120, 255, 0.1)",
+					stroke: "#0078ff",
 					strokeWidth: 1,
 					strokeDashArray: [5, 5],
 					selectable: false,
@@ -252,13 +295,14 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 			}
 
 			// Magic wand tool - select similar colored objects
-			if (activeTool === 'magicwand') {
+			if (activeTool === "magicwand") {
 				const target = canvas.findTarget(e.e);
 				if (target && target.fill) {
-					const targetColor = typeof target.fill === 'string' ? target.fill : null;
+					const targetColor =
+						typeof target.fill === "string" ? target.fill : null;
 					if (targetColor) {
 						const similarObjects = canvas.getObjects().filter((obj: any) => {
-							if (typeof obj.fill === 'string') {
+							if (typeof obj.fill === "string") {
 								return obj.fill === targetColor;
 							}
 							return false;
@@ -266,10 +310,15 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 
 						if (similarObjects.length > 0) {
 							canvas.discardActiveObject();
-							const selection = new (canvas as any).ActiveSelection(similarObjects, { canvas });
+							const selection = new (canvas as any).ActiveSelection(
+								similarObjects,
+								{ canvas },
+							);
 							canvas.setActiveObject(selection);
 							canvas.renderAll();
-							toast.success(`Selected ${similarObjects.length} similar objects`);
+							toast.success(
+								`Selected ${similarObjects.length} similar objects`,
+							);
 						}
 					}
 				}
@@ -277,15 +326,15 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 			}
 
 			// Clone stamp tool - Alt+click to set source, click to paint
-			if (activeTool === 'clone') {
+			if (activeTool === "clone") {
 				if (e.e.altKey) {
 					cloneSourcePoint.current = { x: pointer.x, y: pointer.y };
-					toast.success('Clone source set');
+					toast.success("Clone source set");
 					return;
 				}
 
 				if (!cloneSourcePoint.current) {
-					toast.error('Alt+click to set clone source first');
+					toast.error("Alt+click to set clone source first");
 					return;
 				}
 
@@ -294,15 +343,15 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 			}
 
 			// Healing brush - simplified version (copies nearby content)
-			if (activeTool === 'healing') {
+			if (activeTool === "healing") {
 				if (e.e.altKey) {
 					cloneSourcePoint.current = { x: pointer.x, y: pointer.y };
-					toast.success('Healing source set');
+					toast.success("Healing source set");
 					return;
 				}
 
 				if (!cloneSourcePoint.current) {
-					toast.error('Alt+click to set healing source first');
+					toast.error("Alt+click to set healing source first");
 					return;
 				}
 
@@ -311,28 +360,28 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 			}
 
 			// Blur tool - applies blur effect to clicked object
-			if (activeTool === 'blur') {
+			if (activeTool === "blur") {
 				const target = canvas.findTarget(e.e);
 				if (target) {
 					// Apply a simple blur filter effect by reducing opacity and adding a duplicate
 					const currentOpacity = target.opacity || 1;
 					target.set({ opacity: Math.max(0.3, currentOpacity - 0.1) });
 					canvas.renderAll();
-					saveCanvasState('Blur applied');
-					toast.success('Blur effect applied');
+					saveCanvasState("Blur applied");
+					toast.success("Blur effect applied");
 				}
 				return;
 			}
 
 			// Pen tool - click to add points
-			if (activeTool === 'pen') {
+			if (activeTool === "pen") {
 				penPoints.current.push({ x: pointer.x, y: pointer.y });
 
 				if (penPoints.current.length === 1) {
 					// First point - create initial path
 					const pathData = `M ${pointer.x} ${pointer.y}`;
 					const path = new Path(pathData, {
-						fill: 'transparent',
+						fill: "transparent",
 						stroke: primaryColor,
 						strokeWidth: brushSettings.size,
 						selectable: false,
@@ -353,7 +402,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 					}
 
 					const path = new Path(pathData, {
-						fill: 'transparent',
+						fill: "transparent",
 						stroke: primaryColor,
 						strokeWidth: brushSettings.size,
 						selectable: false,
@@ -373,7 +422,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 					}
 					penPoints.current = [];
 					penPath.current = null;
-					saveCanvasState('Pen path created');
+					saveCanvasState("Pen path created");
 				}
 				return;
 			}
@@ -385,7 +434,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 
 				let shape: FabricObject | null = null;
 
-				if (activeTool === 'rectangle') {
+				if (activeTool === "rectangle") {
 					shape = new Rect({
 						left: pointer.x,
 						top: pointer.y,
@@ -397,7 +446,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 						selectable: false,
 						evented: false,
 					});
-				} else if (activeTool === 'ellipse') {
+				} else if (activeTool === "ellipse") {
 					shape = new Ellipse({
 						left: pointer.x,
 						top: pointer.y,
@@ -409,25 +458,28 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 						selectable: false,
 						evented: false,
 					});
-				} else if (activeTool === 'line') {
+				} else if (activeTool === "line") {
 					shape = new Line([pointer.x, pointer.y, pointer.x, pointer.y], {
 						stroke: primaryColor,
 						strokeWidth: brushSettings.size,
 						selectable: false,
 						evented: false,
 					});
-				} else if (activeTool === 'polygon') {
-					shape = new Polygon([
-						{ x: pointer.x, y: pointer.y },
-						{ x: pointer.x + 1, y: pointer.y },
-						{ x: pointer.x, y: pointer.y + 1 },
-					], {
-						fill: primaryColor,
-						stroke: secondaryColor,
-						strokeWidth: 2,
-						selectable: false,
-						evented: false,
-					});
+				} else if (activeTool === "polygon") {
+					shape = new Polygon(
+						[
+							{ x: pointer.x, y: pointer.y },
+							{ x: pointer.x + 1, y: pointer.y },
+							{ x: pointer.x, y: pointer.y + 1 },
+						],
+						{
+							fill: primaryColor,
+							stroke: secondaryColor,
+							strokeWidth: 2,
+							selectable: false,
+							evented: false,
+						},
+					);
 				}
 
 				if (shape) {
@@ -439,14 +491,14 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 			}
 
 			// Text tool
-			if (activeTool === 'text') {
+			if (activeTool === "text") {
 				const existingText = canvas.getActiveObject();
 				if (existingText instanceof IText) return; // Don't add new text while editing
 
-				const text = new IText('Type here', {
+				const text = new IText("Type here", {
 					left: pointer.x,
 					top: pointer.y,
-					fontFamily: 'Arial',
+					fontFamily: "Arial",
 					fontSize: Math.max(16, brushSettings.size * 2),
 					fill: primaryColor,
 					editable: true,
@@ -457,31 +509,31 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 				text.enterEditing();
 				text.selectAll();
 				canvas.renderAll();
-				saveCanvasState('Text added');
+				saveCanvasState("Text added");
 				return;
 			}
 
 			// Fill tool
-			if (activeTool === 'fill') {
+			if (activeTool === "fill") {
 				const target = canvas.findTarget(e.e);
 				if (target) {
 					target.set({ fill: primaryColor });
 					canvas.renderAll();
-					saveCanvasState('Fill applied');
+					saveCanvasState("Fill applied");
 				} else {
 					canvas.backgroundColor = primaryColor;
 					canvas.renderAll();
-					saveCanvasState('Background filled');
+					saveCanvasState("Background filled");
 				}
 				return;
 			}
 
 			// Gradient tool
-			if (activeTool === 'gradient') {
+			if (activeTool === "gradient") {
 				const target = canvas.findTarget(e.e);
 				if (target) {
 					const gradient = new Gradient({
-						type: 'linear',
+						type: "linear",
 						coords: {
 							x1: 0,
 							y1: 0,
@@ -495,20 +547,20 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 					});
 					target.set({ fill: gradient });
 					canvas.renderAll();
-					saveCanvasState('Gradient applied');
+					saveCanvasState("Gradient applied");
 				}
 				return;
 			}
 
 			// Eyedropper tool
-			if (activeTool === 'eyedropper') {
+			if (activeTool === "eyedropper") {
 				const target = canvas.findTarget(e.e);
-				if (target && target.fill && typeof target.fill === 'string') {
+				if (target && target.fill && typeof target.fill === "string") {
 					setPrimaryColor(target.fill);
 					toast.success(`Color sampled: ${target.fill}`);
 				} else {
 					const bgColor = canvas.backgroundColor;
-					if (typeof bgColor === 'string') {
+					if (typeof bgColor === "string") {
 						setPrimaryColor(bgColor);
 						toast.success(`Background color sampled: ${bgColor}`);
 					}
@@ -517,7 +569,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 			}
 
 			// Zoom tool
-			if (activeTool === 'zoom') {
+			if (activeTool === "zoom") {
 				if (e.e.altKey) {
 					setZoom(Math.max(10, zoom - 25));
 				} else {
@@ -527,24 +579,32 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 			}
 
 			// Hand tool (panning)
-			if (activeTool === 'hand') {
+			if (activeTool === "hand") {
 				isPanning.current = true;
 				lastPanPos.current = { x: e.e.clientX, y: e.e.clientY };
-				canvas.setCursor('grabbing');
+				canvas.setCursor("grabbing");
 				return;
 			}
 		};
 
 		const handleMouseMove = (e: any) => {
 			// Let Fabric.js handle native selection/move and drawing tools
-			if (nativeSelectionTools.includes(activeTool) || drawingTools.includes(activeTool)) {
+			if (
+				nativeSelectionTools.includes(activeTool) ||
+				drawingTools.includes(activeTool)
+			) {
 				return;
 			}
 
 			const pointer = canvas.getPointer(e.e);
 
 			// Marquee selection drawing
-			if (activeTool === 'marquee' && isDrawingShape.current && shapeStartPoint.current && selectionRect.current) {
+			if (
+				activeTool === "marquee" &&
+				isDrawingShape.current &&
+				shapeStartPoint.current &&
+				selectionRect.current
+			) {
 				const startX = shapeStartPoint.current.x;
 				const startY = shapeStartPoint.current.y;
 				const width = pointer.x - startX;
@@ -561,7 +621,11 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 			}
 
 			// Lasso selection drawing
-			if (activeTool === 'lasso' && isDrawingShape.current && selectionPath.current) {
+			if (
+				activeTool === "lasso" &&
+				isDrawingShape.current &&
+				selectionPath.current
+			) {
 				selectionPoints.current.push({ x: pointer.x, y: pointer.y });
 
 				const points = selectionPoints.current;
@@ -569,12 +633,12 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 				for (let i = 1; i < points.length; i++) {
 					pathData += ` L ${points[i].x} ${points[i].y}`;
 				}
-				pathData += ' Z';
+				pathData += " Z";
 
 				canvas.remove(selectionPath.current);
 				const path = new Path(pathData, {
-					fill: 'rgba(0, 120, 255, 0.1)',
-					stroke: '#0078ff',
+					fill: "rgba(0, 120, 255, 0.1)",
+					stroke: "#0078ff",
 					strokeWidth: 1,
 					strokeDashArray: [5, 5],
 					selectable: false,
@@ -587,13 +651,20 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 			}
 
 			// Clone/Healing brush painting
-			if ((activeTool === 'clone' || activeTool === 'healing') && isCloning.current && cloneSourcePoint.current) {
+			if (
+				(activeTool === "clone" || activeTool === "healing") &&
+				isCloning.current &&
+				cloneSourcePoint.current
+			) {
 				// Create a small circle to simulate clone painting
 				const circle = new Circle({
 					left: pointer.x - brushSettings.size / 2,
 					top: pointer.y - brushSettings.size / 2,
 					radius: brushSettings.size / 2,
-					fill: activeTool === 'healing' ? 'rgba(255, 200, 200, 0.3)' : 'rgba(200, 200, 255, 0.3)',
+					fill:
+						activeTool === "healing"
+							? "rgba(255, 200, 200, 0.3)"
+							: "rgba(200, 200, 255, 0.3)",
 					selectable: false,
 					evented: false,
 				});
@@ -603,11 +674,15 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 			}
 
 			// Shape drawing
-			if (isDrawingShape.current && shapeStartPoint.current && currentShape.current) {
+			if (
+				isDrawingShape.current &&
+				shapeStartPoint.current &&
+				currentShape.current
+			) {
 				const startX = shapeStartPoint.current.x;
 				const startY = shapeStartPoint.current.y;
 
-				if (activeTool === 'rectangle') {
+				if (activeTool === "rectangle") {
 					const rect = currentShape.current as Rect;
 					const width = pointer.x - startX;
 					const height = pointer.y - startY;
@@ -618,7 +693,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 						width: Math.abs(width) || 1,
 						height: Math.abs(height) || 1,
 					});
-				} else if (activeTool === 'ellipse') {
+				} else if (activeTool === "ellipse") {
 					const ellipse = currentShape.current as Ellipse;
 					const rx = Math.abs(pointer.x - startX) / 2;
 					const ry = Math.abs(pointer.y - startY) / 2;
@@ -629,10 +704,10 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 						left: Math.min(startX, pointer.x),
 						top: Math.min(startY, pointer.y),
 					});
-				} else if (activeTool === 'line') {
+				} else if (activeTool === "line") {
 					const line = currentShape.current as Line;
 					line.set({ x2: pointer.x, y2: pointer.y });
-				} else if (activeTool === 'polygon') {
+				} else if (activeTool === "polygon") {
 					const polygon = currentShape.current as Polygon;
 					const dx = pointer.x - startX;
 					const dy = pointer.y - startY;
@@ -653,7 +728,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 			}
 
 			// Panning
-			if (isPanning.current && activeTool === 'hand') {
+			if (isPanning.current && activeTool === "hand") {
 				const deltaX = e.e.clientX - lastPanPos.current.x;
 				const deltaY = e.e.clientY - lastPanPos.current.y;
 
@@ -669,12 +744,19 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 
 		const handleMouseUp = () => {
 			// Let Fabric.js handle native selection/move and drawing tools
-			if (nativeSelectionTools.includes(activeTool) || drawingTools.includes(activeTool)) {
+			if (
+				nativeSelectionTools.includes(activeTool) ||
+				drawingTools.includes(activeTool)
+			) {
 				return;
 			}
 
 			// Finish marquee selection
-			if (activeTool === 'marquee' && isDrawingShape.current && selectionRect.current) {
+			if (
+				activeTool === "marquee" &&
+				isDrawingShape.current &&
+				selectionRect.current
+			) {
 				const rect = selectionRect.current;
 				const bounds = rect.getBoundingRect();
 
@@ -695,7 +777,10 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 
 				if (objectsInSelection.length > 0) {
 					canvas.discardActiveObject();
-					const selection = new (canvas as any).ActiveSelection(objectsInSelection, { canvas });
+					const selection = new (canvas as any).ActiveSelection(
+						objectsInSelection,
+						{ canvas },
+					);
 					canvas.setActiveObject(selection);
 					toast.success(`Selected ${objectsInSelection.length} objects`);
 				}
@@ -707,7 +792,11 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 			}
 
 			// Finish lasso selection
-			if (activeTool === 'lasso' && isDrawingShape.current && selectionPath.current) {
+			if (
+				activeTool === "lasso" &&
+				isDrawingShape.current &&
+				selectionPath.current
+			) {
 				const path = selectionPath.current;
 				const bounds = path.getBoundingRect();
 
@@ -732,7 +821,10 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 
 				if (objectsInSelection.length > 0) {
 					canvas.discardActiveObject();
-					const selection = new (canvas as any).ActiveSelection(objectsInSelection, { canvas });
+					const selection = new (canvas as any).ActiveSelection(
+						objectsInSelection,
+						{ canvas },
+					);
 					canvas.setActiveObject(selection);
 					toast.success(`Selected ${objectsInSelection.length} objects`);
 				}
@@ -743,9 +835,14 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 			}
 
 			// Finish clone/healing
-			if ((activeTool === 'clone' || activeTool === 'healing') && isCloning.current) {
+			if (
+				(activeTool === "clone" || activeTool === "healing") &&
+				isCloning.current
+			) {
 				isCloning.current = false;
-				saveCanvasState(activeTool === 'clone' ? 'Clone applied' : 'Healing applied');
+				saveCanvasState(
+					activeTool === "clone" ? "Clone applied" : "Healing applied",
+				);
 				return;
 			}
 
@@ -765,22 +862,34 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 			// Finish panning
 			if (isPanning.current) {
 				isPanning.current = false;
-				canvas.setCursor('grab');
+				canvas.setCursor("grab");
 			}
 
 			canvas.renderAll();
 		};
 
-		canvas.on('mouse:down', handleMouseDown);
-		canvas.on('mouse:move', handleMouseMove);
-		canvas.on('mouse:up', handleMouseUp);
+		canvas.on("mouse:down", handleMouseDown);
+		canvas.on("mouse:move", handleMouseMove);
+		canvas.on("mouse:up", handleMouseUp);
 
 		return () => {
-			canvas.off('mouse:down', handleMouseDown);
-			canvas.off('mouse:move', handleMouseMove);
-			canvas.off('mouse:up', handleMouseUp);
+			canvas.off("mouse:down", handleMouseDown);
+			canvas.off("mouse:move", handleMouseMove);
+			canvas.off("mouse:up", handleMouseUp);
 		};
-	}, [activeTool, primaryColor, secondaryColor, brushSettings.size, isReady, saveCanvasState, zoom, setZoom, panOffset, setPanOffset, setPrimaryColor]);
+	}, [
+		activeTool,
+		primaryColor,
+		secondaryColor,
+		brushSettings.size,
+		isReady,
+		saveCanvasState,
+		zoom,
+		setZoom,
+		panOffset,
+		setPanOffset,
+		setPrimaryColor,
+	]);
 
 	// Restore canvas when history index changes
 	useEffect(() => {
@@ -795,76 +904,87 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 	}, [historyIndex, isReady]);
 
 	// Handle zoom with mouse wheel
-	const handleWheel = useCallback((e: WheelEvent) => {
-		if (e.ctrlKey || e.metaKey) {
-			e.preventDefault();
-			const delta = e.deltaY > 0 ? -10 : 10;
-			setZoom(Math.max(10, Math.min(500, zoom + delta)));
-		} else {
-			setPanOffset({
-				x: panOffset.x - e.deltaX,
-				y: panOffset.y - e.deltaY,
-			});
-		}
-	}, [zoom, panOffset, setZoom, setPanOffset]);
+	const handleWheel = useCallback(
+		(e: WheelEvent) => {
+			if (e.ctrlKey || e.metaKey) {
+				e.preventDefault();
+				const delta = e.deltaY > 0 ? -10 : 10;
+				setZoom(Math.max(10, Math.min(500, zoom + delta)));
+			} else {
+				setPanOffset({
+					x: panOffset.x - e.deltaX,
+					y: panOffset.y - e.deltaY,
+				});
+			}
+		},
+		[zoom, panOffset, setZoom, setPanOffset],
+	);
 
 	useEffect(() => {
 		const container = containerRef.current;
 		if (!container) return;
 
-		container.addEventListener('wheel', handleWheel, { passive: false });
-		return () => container.removeEventListener('wheel', handleWheel);
+		container.addEventListener("wheel", handleWheel, { passive: false });
+		return () => container.removeEventListener("wheel", handleWheel);
 	}, [handleWheel]);
 
 	// Handle keyboard shortcuts
 	useEffect(() => {
 		const handleKeyDown = (e: KeyboardEvent) => {
 			// Skip if typing in text
-			if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+			if (
+				e.target instanceof HTMLInputElement ||
+				e.target instanceof HTMLTextAreaElement
+			)
+				return;
 
 			// Undo/Redo
-			if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+			if ((e.ctrlKey || e.metaKey) && e.key === "z") {
 				e.preventDefault();
 				const store = useArtStudioStore.getState();
 
 				if (e.shiftKey) {
 					const entry = store.redo();
 					if (entry && fabricRef.current) {
-						fabricRef.current.loadFromJSON(JSON.parse(entry.canvasData)).then(() => {
-							fabricRef.current?.renderAll();
-						});
+						fabricRef.current
+							.loadFromJSON(JSON.parse(entry.canvasData))
+							.then(() => {
+								fabricRef.current?.renderAll();
+							});
 					}
 				} else {
 					const entry = store.undo();
 					if (entry && fabricRef.current) {
-						fabricRef.current.loadFromJSON(JSON.parse(entry.canvasData)).then(() => {
-							fabricRef.current?.renderAll();
-						});
+						fabricRef.current
+							.loadFromJSON(JSON.parse(entry.canvasData))
+							.then(() => {
+								fabricRef.current?.renderAll();
+							});
 					}
 				}
 				return;
 			}
 
 			// Delete selected object
-			if (e.key === 'Delete' || e.key === 'Backspace') {
+			if (e.key === "Delete" || e.key === "Backspace") {
 				if (fabricRef.current) {
 					const activeObjects = fabricRef.current.getActiveObjects();
 					if (activeObjects.length > 0) {
-						activeObjects.forEach(obj => fabricRef.current?.remove(obj));
+						activeObjects.forEach((obj) => fabricRef.current?.remove(obj));
 						fabricRef.current.discardActiveObject();
 						fabricRef.current.renderAll();
-						saveCanvasState('Object deleted');
+						saveCanvasState("Object deleted");
 					}
 				}
 				return;
 			}
 
 			// Open file shortcut
-			if ((e.ctrlKey || e.metaKey) && e.key === 'o') {
+			if ((e.ctrlKey || e.metaKey) && e.key === "o") {
 				e.preventDefault();
-				const input = document.createElement('input');
-				input.type = 'file';
-				input.accept = 'image/*';
+				const input = document.createElement("input");
+				input.type = "file";
+				input.accept = "image/*";
 				input.onchange = (evt) => {
 					const file = (evt.target as HTMLInputElement).files?.[0];
 					if (file) {
@@ -885,8 +1005,8 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 			}
 		};
 
-		window.addEventListener('keydown', handleKeyDown);
-		return () => window.removeEventListener('keydown', handleKeyDown);
+		window.addEventListener("keydown", handleKeyDown);
+		return () => window.removeEventListener("keydown", handleKeyDown);
 	}, [saveCanvasState]);
 
 	// Load images when added
@@ -897,70 +1017,74 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 		const latestImage = loadedImages[loadedImages.length - 1];
 
 		const existingObjects = canvas.getObjects();
-		const alreadyLoaded = existingObjects.some((obj: any) => obj.imageId === latestImage.id);
+		const alreadyLoaded = existingObjects.some(
+			(obj: any) => obj.imageId === latestImage.id,
+		);
 		if (alreadyLoaded) return;
 
-		FabricImage.fromURL(latestImage.src).then((img) => {
-			const scale = Math.min(
-				(canvas.width! * 0.8) / img.width!,
-				(canvas.height! * 0.8) / img.height!,
-				1
-			);
+		FabricImage.fromURL(latestImage.src)
+			.then((img) => {
+				const scale = Math.min(
+					(canvas.width! * 0.8) / img.width!,
+					(canvas.height! * 0.8) / img.height!,
+					1,
+				);
 
-			img.scale(scale);
-			img.set({
-				left: (canvas.width! - img.width! * scale) / 2,
-				top: (canvas.height! - img.height! * scale) / 2,
+				img.scale(scale);
+				img.set({
+					left: (canvas.width! - img.width! * scale) / 2,
+					top: (canvas.height! - img.height! * scale) / 2,
+				});
+
+				(img as any).imageId = latestImage.id;
+
+				canvas.add(img);
+				canvas.setActiveObject(img);
+				canvas.renderAll();
+
+				toast.success(`Image loaded: ${latestImage.name}`);
+				saveCanvasState("Image added");
+			})
+			.catch(() => {
+				toast.error("Failed to load image");
 			});
-
-			(img as any).imageId = latestImage.id;
-
-			canvas.add(img);
-			canvas.setActiveObject(img);
-			canvas.renderAll();
-
-			toast.success(`Image loaded: ${latestImage.name}`);
-			saveCanvasState('Image added');
-		}).catch(() => {
-			toast.error('Failed to load image');
-		});
 	}, [loadedImages, isReady, saveCanvasState]);
 
 	// Get cursor based on active tool
 	const getCursor = () => {
 		switch (activeTool) {
-			case 'brush':
-			case 'pencil':
-			case 'eraser':
-			case 'clone':
-			case 'healing':
-			case 'blur':
-				return 'crosshair';
-			case 'hand':
-				return isPanning.current ? 'grabbing' : 'grab';
-			case 'eyedropper':
-				return 'crosshair';
-			case 'zoom':
-				return 'zoom-in';
-			case 'fill':
-			case 'gradient':
-				return 'cell';
-			case 'text':
-				return 'text';
-			case 'rectangle':
-			case 'ellipse':
-			case 'polygon':
-			case 'line':
-			case 'pen':
-				return 'crosshair';
-			case 'select':
-			case 'move':
-			case 'marquee':
-			case 'lasso':
-			case 'magicwand':
-				return 'default';
+			case "brush":
+			case "pencil":
+			case "eraser":
+			case "clone":
+			case "healing":
+			case "blur":
+				return "crosshair";
+			case "hand":
+				return isPanning.current ? "grabbing" : "grab";
+			case "eyedropper":
+				return "crosshair";
+			case "zoom":
+				return "zoom-in";
+			case "fill":
+			case "gradient":
+				return "cell";
+			case "text":
+				return "text";
+			case "rectangle":
+			case "ellipse":
+			case "polygon":
+			case "line":
+			case "pen":
+				return "crosshair";
+			case "select":
+			case "move":
+			case "marquee":
+			case "lasso":
+			case "magicwand":
+				return "default";
 			default:
-				return 'default';
+				return "default";
 		}
 	};
 
@@ -980,8 +1104,8 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
             linear-gradient(45deg, transparent 75%, hsl(var(--muted)) 75%),
             linear-gradient(-45deg, transparent 75%, hsl(var(--muted)) 75%)
           `,
-					backgroundSize: '20px 20px',
-					backgroundPosition: '0 0, 0 10px, 10px -10px, -10px 0px',
+					backgroundSize: "20px 20px",
+					backgroundPosition: "0 0, 0 10px, 10px -10px, -10px 0px",
 				}}
 			/>
 
@@ -989,8 +1113,8 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 				className="relative shadow-2xl rounded-sm overflow-hidden"
 				style={{
 					transform: `scale(${zoom / 100}) translate(${panOffset.x}px, ${panOffset.y}px)`,
-					transformOrigin: 'center center',
-					transition: 'transform 0.1s ease-out',
+					transformOrigin: "center center",
+					transition: "transform 0.1s ease-out",
 				}}
 			>
 				<canvas ref={canvasRef} className="block" />
