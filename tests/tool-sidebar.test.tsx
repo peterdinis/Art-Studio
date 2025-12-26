@@ -61,4 +61,42 @@ describe('ToolSidebar component', () => {
         expect(undoButton).toBeDisabled();
         expect(redoButton).toBeDisabled();
     });
+
+    describe('Keyboard Shortcuts', () => {
+        it('should change tool on key press', () => {
+            render(<ToolSidebar />);
+
+            // Press 'P' for Pen tool
+            fireEvent.keyDown(window, { key: 'p', code: 'KeyP' });
+            expect(useArtStudioStore.getState().activeTool).toBe('pen');
+
+            // Press 'B' for Brush tool
+            fireEvent.keyDown(window, { key: 'b', code: 'KeyB' });
+            expect(useArtStudioStore.getState().activeTool).toBe('brush');
+        });
+
+        it('should swap colors on X key press', () => {
+            const { setPrimaryColor, setSecondaryColor } = useArtStudioStore.getState();
+            setPrimaryColor('#ff0000');
+            setSecondaryColor('#0000ff');
+
+            render(<ToolSidebar />);
+            fireEvent.keyDown(window, { key: 'x', code: 'KeyX' });
+
+            expect(useArtStudioStore.getState().primaryColor).toBe('#0000ff');
+            expect(useArtStudioStore.getState().secondaryColor).toBe('#ff0000');
+        });
+
+        it('should reset colors on D key press', () => {
+            const { setPrimaryColor, setSecondaryColor } = useArtStudioStore.getState();
+            setPrimaryColor('#ff00ff');
+            setSecondaryColor('#00ffff');
+
+            render(<ToolSidebar />);
+            fireEvent.keyDown(window, { key: 'd', code: 'KeyD' });
+
+            expect(useArtStudioStore.getState().primaryColor).toBe('#ffffff');
+            expect(useArtStudioStore.getState().secondaryColor).toBe('#000000');
+        });
+    });
 });
