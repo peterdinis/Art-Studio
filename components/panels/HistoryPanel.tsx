@@ -1,6 +1,5 @@
 "use client";
 
-import React from "react";
 import { useArtStudioStore } from "@/stores/artStudioStore";
 import { History, RotateCcw, Trash2 } from "lucide-react";
 import {
@@ -11,8 +10,9 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
+import { FC } from "react";
 
-export const HistoryPanel: React.FC = () => {
+export const HistoryPanel: FC = () => {
 	const { history, historyIndex, restoreToHistoryIndex, clearHistory } =
 		useArtStudioStore();
 

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { ComponentType, FC, useState } from "react";
 import {
 	Dialog,
 	DialogContent,
@@ -37,7 +37,7 @@ interface Template {
 	width: number;
 	height: number;
 	backgroundColor: string;
-	icon: React.ComponentType<{ className?: string }>;
+	icon: ComponentType<{ className?: string }>;
 	description: string;
 }
 
@@ -426,7 +426,7 @@ interface TemplatesDialogProps {
 	onOpenChange: (open: boolean) => void;
 }
 
-export const TemplatesDialog: React.FC<TemplatesDialogProps> = ({
+export const TemplatesDialog: FC<TemplatesDialogProps> = ({
 	open,
 	onOpenChange,
 }) => {
