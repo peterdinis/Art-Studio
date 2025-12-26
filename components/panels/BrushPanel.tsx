@@ -1,376 +1,337 @@
-"use client";
+"use client"
 
-import React from "react";
-import { useArtStudioStore, Tool } from "@/stores/artStudioStore";
-import { Slider } from "@/components/ui/slider";
-import { Label } from "@/components/ui/label";
-import {
-	Tooltip,
-	TooltipContent,
-	TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { HelpCircle, Blend, Circle, Square, Sparkles } from "lucide-react";
+import React from 'react';
+import { useArtStudioStore, Tool } from '@/stores/artStudioStore';
+import { Slider } from '@/components/ui/slider';
+import { Label } from '@/components/ui/label';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { HelpCircle, Blend, Circle, Square, Sparkles } from 'lucide-react';
 
 interface ToolOption {
-	name: string;
-	description: string;
-	min: number;
-	max: number;
-	value: number;
-	onChange: (value: number) => void;
-	unit?: string;
+  name: string;
+  description: string;
+  min: number;
+  max: number;
+  value: number;
+  onChange: (value: number) => void;
+  unit?: string;
 }
 
-const drawingTools: Tool[] = [
-	"brush",
-	"pencil",
-	"eraser",
-	"clone",
-	"healing",
-	"blur",
-];
-const selectionTools: Tool[] = ["select", "marquee", "lasso", "magicwand"];
-const shapeTools: Tool[] = ["rectangle", "ellipse", "polygon", "line", "pen"];
+const drawingTools: Tool[] = ['brush', 'pencil', 'eraser', 'clone', 'healing', 'blur'];
+const selectionTools: Tool[] = ['select', 'marquee', 'lasso', 'magicwand'];
+const shapeTools: Tool[] = ['rectangle', 'ellipse', 'polygon', 'line', 'pen'];
 
 export const BrushPanel: React.FC = () => {
-	const { brushSettings, setBrushSettings, activeTool } = useArtStudioStore();
+  const { brushSettings, setBrushSettings, activeTool } = useArtStudioStore();
 
-	const isDrawingTool = drawingTools.includes(activeTool);
-	const isSelectionTool = selectionTools.includes(activeTool);
-	const isShapeTool = shapeTools.includes(activeTool);
+  const isDrawingTool = drawingTools.includes(activeTool);
+  const isSelectionTool = selectionTools.includes(activeTool);
+  const isShapeTool = shapeTools.includes(activeTool);
 
-	const getToolTitle = () => {
-		const titles: Record<string, string> = {
-			brush: "Brush",
-			pencil: "Pencil",
-			eraser: "Eraser",
-			clone: "Clone Stamp",
-			healing: "Healing Brush",
-			blur: "Blur",
-			marquee: "Marquee Selection",
-			lasso: "Lasso Selection",
-			magicwand: "Magic Wand",
-			select: "Move Tool",
-			rectangle: "Rectangle",
-			ellipse: "Ellipse",
-			polygon: "Polygon",
-			line: "Line",
-			pen: "Pen",
-			text: "Text",
-			fill: "Paint Bucket",
-			gradient: "Gradient",
-			eyedropper: "Eyedropper",
-			hand: "Hand",
-			zoom: "Zoom",
-		};
-		return titles[activeTool] || "Tool";
-	};
+  const getToolTitle = () => {
+    const titles: Record<string, string> = {
+      brush: 'Brush',
+      pencil: 'Pencil',
+      eraser: 'Eraser',
+      clone: 'Clone Stamp',
+      healing: 'Healing Brush',
+      blur: 'Blur',
+      marquee: 'Marquee Selection',
+      lasso: 'Lasso Selection',
+      magicwand: 'Magic Wand',
+      select: 'Move Tool',
+      rectangle: 'Rectangle',
+      ellipse: 'Ellipse',
+      polygon: 'Polygon',
+      line: 'Line',
+      pen: 'Pen',
+      text: 'Text',
+      fill: 'Paint Bucket',
+      gradient: 'Gradient',
+      eyedropper: 'Eyedropper',
+      hand: 'Hand',
+      zoom: 'Zoom',
+    };
+    return titles[activeTool] || 'Tool';
+  };
 
-	const renderSliderWithTooltip = (option: ToolOption) => (
-		<div className="space-y-2" key={option.name}>
-			<div className="flex justify-between items-center">
-				<div className="flex items-center gap-1.5">
-					<Label className="text-xs text-muted-foreground">{option.name}</Label>
-					<Tooltip delayDuration={300}>
-						<TooltipTrigger asChild>
-							<HelpCircle className="w-3 h-3 text-muted-foreground/50 cursor-help" />
-						</TooltipTrigger>
-						<TooltipContent side="right" className="max-w-50">
-							<p className="text-xs">{option.description}</p>
-						</TooltipContent>
-					</Tooltip>
-				</div>
-				<span className="text-xs font-mono text-foreground">
-					{option.value}
-					{option.unit || ""}
-				</span>
-			</div>
-			<Slider
-				value={[option.value]}
-				onValueChange={([value]) => option.onChange(value)}
-				min={option.min}
-				max={option.max}
-				step={1}
-				className="w-full"
-			/>
-		</div>
-	);
+  const renderSliderWithTooltip = (option: ToolOption) => (
+    <div className="space-y-2" key={option.name}>
+      <div className="flex justify-between items-center">
+        <div className="flex items-center gap-1.5">
+          <Label className="text-xs text-muted-foreground">{option.name}</Label>
+          <Tooltip delayDuration={300}>
+            <TooltipTrigger asChild>
+              <HelpCircle className="w-3 h-3 text-muted-foreground/50 cursor-help" />
+            </TooltipTrigger>
+            <TooltipContent side="right" className="max-w-[200px]">
+              <p className="text-xs">{option.description}</p>
+            </TooltipContent>
+          </Tooltip>
+        </div>
+        <span className="text-xs font-mono text-foreground">
+          {option.value}{option.unit || ''}
+        </span>
+      </div>
+      <Slider
+        value={[option.value]}
+        onValueChange={([value]) => option.onChange(value)}
+        min={option.min}
+        max={option.max}
+        step={1}
+        className="w-full"
+      />
+    </div>
+  );
 
-	const renderDrawingOptions = () => {
-		const options: ToolOption[] = [
-			{
-				name: "Size",
-				description:
-					"Controls the diameter of the brush tip. Use [ and ] keys to quickly adjust.",
-				min: 1,
-				max: 500,
-				value: brushSettings.size,
-				onChange: (value) => setBrushSettings({ size: value }),
-				unit: "px",
-			},
-			{
-				name: "Opacity",
-				description:
-					"Controls the transparency of each stroke. Lower values allow colors to build up gradually.",
-				min: 1,
-				max: 100,
-				value: brushSettings.opacity,
-				onChange: (value) => setBrushSettings({ opacity: value }),
-				unit: "%",
-			},
-			{
-				name: "Hardness",
-				description:
-					"Controls the edge softness of the brush. 100% = hard edge, 0% = soft feathered edge.",
-				min: 0,
-				max: 100,
-				value: brushSettings.hardness,
-				onChange: (value) => setBrushSettings({ hardness: value }),
-				unit: "%",
-			},
-			{
-				name: "Flow",
-				description:
-					"Controls how quickly paint is applied. Lower flow allows for more gradual buildup.",
-				min: 1,
-				max: 100,
-				value: brushSettings.smoothing,
-				onChange: (value) => setBrushSettings({ smoothing: value }),
-				unit: "%",
-			},
-		];
+  const renderDrawingOptions = () => {
+    const options: ToolOption[] = [
+      {
+        name: 'Size',
+        description: 'Controls the diameter of the brush tip. Use [ and ] keys to quickly adjust.',
+        min: 1,
+        max: 500,
+        value: brushSettings.size,
+        onChange: (value) => setBrushSettings({ size: value }),
+        unit: 'px',
+      },
+      {
+        name: 'Opacity',
+        description: 'Controls the transparency of each stroke. Lower values allow colors to build up gradually.',
+        min: 1,
+        max: 100,
+        value: brushSettings.opacity,
+        onChange: (value) => setBrushSettings({ opacity: value }),
+        unit: '%',
+      },
+      {
+        name: 'Hardness',
+        description: 'Controls the edge softness of the brush. 100% = hard edge, 0% = soft feathered edge.',
+        min: 0,
+        max: 100,
+        value: brushSettings.hardness,
+        onChange: (value) => setBrushSettings({ hardness: value }),
+        unit: '%',
+      },
+      {
+        name: 'Flow',
+        description: 'Controls how quickly paint is applied. Lower flow allows for more gradual buildup.',
+        min: 1,
+        max: 100,
+        value: brushSettings.smoothing,
+        onChange: (value) => setBrushSettings({ smoothing: value }),
+        unit: '%',
+      },
+    ];
 
-		return options.map(renderSliderWithTooltip);
-	};
+    return options.map(renderSliderWithTooltip);
+  };
 
-	const renderSelectionOptions = () => (
-		<div className="space-y-4">
-			<div className="space-y-2">
-				<div className="flex items-center gap-1.5">
-					<Label className="text-xs text-muted-foreground">Feather</Label>
-					<Tooltip delayDuration={300}>
-						<TooltipTrigger asChild>
-							<HelpCircle className="w-3 h-3 text-muted-foreground/50 cursor-help" />
-						</TooltipTrigger>
-						<TooltipContent side="right" className="max-w-50">
-							<p className="text-xs">
-								Softens the edges of the selection for smoother blending.
-							</p>
-						</TooltipContent>
-					</Tooltip>
-				</div>
-				<Slider defaultValue={[0]} min={0} max={100} step={1} />
-			</div>
+  const renderSelectionOptions = () => (
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <div className="flex items-center gap-1.5">
+          <Label className="text-xs text-muted-foreground">Feather</Label>
+          <Tooltip delayDuration={300}>
+            <TooltipTrigger asChild>
+              <HelpCircle className="w-3 h-3 text-muted-foreground/50 cursor-help" />
+            </TooltipTrigger>
+            <TooltipContent side="right" className="max-w-[200px]">
+              <p className="text-xs">Softens the edges of the selection for smoother blending.</p>
+            </TooltipContent>
+          </Tooltip>
+        </div>
+        <Slider defaultValue={[0]} min={0} max={100} step={1} />
+      </div>
 
-			{activeTool === "magicwand" && (
-				<div className="space-y-2">
-					<div className="flex items-center gap-1.5">
-						<Label className="text-xs text-muted-foreground">Tolerance</Label>
-						<Tooltip delayDuration={300}>
-							<TooltipTrigger asChild>
-								<HelpCircle className="w-3 h-3 text-muted-foreground/50 cursor-help" />
-							</TooltipTrigger>
-							<TooltipContent side="right" className="max-w-50">
-								<p className="text-xs">
-									Determines the range of similar colors selected. Higher = more
-									colors included.
-								</p>
-							</TooltipContent>
-						</Tooltip>
-					</div>
-					<Slider defaultValue={[32]} min={0} max={255} step={1} />
-				</div>
-			)}
+      {activeTool === 'magicwand' && (
+        <div className="space-y-2">
+          <div className="flex items-center gap-1.5">
+            <Label className="text-xs text-muted-foreground">Tolerance</Label>
+            <Tooltip delayDuration={300}>
+              <TooltipTrigger asChild>
+                <HelpCircle className="w-3 h-3 text-muted-foreground/50 cursor-help" />
+              </TooltipTrigger>
+              <TooltipContent side="right" className="max-w-[200px]">
+                <p className="text-xs">Determines the range of similar colors selected. Higher = more colors included.</p>
+              </TooltipContent>
+            </Tooltip>
+          </div>
+          <Slider defaultValue={[32]} min={0} max={255} step={1} />
+        </div>
+      )}
 
-			<div className="space-y-2">
-				<Label className="text-xs text-muted-foreground">Selection Mode</Label>
-				<div className="flex gap-1">
-					{["New", "Add", "Subtract", "Intersect"].map((mode) => (
-						<Tooltip key={mode} delayDuration={300}>
-							<TooltipTrigger asChild>
-								<button className="flex-1 px-2 py-1.5 text-xs rounded bg-muted/50 hover:bg-muted transition-colors">
-									{mode}
-								</button>
-							</TooltipTrigger>
-							<TooltipContent>
-								<p className="text-xs">
-									{mode === "New" &&
-										"Create a new selection, replacing any existing one"}
-									{mode === "Add" && "Add to the current selection (Shift)"}
-									{mode === "Subtract" &&
-										"Remove from the current selection (Alt)"}
-									{mode === "Intersect" &&
-										"Keep only the overlapping area (Shift+Alt)"}
-								</p>
-							</TooltipContent>
-						</Tooltip>
-					))}
-				</div>
-			</div>
-		</div>
-	);
+      <div className="space-y-2">
+        <Label className="text-xs text-muted-foreground">Selection Mode</Label>
+        <div className="flex gap-1">
+          {['New', 'Add', 'Subtract', 'Intersect'].map((mode) => (
+            <Tooltip key={mode} delayDuration={300}>
+              <TooltipTrigger asChild>
+                <button className="flex-1 px-2 py-1.5 text-xs rounded bg-muted/50 hover:bg-muted transition-colors">
+                  {mode}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="text-xs">
+                  {mode === 'New' && 'Create a new selection, replacing any existing one'}
+                  {mode === 'Add' && 'Add to the current selection (Shift)'}
+                  {mode === 'Subtract' && 'Remove from the current selection (Alt)'}
+                  {mode === 'Intersect' && 'Keep only the overlapping area (Shift+Alt)'}
+                </p>
+              </TooltipContent>
+            </Tooltip>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 
-	const renderShapeOptions = () => (
-		<div className="space-y-4">
-			<div className="space-y-2">
-				<div className="flex items-center gap-1.5">
-					<Label className="text-xs text-muted-foreground">Stroke Width</Label>
-					<Tooltip delayDuration={300}>
-						<TooltipTrigger asChild>
-							<HelpCircle className="w-3 h-3 text-muted-foreground/50 cursor-help" />
-						</TooltipTrigger>
-						<TooltipContent side="right" className="max-w-50">
-							<p className="text-xs">
-								The thickness of the shape's outline. Set to 0 for no stroke.
-							</p>
-						</TooltipContent>
-					</Tooltip>
-				</div>
-				<Slider defaultValue={[2]} min={0} max={50} step={1} />
-			</div>
+  const renderShapeOptions = () => (
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <div className="flex items-center gap-1.5">
+          <Label className="text-xs text-muted-foreground">Stroke Width</Label>
+          <Tooltip delayDuration={300}>
+            <TooltipTrigger asChild>
+              <HelpCircle className="w-3 h-3 text-muted-foreground/50 cursor-help" />
+            </TooltipTrigger>
+            <TooltipContent side="right" className="max-w-[200px]">
+              <p className="text-xs">The thickness of the shape's outline. Set to 0 for no stroke.</p>
+            </TooltipContent>
+          </Tooltip>
+        </div>
+        <Slider defaultValue={[2]} min={0} max={50} step={1} />
+      </div>
 
-			<div className="space-y-2">
-				<Label className="text-xs text-muted-foreground">Fill Type</Label>
-				<div className="flex gap-1">
-					<Tooltip delayDuration={300}>
-						<TooltipTrigger asChild>
-							<button className="flex-1 px-2 py-1.5 text-xs rounded bg-primary/20 border border-primary/30 transition-colors flex items-center justify-center gap-1">
-								<Square className="w-3 h-3" /> Solid
-							</button>
-						</TooltipTrigger>
-						<TooltipContent>
-							<p className="text-xs">Fill with a solid foreground color</p>
-						</TooltipContent>
-					</Tooltip>
-					<Tooltip delayDuration={300}>
-						<TooltipTrigger asChild>
-							<button className="flex-1 px-2 py-1.5 text-xs rounded bg-muted/50 hover:bg-muted transition-colors flex items-center justify-center gap-1">
-								<Blend className="w-3 h-3" /> Gradient
-							</button>
-						</TooltipTrigger>
-						<TooltipContent>
-							<p className="text-xs">
-								Fill with a gradient using foreground and background colors
-							</p>
-						</TooltipContent>
-					</Tooltip>
-					<Tooltip delayDuration={300}>
-						<TooltipTrigger asChild>
-							<button className="flex-1 px-2 py-1.5 text-xs rounded bg-muted/50 hover:bg-muted transition-colors flex items-center justify-center gap-1">
-								<Circle className="w-3 h-3" /> None
-							</button>
-						</TooltipTrigger>
-						<TooltipContent>
-							<p className="text-xs">No fill, stroke only</p>
-						</TooltipContent>
-					</Tooltip>
-				</div>
-			</div>
+      <div className="space-y-2">
+        <Label className="text-xs text-muted-foreground">Fill Type</Label>
+        <div className="flex gap-1">
+          <Tooltip delayDuration={300}>
+            <TooltipTrigger asChild>
+              <button className="flex-1 px-2 py-1.5 text-xs rounded bg-primary/20 border border-primary/30 transition-colors flex items-center justify-center gap-1">
+                <Square className="w-3 h-3" /> Solid
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p className="text-xs">Fill with a solid foreground color</p>
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip delayDuration={300}>
+            <TooltipTrigger asChild>
+              <button className="flex-1 px-2 py-1.5 text-xs rounded bg-muted/50 hover:bg-muted transition-colors flex items-center justify-center gap-1">
+                <Blend className="w-3 h-3" /> Gradient
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p className="text-xs">Fill with a gradient using foreground and background colors</p>
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip delayDuration={300}>
+            <TooltipTrigger asChild>
+              <button className="flex-1 px-2 py-1.5 text-xs rounded bg-muted/50 hover:bg-muted transition-colors flex items-center justify-center gap-1">
+                <Circle className="w-3 h-3" /> None
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p className="text-xs">No fill, stroke only</p>
+            </TooltipContent>
+          </Tooltip>
+        </div>
+      </div>
 
-			{activeTool === "polygon" && (
-				<div className="space-y-2">
-					<div className="flex items-center gap-1.5">
-						<Label className="text-xs text-muted-foreground">Sides</Label>
-						<Tooltip delayDuration={300}>
-							<TooltipTrigger asChild>
-								<HelpCircle className="w-3 h-3 text-muted-foreground/50 cursor-help" />
-							</TooltipTrigger>
-							<TooltipContent side="right" className="max-w-50">
-								<p className="text-xs">
-									Number of sides for the polygon. 3 = triangle, 6 = hexagon,
-									etc.
-								</p>
-							</TooltipContent>
-						</Tooltip>
-					</div>
-					<Slider defaultValue={[6]} min={3} max={12} step={1} />
-				</div>
-			)}
+      {activeTool === 'polygon' && (
+        <div className="space-y-2">
+          <div className="flex items-center gap-1.5">
+            <Label className="text-xs text-muted-foreground">Sides</Label>
+            <Tooltip delayDuration={300}>
+              <TooltipTrigger asChild>
+                <HelpCircle className="w-3 h-3 text-muted-foreground/50 cursor-help" />
+              </TooltipTrigger>
+              <TooltipContent side="right" className="max-w-[200px]">
+                <p className="text-xs">Number of sides for the polygon. 3 = triangle, 6 = hexagon, etc.</p>
+              </TooltipContent>
+            </Tooltip>
+          </div>
+          <Slider defaultValue={[6]} min={3} max={12} step={1} />
+        </div>
+      )}
 
-			<div className="space-y-2">
-				<div className="flex items-center gap-1.5">
-					<Label className="text-xs text-muted-foreground">Corner Radius</Label>
-					<Tooltip delayDuration={300}>
-						<TooltipTrigger asChild>
-							<HelpCircle className="w-3 h-3 text-muted-foreground/50 cursor-help" />
-						</TooltipTrigger>
-						<TooltipContent side="right" className="max-w-50">
-							<p className="text-xs">
-								Rounds the corners of rectangles and polygons.
-							</p>
-						</TooltipContent>
-					</Tooltip>
-				</div>
-				<Slider defaultValue={[0]} min={0} max={50} step={1} />
-			</div>
-		</div>
-	);
+      <div className="space-y-2">
+        <div className="flex items-center gap-1.5">
+          <Label className="text-xs text-muted-foreground">Corner Radius</Label>
+          <Tooltip delayDuration={300}>
+            <TooltipTrigger asChild>
+              <HelpCircle className="w-3 h-3 text-muted-foreground/50 cursor-help" />
+            </TooltipTrigger>
+            <TooltipContent side="right" className="max-w-[200px]">
+              <p className="text-xs">Rounds the corners of rectangles and polygons.</p>
+            </TooltipContent>
+          </Tooltip>
+        </div>
+        <Slider defaultValue={[0]} min={0} max={50} step={1} />
+      </div>
+    </div>
+  );
 
-	const renderGenericOptions = () => (
-		<div className="text-center py-4">
-			<Sparkles className="w-8 h-8 text-muted-foreground/30 mx-auto mb-2" />
-			<p className="text-xs text-muted-foreground">
-				Select a tool to see its options
-			</p>
-		</div>
-	);
+  const renderGenericOptions = () => (
+    <div className="text-center py-4">
+      <Sparkles className="w-8 h-8 text-muted-foreground/30 mx-auto mb-2" />
+      <p className="text-xs text-muted-foreground">
+        Select a tool to see its options
+      </p>
+    </div>
+  );
 
-	return (
-		<div className="panel-glass p-4 w-64 space-y-5 animate-fade-in">
-			<div className="flex items-center justify-between">
-				<h3 className="text-sm font-medium text-foreground">
-					{getToolTitle()} Options
-				</h3>
-				<Tooltip delayDuration={300}>
-					<TooltipTrigger asChild>
-						<HelpCircle className="w-4 h-4 text-muted-foreground/50 cursor-help" />
-					</TooltipTrigger>
-					<TooltipContent side="left" className="max-w-50">
-						<p className="text-xs">
-							Customize how the current tool behaves. These settings affect all
-							new strokes or selections.
-						</p>
-					</TooltipContent>
-				</Tooltip>
-			</div>
+  return (
+    <div className="panel-glass p-4 w-64 space-y-5 animate-fade-in">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-medium text-foreground">
+          {getToolTitle()} Options
+        </h3>
+        <Tooltip delayDuration={300}>
+          <TooltipTrigger asChild>
+            <HelpCircle className="w-4 h-4 text-muted-foreground/50 cursor-help" />
+          </TooltipTrigger>
+          <TooltipContent side="left" className="max-w-[200px]">
+            <p className="text-xs">
+              Customize how the current tool behaves. These settings affect all new strokes or selections.
+            </p>
+          </TooltipContent>
+        </Tooltip>
+      </div>
 
-			{isDrawingTool && renderDrawingOptions()}
-			{isSelectionTool && renderSelectionOptions()}
-			{isShapeTool && renderShapeOptions()}
-			{!isDrawingTool &&
-				!isSelectionTool &&
-				!isShapeTool &&
-				renderGenericOptions()}
+      {isDrawingTool && renderDrawingOptions()}
+      {isSelectionTool && renderSelectionOptions()}
+      {isShapeTool && renderShapeOptions()}
+      {!isDrawingTool && !isSelectionTool && !isShapeTool && renderGenericOptions()}
 
-			{/* Brush Preview */}
-			{isDrawingTool && (
-				<div className="pt-2">
-					<div className="flex items-center gap-1.5 mb-2">
-						<Label className="text-xs text-muted-foreground">Preview</Label>
-						<Tooltip delayDuration={300}>
-							<TooltipTrigger asChild>
-								<HelpCircle className="w-3 h-3 text-muted-foreground/50 cursor-help" />
-							</TooltipTrigger>
-							<TooltipContent side="right" className="max-w-50">
-								<p className="text-xs">
-									Live preview of your current brush settings.
-								</p>
-							</TooltipContent>
-						</Tooltip>
-					</div>
-					<div className="h-16 bg-muted/30 rounded-md flex items-center justify-center border border-border/50">
-						<div
-							className="rounded-full bg-foreground transition-all duration-150"
-							style={{
-								width: Math.min(brushSettings.size, 56),
-								height: Math.min(brushSettings.size, 56),
-								opacity: brushSettings.opacity / 100,
-								filter: `blur(${(100 - brushSettings.hardness) / 25}px)`,
-							}}
-						/>
-					</div>
-				</div>
-			)}
-		</div>
-	);
+      {/* Brush Preview */}
+      {isDrawingTool && (
+        <div className="pt-2">
+          <div className="flex items-center gap-1.5 mb-2">
+            <Label className="text-xs text-muted-foreground">Preview</Label>
+            <Tooltip delayDuration={300}>
+              <TooltipTrigger asChild>
+                <HelpCircle className="w-3 h-3 text-muted-foreground/50 cursor-help" />
+              </TooltipTrigger>
+              <TooltipContent side="right" className="max-w-[200px]">
+                <p className="text-xs">Live preview of your current brush settings.</p>
+              </TooltipContent>
+            </Tooltip>
+          </div>
+          <div className="h-16 bg-muted/30 rounded-md flex items-center justify-center border border-border/50">
+            <div
+              className="rounded-full bg-foreground transition-all duration-150"
+              style={{
+                width: Math.min(brushSettings.size, 56),
+                height: Math.min(brushSettings.size, 56),
+                opacity: brushSettings.opacity / 100,
+                filter: `blur(${(100 - brushSettings.hardness) / 25}px)`,
+              }}
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
 };
