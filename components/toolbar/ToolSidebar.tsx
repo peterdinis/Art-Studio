@@ -310,9 +310,7 @@ export const ToolSidebar: React.FC = () => {
 						>
 							<div className="space-y-1.5">
 								<div className="flex items-center justify-between gap-4">
-									<span className="font-semibold text-black">
-										{tool.label}
-									</span>
+									<span className="font-semibold text-black">{tool.label}</span>
 									<kbd className="px-1.5 py-0.5 text-xs text-black rounded font-mono">
 										{tool.shortcut}
 									</kbd>
@@ -369,11 +367,7 @@ export const ToolSidebar: React.FC = () => {
 						<Undo2 className="w-5 h-5" />
 					</button>
 				</TooltipTrigger>
-				<TooltipContent
-					side="right"
-					className="max-w-70 p-3"
-					sideOffset={8}
-				>
+				<TooltipContent side="right" className="max-w-70 p-3" sideOffset={8}>
 					<div className="space-y-1.5">
 						<div className="flex items-center justify-between gap-4">
 							<span className="font-semibold text-foreground">Undo</span>
@@ -398,11 +392,7 @@ export const ToolSidebar: React.FC = () => {
 						<Redo2 className="w-5 h-5" />
 					</button>
 				</TooltipTrigger>
-				<TooltipContent
-					side="right"
-					className="max-w-70 p-3"
-					sideOffset={8}
-				>
+				<TooltipContent side="right" className="max-w-70 p-3" sideOffset={8}>
 					<div className="space-y-1.5">
 						<div className="flex items-center justify-between gap-4">
 							<span className="font-semibold text-foreground">Redo</span>
@@ -432,11 +422,7 @@ export const ToolSidebar: React.FC = () => {
 							/>
 						</div>
 					</TooltipTrigger>
-					<TooltipContent
-						side="right"
-						className="max-w-70 p-3"
-						sideOffset={8}
-					>
+					<TooltipContent side="right" className="max-w-70 p-3" sideOffset={8}>
 						<div className="space-y-1.5">
 							<div className="flex items-center justify-between gap-4">
 								<span className="font-semibold text-foreground">Colors</span>

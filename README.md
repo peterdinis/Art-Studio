@@ -1,36 +1,89 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🎨 Art-Studio
 
-## Getting Started
+Welcome to **Art-Studio**, a premium, interactive digital canvas designed for creators. Built with the latest cutting-edge technologies, it offers a seamless and powerful drawing experience directly in your browser.
 
-First, run the development server:
+---
 
+## ✨ Features
+
+- **🖌️ Interactive Canvas**: High-performance drawing surface powered by `fabric.js` and `react-konva`.
+- **🏗️ Layer Management**: Organize your artwork with a robust layering system.
+- **🛠️ Versatile Toolbar**: Quick access to brushes, shapes, text, and selection tools.
+- **🎨 Advanced Panels**: Dedicated panels for Brush settings, Colors, History, and Layers.
+- **🔄 History Support**: Full undo/redo functionality to refine your creative process.
+- **⚡ Performance First**: Blazing fast interactions using React 19 and Next.js 16.
+
+---
+
+## 🚀 Tech Stack
+
+- **Framework**: [Next.js 16](https://nextjs.org/) (App Router)
+- **Library**: [React 19](https://react.dev/)
+- **Canvas Engines**: [Fabric.js 7](http://fabricjs.com/) & [React-Konva](https://konvajs.org/docs/react/index.html)
+- **Styling**: [Tailwind CSS 4](https://tailwindcss.com/)
+- **State Management**: [Zustand](https://github.com/pmndrs/zustand)
+- **Icons**: [Lucide React](https://lucide.dev/)
+- **Linting & Formatting**: [Biome](https://biomejs.dev/)
+
+---
+
+## 🛠️ Getting Started
+
+### 1. Clone the repository
+```bash
+git clone <repository-url>
+cd art-studio
+```
+
+### 2. Install dependencies
+```bash
+bun install
+# or
+npm install
+```
+
+### 3. Run the development server
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 📂 Project Structure
 
-## Learn More
+- `app/`: Next.js App Router pages and global styles.
+- `components/`:
+  - `canvas/`: Fabric.js canvas implementation.
+  - `panels/`: Control panels (Brush, Color, Layers, History).
+  - `toolbar/`: Main navigation and tool selection.
+  - `ui/`: Reusable primitive components (Shadcn-like).
+- `stores/`: Zustand state management for canvas and app state.
+- `lib/`: Utility functions and helper methods.
+- `types/`: TypeScript definitions.
 
-To learn more about Next.js, take a look at the following resources:
+---
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 📜 Available Scripts
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- `npm run dev`: Starts the development server.
+- `npm run build`: Builds the application for production.
+- `npm run format`: Runs Biome formatter and linter fix.
+- `npm run lint:all`: Runs full Bione check and lint.
 
-## Deploy on Vercel
+---
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## 🤝 Contributing
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+---
+
+## 📄 License
+
+This project is licensed under the MIT License.
+
+---
+
+Made with ❤️ by [Art-Studio Team]
