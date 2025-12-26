@@ -305,15 +305,15 @@ export const ToolSidebar: React.FC = () => {
 						</TooltipTrigger>
 						<TooltipContent
 							side="right"
-							className="max-w-[280px] p-3"
+							className="max-w-70 p-3"
 							sideOffset={8}
 						>
 							<div className="space-y-1.5">
 								<div className="flex items-center justify-between gap-4">
-									<span className="font-semibold text-foreground">
+									<span className="font-semibold text-black">
 										{tool.label}
 									</span>
-									<kbd className="px-1.5 py-0.5 text-xs bg-muted rounded font-mono">
+									<kbd className="px-1.5 py-0.5 text-xs text-black rounded font-mono">
 										{tool.shortcut}
 									</kbd>
 								</div>
