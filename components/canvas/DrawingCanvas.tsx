@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useEffect, useState, useCallback } from "react";
+import { FC, useRef, useEffect, useState, useCallback } from "react";
 import {
 	Canvas as FabricCanvas,
 	PencilBrush,
@@ -16,55 +16,12 @@ import {
 	TPointerEventInfo,
 	BaseBrush,
 	FabricImage as FabricImageType,
-	TClassProperties,
 } from "fabric";
 import { useArtStudioStore } from "@/stores/artStudioStore";
 import { toast } from "sonner";
+import { DrawingCanvasProps, FabricBrush, FabricObjectWithImageId } from "@/types/CanvasTypes";
 
-// Extended type definitions for Fabric.js
-type FabricObjectWithImageId = FabricObject & { imageId?: string };
-type FabricBrush = BaseBrush & {
-	color: string;
-	width: number;
-	strokeLineCap?: CanvasLineCap;
-	strokeLineJoin?: CanvasLineJoin;
-};
-
-interface LoadedImage {
-	id: string;
-	src: string;
-	name: string;
-}
-
-interface HistoryEntry {
-	canvasData: string;
-	thumbnail: string;
-	action: string;
-}
-
-interface BrushSettings {
-	size: number;
-	opacity: number;
-	hardness: number;
-}
-
-interface CanvasSize {
-	width: number;
-	height: number;
-	backgroundColor: string;
-}
-
-interface DrawingCanvasProps {
-	width?: number;
-	height?: number;
-	backgroundColor?: string;
-}
-
-type CustomFabricCanvas = {
-	getPoiner: (...args: any[]) => void;
-} & FabricCanvas;
-
-export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
+export const DrawingCanvas: FC<DrawingCanvasProps> = ({
 	width = 1920,
 	height = 1080,
 	backgroundColor = "#2d3748",

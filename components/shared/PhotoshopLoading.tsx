@@ -9,17 +9,17 @@ export const PhotoshopLoading: FC = () => {
         {/* Photoshop icon animation */}
         <div className="relative w-32 h-32 mb-8">
           {/* Outer square */}
-          <div className="absolute inset-0 border-2 border-[#404040] rounded-lg bg-gradient-to-br from-[#2a2a2a] to-[#1e1e1e]">
+          <div className="absolute inset-0 border-2 border-[#404040] rounded-lg bg-linear-to-br from-[#2a2a2a] to-[#1e1e1e]">
             {/* Inner square animation */}
             <div className="absolute inset-4 border-2 border-[#31a8ff]/30 rounded animate-pulse" />
             
             {/* Animated bars */}
             <div className="absolute top-4 left-4 right-4 h-1 bg-[#404040] rounded overflow-hidden">
-              <div className="h-full bg-gradient-to-r from-transparent via-[#31a8ff] to-transparent animate-progress" />
+              <div className="h-full bg-linear-to-r from-transparent via-[#31a8ff] to-transparent animate-progress" />
             </div>
             
             <div className="absolute bottom-4 left-4 right-4 h-1 bg-[#404040] rounded overflow-hidden">
-              <div className="h-full bg-gradient-to-r from-transparent via-[#1473e6] to-transparent animate-progress" style={{ animationDelay: "0.5s" }} />
+              <div className="h-full bg-linear-to-r from-transparent via-[#1473e6] to-transparent animate-progress" style={{ animationDelay: "0.5s" }} />
             </div>
             
             {/* Ps letters */}
@@ -49,7 +49,7 @@ export const PhotoshopLoading: FC = () => {
             {[...Array(5)].map((_, i) => (
               <div
                 key={i}
-                className="w-2 h-2 bg-gradient-to-b from-[#31a8ff] to-[#1473e6] rounded-full animate-pulse"
+                className="w-2 h-2 bg-linear-to-b from-[#31a8ff] to-[#1473e6] rounded-full animate-pulse"
                 style={{ animationDelay: `${i * 0.1}s` }}
               />
             ))}

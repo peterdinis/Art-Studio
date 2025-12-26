@@ -184,7 +184,7 @@ export const StatusBar: React.FC = () => {
 					<TooltipTrigger asChild>
 						<button
 							onClick={() => setZoom(100)}
-							className="min-w-[60px] text-center font-mono hover:text-foreground transition-colors"
+							className="min-w-15 text-center font-mono hover:text-foreground transition-colors"
 						>
 							{zoom.toFixed(0)}%
 						</button>

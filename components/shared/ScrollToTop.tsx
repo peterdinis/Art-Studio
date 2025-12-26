@@ -39,7 +39,7 @@ const ScrollToTop: FC = () => {
         "fixed right-6 bottom-6 z-50 group",
         "flex items-center justify-center",
         "w-14 h-14 rounded-md",
-        "bg-gradient-to-b from-[#2a2a2a] to-[#1e1e1e]",
+        "bg-linear-to-b from-[#2a2a2a] to-[#1e1e1e]",
         "border border-[#404040]",
         "shadow-[0_4px_12px_rgba(0,0,0,0.5)]",
         "transition-all duration-300 transform",
@@ -55,21 +55,21 @@ const ScrollToTop: FC = () => {
       aria-label="Scroll to top"
     >
       {/* Main icon with animation */}
-      <ChevronUp 
+      <ChevronUp
         className={cn(
           "w-6 h-6 transition-all duration-300",
-          hovered 
-            ? "text-[#31a8ff] translate-y-[-2px]" 
+          hovered
+            ? "text-[#31a8ff] -translate-y-0.5"
             : "text-[#b0b0b0]"
         )}
       />
-      
+
       {/* Photoshop-style corner accents */}
       <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-[#404040]" />
       <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-[#404040]" />
       <div className="absolute bottom-0 left-0 w-2 h-2 border-b border-l border-[#404040]" />
       <div className="absolute bottom-0 right-0 w-2 h-2 border-b border-r border-[#404040]" />
-      
+
       {/* Hover effect corners */}
       {hovered && (
         <>
@@ -79,14 +79,14 @@ const ScrollToTop: FC = () => {
           <div className="absolute bottom-0 right-0 w-2 h-2 border-b border-r border-[#31a8ff] animate-pulse" style={{ animationDelay: "0.3s" }} />
         </>
       )}
-      
+
       {/* Loading bar animation on hover */}
       {hovered && (
         <div className="absolute bottom-0 left-0 right-0 h-1 bg-[#404040] overflow-hidden rounded-b-md">
-          <div className="h-full bg-gradient-to-r from-[#31a8ff] via-[#1473e6] to-[#31a8ff] animate-progress" />
+          <div className="h-full bg-linear-to-r from-[#31a8ff] via-[#1473e6] to-[#31a8ff] animate-progress" />
         </div>
       )}
-      
+
       {/* Photoshop-style tooltip */}
       <div className={cn(
         "absolute right-full mr-3",

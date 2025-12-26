@@ -75,7 +75,7 @@ export const BrushPanel: React.FC = () => {
 						<TooltipTrigger asChild>
 							<HelpCircle className="w-3 h-3 text-muted-foreground/50 cursor-help" />
 						</TooltipTrigger>
-						<TooltipContent side="right" className="max-w-[200px]">
+						<TooltipContent side="right" className="max-w-50">
 							<p className="text-xs">{option.description}</p>
 						</TooltipContent>
 					</Tooltip>
@@ -152,7 +152,7 @@ export const BrushPanel: React.FC = () => {
 						<TooltipTrigger asChild>
 							<HelpCircle className="w-3 h-3 text-muted-foreground/50 cursor-help" />
 						</TooltipTrigger>
-						<TooltipContent side="right" className="max-w-[200px]">
+						<TooltipContent side="right" className="max-w-50">
 							<p className="text-xs">
 								Softens the edges of the selection for smoother blending.
 							</p>
@@ -170,7 +170,7 @@ export const BrushPanel: React.FC = () => {
 							<TooltipTrigger asChild>
 								<HelpCircle className="w-3 h-3 text-muted-foreground/50 cursor-help" />
 							</TooltipTrigger>
-							<TooltipContent side="right" className="max-w-[200px]">
+							<TooltipContent side="right" className="max-w-50">
 								<p className="text-xs">
 									Determines the range of similar colors selected. Higher = more
 									colors included.
@@ -219,7 +219,7 @@ export const BrushPanel: React.FC = () => {
 						<TooltipTrigger asChild>
 							<HelpCircle className="w-3 h-3 text-muted-foreground/50 cursor-help" />
 						</TooltipTrigger>
-						<TooltipContent side="right" className="max-w-[200px]">
+						<TooltipContent side="right" className="max-w-50">
 							<p className="text-xs">
 								The thickness of the shape's outline. Set to 0 for no stroke.
 							</p>
@@ -275,7 +275,7 @@ export const BrushPanel: React.FC = () => {
 							<TooltipTrigger asChild>
 								<HelpCircle className="w-3 h-3 text-muted-foreground/50 cursor-help" />
 							</TooltipTrigger>
-							<TooltipContent side="right" className="max-w-[200px]">
+							<TooltipContent side="right" className="max-w-50">
 								<p className="text-xs">
 									Number of sides for the polygon. 3 = triangle, 6 = hexagon,
 									etc.
@@ -294,7 +294,7 @@ export const BrushPanel: React.FC = () => {
 						<TooltipTrigger asChild>
 							<HelpCircle className="w-3 h-3 text-muted-foreground/50 cursor-help" />
 						</TooltipTrigger>
-						<TooltipContent side="right" className="max-w-[200px]">
+						<TooltipContent side="right" className="max-w-50">
 							<p className="text-xs">
 								Rounds the corners of rectangles and polygons.
 							</p>
@@ -325,7 +325,7 @@ export const BrushPanel: React.FC = () => {
 					<TooltipTrigger asChild>
 						<HelpCircle className="w-4 h-4 text-muted-foreground/50 cursor-help" />
 					</TooltipTrigger>
-					<TooltipContent side="left" className="max-w-[200px]">
+					<TooltipContent side="left" className="max-w-50">
 						<p className="text-xs">
 							Customize how the current tool behaves. These settings affect all
 							new strokes or selections.
@@ -351,7 +351,7 @@ export const BrushPanel: React.FC = () => {
 							<TooltipTrigger asChild>
 								<HelpCircle className="w-3 h-3 text-muted-foreground/50 cursor-help" />
 							</TooltipTrigger>
-							<TooltipContent side="right" className="max-w-[200px]">
+							<TooltipContent side="right" className="max-w-50">
 								<p className="text-xs">
 									Live preview of your current brush settings.
 								</p>
