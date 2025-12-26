@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useState, useRef } from "react";
+import { useState, useRef, FC } from "react";
 import { useArtStudioStore } from "@/stores/artStudioStore";
 import { ArrowLeftRight } from "lucide-react";
 
-export const ColorPanel: React.FC = () => {
+export const ColorPanel: FC = () => {
 	const {
 		primaryColor,
 		secondaryColor,

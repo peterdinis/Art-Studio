@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import { ComponentType, FC, useEffect } from "react";
 import {
 	Paintbrush,
 	Eraser,
@@ -37,10 +37,11 @@ import {
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Separator } from "@/components/ui/separator";
+import { Kbd } from "@/components/ui/kbd";
 
 interface ToolConfig {
 	id: Tool;
-	icon: React.ComponentType<{ className?: string }>;
+	icon: ComponentType<{ className?: string }>;
 	label: string;
 	shortcut: string;
 	description: string;
@@ -242,12 +243,12 @@ const tools: ToolConfig[] = [
 	},
 ];
 
-export const ToolSidebar: React.FC = () => {
+export const ToolSidebar: FC = () => {
 	const { activeTool, setActiveTool, canUndo, canRedo, undo, redo } =
 		useArtStudioStore();
 
 	// Keyboard shortcuts - using capture phase for priority
-	React.useEffect(() => {
+	useEffect(() => {
 		const handleKeyDown = (e: KeyboardEvent) => {
 			// Skip if user is typing in an input field
 			if (
@@ -311,9 +312,7 @@ export const ToolSidebar: React.FC = () => {
 							<div className="space-y-1.5">
 								<div className="flex items-center justify-between gap-4">
 									<span className="font-semibold text-black">{tool.label}</span>
-									<kbd className="px-1.5 py-0.5 text-xs text-black rounded font-mono">
-										{tool.shortcut}
-									</kbd>
+									<Kbd>{tool.shortcut}</Kbd>
 								</div>
 								<p className="text-xs text-muted-foreground leading-relaxed">
 									{tool.description}

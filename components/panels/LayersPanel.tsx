@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import { FC, useState } from "react";
 import { useArtStudioStore } from "@/stores/artStudioStore";
 import {
 	Eye,
@@ -32,7 +32,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 
-export const LayersPanel: React.FC = () => {
+export const LayersPanel: FC = () => {
 	const {
 		layers,
 		activeLayerId,
@@ -63,7 +63,7 @@ export const LayersPanel: React.FC = () => {
 		setEditName("");
 	};
 
-	const handleDeleteLayer = (id: string, e?: React.MouseEvent) => {
+	const handleDeleteLayer = (id: string, e?: MouseEvent) => {
 		e?.stopPropagation();
 		if (layers.length <= 1) {
 			toast.error("Cannot delete the last layer");

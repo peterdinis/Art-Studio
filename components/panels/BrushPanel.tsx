@@ -1,6 +1,5 @@
 "use client";
 
-import React from "react";
 import { useArtStudioStore, Tool } from "@/stores/artStudioStore";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
@@ -10,6 +9,7 @@ import {
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { HelpCircle, Blend, Circle, Square, Sparkles } from "lucide-react";
+import { FC } from "react";
 
 interface ToolOption {
 	name: string;
@@ -32,7 +32,7 @@ const drawingTools: Tool[] = [
 const selectionTools: Tool[] = ["select", "marquee", "lasso", "magicwand"];
 const shapeTools: Tool[] = ["rectangle", "ellipse", "polygon", "line", "pen"];
 
-export const BrushPanel: React.FC = () => {
+export const BrushPanel: FC = () => {
 	const { brushSettings, setBrushSettings, activeTool } = useArtStudioStore();
 
 	const isDrawingTool = drawingTools.includes(activeTool);

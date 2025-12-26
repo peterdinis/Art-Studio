@@ -1,6 +1,5 @@
 "use client";
 
-import React from "react";
 import { useArtStudioStore } from "@/stores/artStudioStore";
 import {
 	ZoomIn,
@@ -17,8 +16,9 @@ import {
 	TooltipContent,
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { FC } from "react";
 
-export const StatusBar: React.FC = () => {
+export const StatusBar: FC = () => {
 	const { zoom, setZoom, setPanOffset, activeTool, brushSettings } =
 		useArtStudioStore();
 
