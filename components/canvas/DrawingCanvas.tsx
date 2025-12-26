@@ -296,7 +296,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 
 			// Magic wand tool - select similar colored objects
 			if (activeTool === "magicwand") {
-				const target = canvas.findTarget(e.e);
+				const target = canvas.findTarget(e.e) as any;
 				if (target && target.fill) {
 					const targetColor =
 						typeof target.fill === "string" ? target.fill : null;
@@ -361,7 +361,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 
 			// Blur tool - applies blur effect to clicked object
 			if (activeTool === "blur") {
-				const target = canvas.findTarget(e.e);
+				const target = canvas.findTarget(e.e) as any;
 				if (target) {
 					// Apply a simple blur filter effect by reducing opacity and adding a duplicate
 					const currentOpacity = target.opacity || 1;
@@ -515,7 +515,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 
 			// Fill tool
 			if (activeTool === "fill") {
-				const target = canvas.findTarget(e.e);
+				const target = canvas.findTarget(e.e) as any;
 				if (target) {
 					target.set({ fill: primaryColor });
 					canvas.renderAll();
@@ -530,7 +530,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 
 			// Gradient tool
 			if (activeTool === "gradient") {
-				const target = canvas.findTarget(e.e);
+				const target = canvas.findTarget(e.e) as any;
 				if (target) {
 					const gradient = new Gradient({
 						type: "linear",
@@ -554,7 +554,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 
 			// Eyedropper tool
 			if (activeTool === "eyedropper") {
-				const target = canvas.findTarget(e.e);
+				const target = canvas.findTarget(e.e) as any;
 				if (target && target.fill && typeof target.fill === "string") {
 					setPrimaryColor(target.fill);
 					toast.success(`Color sampled: ${target.fill}`);
