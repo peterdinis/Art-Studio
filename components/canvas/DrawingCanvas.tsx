@@ -6,7 +6,6 @@ import {
 	PencilBrush,
 	FabricImage,
 	Rect,
-	Circle,
 	Line,
 	Polygon,
 	IText,
@@ -17,11 +16,7 @@ import {
 	TPointerEventInfo,
 	BaseBrush,
 	FabricImage as FabricImageType,
-	ActiveSelection,
-	Group,
-	Path,
 	TClassProperties,
-	Pattern,
 } from "fabric";
 import { useArtStudioStore } from "@/stores/artStudioStore";
 import { toast } from "sonner";
