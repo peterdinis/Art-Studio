@@ -26,7 +26,8 @@ const HomeWrapper: FC = () => {
 							<div className="h-4 w-28 bg-[#404040] rounded" />
 							<div className="h-4 w-16 bg-[#404040] rounded" />
 						</div>
-					}
+					</div>
+				}
 				>
 					<TopMenuBar />
 				</Suspense>
@@ -55,7 +56,7 @@ const HomeWrapper: FC = () => {
 								`,
 								backgroundSize: '20px 20px'
 							}} />
-							
+
 							{/* Loading indicator */}
 							<div className="relative z-10 flex flex-col items-center gap-6">
 								<div className="relative">
@@ -64,7 +65,7 @@ const HomeWrapper: FC = () => {
 										<div className="absolute inset-0 bg-linear-to-br from-[#31a8ff] to-[#1473e6] opacity-20" />
 										<div className="absolute top-2 left-2 w-8 h-8 bg-[#31a8ff]/30 rounded" />
 										<div className="absolute bottom-2 right-2 w-6 h-6 bg-[#1473e6]/30 rounded" />
-										
+
 										{/* Animated bar */}
 										<div className="absolute bottom-0 left-0 right-0 h-1 bg-linear-to-r from-[#31a8ff] via-[#1473e6] to-[#31a8ff] animate-progress" />
 									</div>
@@ -85,7 +86,8 @@ const HomeWrapper: FC = () => {
 									</div>
 								</div>
 							</div>
-						}
+						</div>
+					}
 					>
 						<DrawingCanvas />
 					</Suspense>
@@ -125,7 +127,8 @@ const HomeWrapper: FC = () => {
 									<div className="w-16 h-16 rounded bg-linear-to-br from-[#31a8ff] to-[#1473e6] border border-[#404040]" />
 									<div className="w-16 h-16 rounded bg-linear-to-br from-[#ff3131] to-[#e61414] border border-[#404040]" />
 								</div>
-							}
+							</div>
+						}
 						>
 							<ColorPanel />
 						</Suspense>
@@ -184,7 +187,8 @@ const HomeWrapper: FC = () => {
 							<div className="h-3 w-20 bg-[#404040] rounded" />
 							<div className="h-3 w-24 bg-[#404040] rounded" />
 						</div>
-					}
+					</div>
+				}
 				>
 					<StatusBar />
 				</Suspense>
