@@ -9,7 +9,6 @@ import {
 	Grid3X3,
 	Ruler,
 	MousePointer2,
-	HelpCircle,
 } from "lucide-react";
 import {
 	Tooltip,
