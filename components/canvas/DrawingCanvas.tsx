@@ -14,7 +14,6 @@ import {
 	Ellipse,
 	TPointerEvent,
 	TPointerEventInfo,
-	BaseBrush,
 	FabricImage as FabricImageType,
 } from "fabric";
 import { useArtStudioStore } from "@/stores/artStudioStore";

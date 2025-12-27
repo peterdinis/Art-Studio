@@ -56,7 +56,7 @@ export const metadata: Metadata = {
 		address: false,
 		telephone: false,
 	},
-	metadataBase: new URL("https://artstudio.pro"), // Zmeňte na vašu doménu
+	metadataBase: new URL("https://artstudio.pro"), 
 	alternates: {
 		canonical: "/",
 		languages: {
