@@ -2,7 +2,6 @@ import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import ScrollToTop from "@/components/shared/ScrollToTop";
-import { ThemeProvider } from "@/components/shared/ThemeProvider";
 
 const inter = Inter({
 	variable: "--font-inter",
@@ -168,18 +167,11 @@ export default function RootLayout({
 				className={`${inter.variable} font-sans antialiased bg-background text-foreground`}
 				suppressHydrationWarning
 			>
-				<ThemeProvider
-					attribute="class"
-					defaultTheme="system"
-					enableSystem
-					disableTransitionOnChange
-				>
-					{/* Main content */}
-					<main className="min-h-screen overflow-hidden">
-						{children}
-						<ScrollToTop />
-					</main>
-				</ThemeProvider>
+				{/* Main content */}
+				<main className="min-h-screen overflow-hidden">
+					{children}
+					<ScrollToTop />
+				</main>
 			</body>
 		</html>
 	);
