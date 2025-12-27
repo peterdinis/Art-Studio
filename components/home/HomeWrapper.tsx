@@ -59,14 +59,20 @@ const HomeWrapper: FC = () => {
 						<>
 							<div className="absolute top-0 left-0 right-0 h-5 bg-muted border-b border-border z-10 flex items-center">
 								{Array.from({ length: 40 }).map((_, i) => (
-									<div key={i} className="flex-shrink-0 w-20 text-[10px] text-muted-foreground border-r border-border/50 pl-1">
+									<div
+										key={i}
+										className="flex-shrink-0 w-20 text-[10px] text-muted-foreground border-r border-border/50 pl-1"
+									>
 										{i * 100}
 									</div>
 								))}
 							</div>
 							<div className="absolute top-5 left-0 bottom-0 w-5 bg-muted border-r border-border z-10 flex flex-col items-center">
 								{Array.from({ length: 30 }).map((_, i) => (
-									<div key={i} className="flex-shrink-0 h-20 text-[10px] text-muted-foreground border-b border-border/50 pt-1 writing-mode-vertical">
+									<div
+										key={i}
+										className="flex-shrink-0 h-20 text-[10px] text-muted-foreground border-b border-border/50 pt-1 writing-mode-vertical"
+									>
 										{i * 100}
 									</div>
 								))}
@@ -79,8 +85,9 @@ const HomeWrapper: FC = () => {
 						<div
 							className="absolute inset-0 pointer-events-none z-20"
 							style={{
-								backgroundImage: 'linear-gradient(to right, hsl(var(--border)/0.3) 1px, transparent 1px), linear-gradient(to bottom, hsl(var(--border)/0.3) 1px, transparent 1px)',
-								backgroundSize: '20px 20px',
+								backgroundImage:
+									"linear-gradient(to right, hsl(var(--border)/0.3) 1px, transparent 1px), linear-gradient(to bottom, hsl(var(--border)/0.3) 1px, transparent 1px)",
+								backgroundSize: "20px 20px",
 							}}
 						/>
 					)}
@@ -133,9 +140,13 @@ const HomeWrapper: FC = () => {
 							</div>
 						}
 					>
-						<div className={`${showRulers ? 'pt-5 pl-5' : ''} h-full w-full`}>
-              {renderingEngine === 'fabric' ? <DrawingCanvas /> : <KonvaCanvas />}
-            </div>
+						<div className={`${showRulers ? "pt-5 pl-5" : ""} h-full w-full`}>
+							{renderingEngine === "fabric" ? (
+								<DrawingCanvas />
+							) : (
+								<KonvaCanvas />
+							)}
+						</div>
 					</Suspense>
 
 					{/* Right Panels - Photoshop style */}

@@ -4,8 +4,8 @@ const nextConfig: NextConfig = {
 	reactStrictMode: true,
 	reactCompiler: true,
 	experimental: {
-		optimizeCss: true
-	}
+		optimizeCss: true,
+	},
 };
 
 export default nextConfig;
