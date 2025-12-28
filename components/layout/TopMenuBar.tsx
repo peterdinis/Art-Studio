@@ -95,6 +95,7 @@ interface MenuItemConfig {
 declare global {
 	interface Window {
 		fabricCanvas?: any;
+		konvaStage?: any;
 		copiedObject?: any;
 	}
 }
@@ -148,7 +149,9 @@ export const TopMenuBar: React.FC = () => {
 		resetWorkspace,
 	} = useArtStudioStore();
 
-	const getCanvas = () => window.fabricCanvas;
+	const getCanvas = () => window.fabricCanvas || window.konvaStage;
+	const isFabric = () => !!window.fabricCanvas;
+	const isKonva = () => !!window.konvaStage;
 
 	const handleNewCanvas = () => {
 		setShowTemplates(true);
@@ -403,8 +406,8 @@ export const TopMenuBar: React.FC = () => {
 	};
 
 	const handleDeleteSelection = () => {
-		const canvas = getCanvas();
-		if (canvas) {
+		if (isFabric()) {
+			const canvas = window.fabricCanvas;
 			const activeObjects = canvas.getActiveObjects();
 			if (activeObjects.length > 0) {
 				activeObjects.forEach((obj: any) => canvas.remove(obj));
@@ -414,6 +417,9 @@ export const TopMenuBar: React.FC = () => {
 			} else {
 				toast.info("No selection to delete");
 			}
+		} else if (isKonva()) {
+			// Trigger a custom event for Konva to handle deletion
+			window.dispatchEvent(new CustomEvent("artstudio:delete-selection"));
 		}
 	};
 

@@ -15,6 +15,7 @@ import {
 	Ellipse,
 	Path,
 	Point,
+	filters,
 } from "fabric";
 import { useArtStudioStore } from "@/stores/artStudioStore";
 import { toast } from "sonner";
@@ -46,6 +47,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 
 	// Clone tool state
 	const cloneSourcePoint = useRef<{ x: number; y: number } | null>(null);
+	const cloneStartPointer = useRef<{ x: number; y: number } | null>(null);
 	const isCloning = useRef(false);
 
 	// Selection tool state (marquee, lasso)
@@ -64,6 +66,8 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 		brushSettings,
 		zoom,
 		panOffset,
+		layers,
+		activeLayerId,
 		setZoom,
 		setPanOffset,
 		addToHistory,
@@ -228,6 +232,41 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 		canvas.renderAll();
 	}, [activeTool, primaryColor, brushSettings, isReady, actualBackground]);
 
+	// Sync layers and objects visibility
+	useEffect(() => {
+		if (!fabricRef.current || !isReady) return;
+
+		const canvas = fabricRef.current;
+		canvas.getObjects().forEach((obj: any) => {
+			const layer = layers.find((l) => l.id === obj.layerId);
+			if (layer) {
+				obj.visible = layer.visible;
+				obj.opacity = layer.opacity / 100;
+				obj.selectable = !layer.locked;
+			}
+		});
+		canvas.renderAll();
+	}, [layers, isReady]);
+
+	// Assign layer to new objects
+	useEffect(() => {
+		if (!fabricRef.current || !isReady) return;
+
+		const canvas = fabricRef.current;
+
+		const handleObjectAdded = (e: any) => {
+			const obj = e.target;
+			if (obj && !obj.layerId) {
+				obj.layerId = activeLayerId;
+			}
+		};
+
+		canvas.on("object:added", handleObjectAdded);
+		return () => {
+			canvas.off("object:added", handleObjectAdded);
+		};
+	}, [activeLayerId, isReady]);
+
 	// Unified mouse event handler
 	useEffect(() => {
 		if (!fabricRef.current || !isReady) return;
@@ -338,6 +377,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 					return;
 				}
 
+				cloneStartPointer.current = { x: pointer.x, y: pointer.y };
 				isCloning.current = true;
 				return;
 			}
@@ -355,6 +395,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 					return;
 				}
 
+				cloneStartPointer.current = { x: pointer.x, y: pointer.y };
 				isCloning.current = true;
 				return;
 			}
@@ -363,9 +404,15 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 			if (activeTool === "blur") {
 				const target = canvas.findTarget(e.e);
 				if (target) {
-					// Apply a simple blur filter effect by reducing opacity and adding a duplicate
-					const currentOpacity = target.opacity || 1;
-					target.set({ opacity: Math.max(0.3, currentOpacity - 0.1) });
+					if (target instanceof FabricImage) {
+						const blurFilter = new filters.Blur({ blur: 0.1 });
+						target.filters.push(blurFilter);
+						target.applyFilters();
+					} else {
+						// For shapes, we simulate blur by creating a semi-transparent copy
+						const clone = target.toObject();
+						target.set({ opacity: (target.opacity || 1) * 0.8 });
+					}
 					canvas.renderAll();
 					saveCanvasState("Blur applied");
 					toast.success("Blur effect applied");
@@ -663,10 +710,11 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 					radius: brushSettings.size / 2,
 					fill:
 						activeTool === "healing"
-							? "rgba(255, 200, 200, 0.3)"
-							: "rgba(200, 200, 255, 0.3)",
+							? "rgba(255, 200, 200, 0.4)"
+							: "rgba(200, 200, 255, 0.4)",
 					selectable: false,
 					evented: false,
+					layerId: activeLayerId,
 				});
 				canvas.add(circle);
 				canvas.renderAll();

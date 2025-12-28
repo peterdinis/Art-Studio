@@ -27,6 +27,7 @@ interface DrawingLine {
 	stroke: string;
 	strokeWidth: number;
 	tool: "brush" | "pencil" | "eraser";
+	layerId?: string;
 }
 
 interface ShapeObject {
@@ -48,6 +49,7 @@ interface ShapeObject {
 	rotation?: number;
 	scaleX?: number;
 	scaleY?: number;
+	layerId?: string;
 }
 
 interface ImageObject {
@@ -60,6 +62,7 @@ interface ImageObject {
 	rotation?: number;
 	scaleX?: number;
 	scaleY?: number;
+	layerId?: string;
 }
 
 export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
@@ -102,6 +105,8 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		canvasSize,
 		loadedImages,
 		setPrimaryColor,
+		layers,
+		activeLayerId,
 	} = useArtStudioStore();
 
 	const actualWidth = canvasSize?.width || width;
@@ -189,6 +194,7 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				stroke: activeTool === "eraser" ? actualBackground : primaryColor,
 				strokeWidth: brushSettings.size,
 				tool: activeTool as "brush" | "pencil" | "eraser",
+				layerId: activeLayerId || undefined,
 			};
 			setLines([...lines, newLine]);
 			return;
@@ -221,11 +227,11 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				points:
 					activeTool === "line"
 						? [
-								transformedPos.x,
-								transformedPos.y,
-								transformedPos.x,
-								transformedPos.y,
-							]
+							transformedPos.x,
+							transformedPos.y,
+							transformedPos.x,
+							transformedPos.y,
+						]
 						: undefined,
 			};
 			setCurrentShape(newShape);
@@ -435,7 +441,7 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		return () => container.removeEventListener("wheel", handleWheel);
 	}, [handleWheel]);
 
-	// Handle keyboard shortcuts
+	// Handle keyboard shortcuts and global actions
 	useEffect(() => {
 		const handleKeyDown = (e: KeyboardEvent) => {
 			if (
@@ -446,16 +452,27 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 
 			// Delete selected
 			if ((e.key === "Delete" || e.key === "Backspace") && selectedId) {
-				setShapes(shapes.filter((s) => s.id !== selectedId));
-				setLines(lines.filter((l) => l.id !== selectedId));
-				setImages(images.filter((i) => i.id !== selectedId));
+				deleteSelected();
+			}
+		};
+
+		const deleteSelected = () => {
+			if (selectedId) {
+				setShapes((prev) => prev.filter((s) => s.id !== selectedId));
+				setLines((prev) => prev.filter((l) => l.id !== selectedId));
+				setImages((prev) => prev.filter((i) => i.id !== selectedId));
 				setSelectedId(null);
 				saveCanvasState("Object deleted");
+				toast.success("Selection deleted");
 			}
 		};
 
 		window.addEventListener("keydown", handleKeyDown);
-		return () => window.removeEventListener("keydown", handleKeyDown);
+		window.addEventListener("artstudio:delete-selection", deleteSelected);
+		return () => {
+			window.removeEventListener("keydown", handleKeyDown);
+			window.removeEventListener("artstudio:delete-selection", deleteSelected);
+		};
 	}, [selectedId, shapes, lines, images, saveCanvasState]);
 
 	// Load images when added
@@ -482,6 +499,7 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				y: (actualHeight - img.height * scale) / 2,
 				width: img.width * scale,
 				height: img.height * scale,
+				layerId: activeLayerId || undefined,
 			};
 
 			setImages([...images, newImage]);
@@ -562,13 +580,13 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 						images.map((i) =>
 							i.id === image.id
 								? {
-										...i,
-										x: node.x(),
-										y: node.y(),
-										width: node.width() * node.scaleX(),
-										height: node.height() * node.scaleY(),
-										rotation: node.rotation(),
-									}
+									...i,
+									x: node.x(),
+									y: node.y(),
+									width: node.width() * node.scaleX(),
+									height: node.height() * node.scaleY(),
+									rotation: node.rotation(),
+								}
 								: i,
 						),
 					);
@@ -579,6 +597,15 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			/>
 		);
 	};
+
+	// Helper to check if a layer is visible
+	const isLayerVisible = useCallback(
+		(layerId?: string) => {
+			if (!layerId) return true;
+			return layers.find((l) => l.id === layerId)?.visible ?? true;
+		},
+		[layers],
+	);
 
 	return (
 		<div
@@ -641,178 +668,184 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 						/>
 
 						{/* Drawing lines */}
-						{lines.map((line) => (
-							<Line
-								key={line.id}
-								id={line.id}
-								points={line.points}
-								stroke={line.stroke}
-								strokeWidth={line.strokeWidth}
-								tension={line.tool === "brush" ? 0.5 : 0}
-								lineCap="round"
-								lineJoin="round"
-								globalCompositeOperation={
-									line.tool === "eraser" ? "destination-out" : "source-over"
-								}
-							/>
-						))}
+						{lines
+							.filter((line) => isLayerVisible(line.layerId))
+							.map((line) => (
+								<Line
+									key={line.id}
+									id={line.id}
+									points={line.points}
+									stroke={line.stroke}
+									strokeWidth={line.strokeWidth}
+									tension={line.tool === "brush" ? 0.5 : 0}
+									lineCap="round"
+									lineJoin="round"
+									globalCompositeOperation={
+										line.tool === "eraser" ? "destination-out" : "source-over"
+									}
+								/>
+							))}
 
 						{/* Images */}
-						{images.map((image) => (
-							<ImageNode key={image.id} image={image} />
-						))}
+						{images
+							.filter((img) => isLayerVisible(img.layerId))
+							.map((image) => (
+								<ImageNode key={image.id} image={image} />
+							))}
 
 						{/* Shapes */}
-						{shapes.map((shape) => {
-							if (shape.type === "rect") {
-								return (
-									<Rect
-										key={shape.id}
-										id={shape.id}
-										x={shape.x}
-										y={shape.y}
-										width={shape.width}
-										height={shape.height}
-										fill={shape.fill}
-										stroke={shape.stroke}
-										strokeWidth={shape.strokeWidth}
-										draggable={activeTool === "select" || activeTool === "move"}
-										onClick={() => setSelectedId(shape.id)}
-										onTap={() => setSelectedId(shape.id)}
-										onDragEnd={(e) => {
-											setShapes(
-												shapes.map((s) =>
-													s.id === shape.id
-														? { ...s, x: e.target.x(), y: e.target.y() }
-														: s,
-												),
-											);
-											saveCanvasState("Shape moved");
-										}}
-									/>
-								);
-							}
-
-							if (shape.type === "ellipse") {
-								return (
-									<Ellipse
-										key={shape.id}
-										id={shape.id}
-										x={shape.x}
-										y={shape.y}
-										radiusX={shape.radiusX || 50}
-										radiusY={shape.radiusY || 50}
-										fill={shape.fill}
-										stroke={shape.stroke}
-										strokeWidth={shape.strokeWidth}
-										draggable={activeTool === "select" || activeTool === "move"}
-										onClick={() => setSelectedId(shape.id)}
-										onTap={() => setSelectedId(shape.id)}
-										onDragEnd={(e) => {
-											setShapes(
-												shapes.map((s) =>
-													s.id === shape.id
-														? { ...s, x: e.target.x(), y: e.target.y() }
-														: s,
-												),
-											);
-											saveCanvasState("Shape moved");
-										}}
-									/>
-								);
-							}
-
-							if (shape.type === "line") {
-								return (
-									<Line
-										key={shape.id}
-										id={shape.id}
-										points={shape.points || [0, 0, 100, 100]}
-										stroke={shape.fill}
-										strokeWidth={shape.strokeWidth}
-										lineCap="round"
-										draggable={activeTool === "select" || activeTool === "move"}
-										onClick={() => setSelectedId(shape.id)}
-										onTap={() => setSelectedId(shape.id)}
-									/>
-								);
-							}
-
-							if (shape.type === "text") {
-								return (
-									<Text
-										key={shape.id}
-										id={shape.id}
-										x={shape.x}
-										y={shape.y}
-										text={shape.text}
-										fontSize={shape.fontSize}
-										fill={shape.fill}
-										draggable={activeTool === "select" || activeTool === "move"}
-										onClick={() => setSelectedId(shape.id)}
-										onTap={() => setSelectedId(shape.id)}
-										onDblClick={(e) => {
-											// Enable text editing
-											const textNode = e.target as Konva.Text;
-											const stage = textNode.getStage();
-											if (!stage) return;
-
-											const textPosition = textNode.absolutePosition();
-											const areaPosition = {
-												x: stage.container().offsetLeft + textPosition.x,
-												y: stage.container().offsetTop + textPosition.y,
-											};
-
-											const textarea = document.createElement("textarea");
-											document.body.appendChild(textarea);
-
-											textarea.value = textNode.text();
-											textarea.style.position = "absolute";
-											textarea.style.top = areaPosition.y + "px";
-											textarea.style.left = areaPosition.x + "px";
-											textarea.style.width = textNode.width() + "px";
-											textarea.style.fontSize = textNode.fontSize() + "px";
-											textarea.style.border = "none";
-											textarea.style.padding = "0px";
-											textarea.style.margin = "0px";
-											textarea.style.overflow = "hidden";
-											textarea.style.background = "none";
-											textarea.style.outline = "none";
-											textarea.style.resize = "none";
-											textarea.style.color = textNode.fill() as string;
-											textarea.style.fontFamily = "Arial";
-											textarea.style.zIndex = "1000";
-
-											textarea.focus();
-
-											textarea.addEventListener("blur", () => {
+						{shapes
+							.filter((shape) => isLayerVisible(shape.layerId))
+							.map((shape) => {
+								if (shape.type === "rect") {
+									return (
+										<Rect
+											key={shape.id}
+											id={shape.id}
+											x={shape.x}
+											y={shape.y}
+											width={shape.width}
+											height={shape.height}
+											fill={shape.fill}
+											stroke={shape.stroke}
+											strokeWidth={shape.strokeWidth}
+											draggable={activeTool === "select" || activeTool === "move"}
+											onClick={() => setSelectedId(shape.id)}
+											onTap={() => setSelectedId(shape.id)}
+											onDragEnd={(e) => {
 												setShapes(
 													shapes.map((s) =>
 														s.id === shape.id
-															? { ...s, text: textarea.value }
+															? { ...s, x: e.target.x(), y: e.target.y() }
 															: s,
 													),
 												);
-												document.body.removeChild(textarea);
-												saveCanvasState("Text edited");
-											});
-										}}
-										onDragEnd={(e) => {
-											setShapes(
-												shapes.map((s) =>
-													s.id === shape.id
-														? { ...s, x: e.target.x(), y: e.target.y() }
-														: s,
-												),
-											);
-											saveCanvasState("Text moved");
-										}}
-									/>
-								);
-							}
+												saveCanvasState("Shape moved");
+											}}
+										/>
+									);
+								}
 
-							return null;
-						})}
+								if (shape.type === "ellipse") {
+									return (
+										<Ellipse
+											key={shape.id}
+											id={shape.id}
+											x={shape.x}
+											y={shape.y}
+											radiusX={shape.radiusX || 50}
+											radiusY={shape.radiusY || 50}
+											fill={shape.fill}
+											stroke={shape.stroke}
+											strokeWidth={shape.strokeWidth}
+											draggable={activeTool === "select" || activeTool === "move"}
+											onClick={() => setSelectedId(shape.id)}
+											onTap={() => setSelectedId(shape.id)}
+											onDragEnd={(e) => {
+												setShapes(
+													shapes.map((s) =>
+														s.id === shape.id
+															? { ...s, x: e.target.x(), y: e.target.y() }
+															: s,
+													),
+												);
+												saveCanvasState("Shape moved");
+											}}
+										/>
+									);
+								}
+
+								if (shape.type === "line") {
+									return (
+										<Line
+											key={shape.id}
+											id={shape.id}
+											points={shape.points || [0, 0, 100, 100]}
+											stroke={shape.fill}
+											strokeWidth={shape.strokeWidth}
+											lineCap="round"
+											draggable={activeTool === "select" || activeTool === "move"}
+											onClick={() => setSelectedId(shape.id)}
+											onTap={() => setSelectedId(shape.id)}
+										/>
+									);
+								}
+
+								if (shape.type === "text") {
+									return (
+										<Text
+											key={shape.id}
+											id={shape.id}
+											x={shape.x}
+											y={shape.y}
+											text={shape.text}
+											fontSize={shape.fontSize}
+											fill={shape.fill}
+											draggable={activeTool === "select" || activeTool === "move"}
+											onClick={() => setSelectedId(shape.id)}
+											onTap={() => setSelectedId(shape.id)}
+											onDblClick={(e) => {
+												// Enable text editing
+												const textNode = e.target as Konva.Text;
+												const stage = textNode.getStage();
+												if (!stage) return;
+
+												const textPosition = textNode.absolutePosition();
+												const areaPosition = {
+													x: stage.container().offsetLeft + textPosition.x,
+													y: stage.container().offsetTop + textPosition.y,
+												};
+
+												const textarea = document.createElement("textarea");
+												document.body.appendChild(textarea);
+
+												textarea.value = textNode.text();
+												textarea.style.position = "absolute";
+												textarea.style.top = areaPosition.y + "px";
+												textarea.style.left = areaPosition.x + "px";
+												textarea.style.width = textNode.width() + "px";
+												textarea.style.fontSize = textNode.fontSize() + "px";
+												textarea.style.border = "none";
+												textarea.style.padding = "0px";
+												textarea.style.margin = "0px";
+												textarea.style.overflow = "hidden";
+												textarea.style.background = "none";
+												textarea.style.outline = "none";
+												textarea.style.resize = "none";
+												textarea.style.color = textNode.fill() as string;
+												textarea.style.fontFamily = "Arial";
+												textarea.style.zIndex = "1000";
+
+												textarea.focus();
+
+												textarea.addEventListener("blur", () => {
+													setShapes(
+														shapes.map((s) =>
+															s.id === shape.id
+																? { ...s, text: textarea.value }
+																: s,
+														),
+													);
+													document.body.removeChild(textarea);
+													saveCanvasState("Text edited");
+												});
+											}}
+											onDragEnd={(e) => {
+												setShapes(
+													shapes.map((s) =>
+														s.id === shape.id
+															? { ...s, x: e.target.x(), y: e.target.y() }
+															: s,
+													),
+												);
+												saveCanvasState("Text moved");
+											}}
+										/>
+									);
+								}
+
+								return null;
+							})}
 
 						{/* Current shape being drawn */}
 						{currentShape && currentShape.type === "rect" && (
