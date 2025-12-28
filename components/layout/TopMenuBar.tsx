@@ -147,9 +147,10 @@ export const TopMenuBar: React.FC = () => {
 		showGuides,
 		setShowGuides,
 		resetWorkspace,
+		renderingEngine,
+		setRenderingEngine,
 	} = useArtStudioStore();
 
-	const [renderEngine, setRenderEngine] = useState("fabric");
 	const getCanvas = () => window.fabricCanvas || window.konvaStage;
 	const isFabric = () => !!window.fabricCanvas;
 	const isKonva = () => !!window.konvaStage;
@@ -1169,17 +1170,17 @@ export const TopMenuBar: React.FC = () => {
 			submenu: [
 				{
 					label: "Fabric.js (Vector/Object)",
-					icon: renderEngine === "fabric" ? Check : undefined,
+					icon: renderingEngine === "fabric" ? Check : undefined,
 					action: () => {
-						setRenderEngine("fabric");
+						setRenderingEngine("fabric");
 						toast.success("Switched to Fabric.js engine");
 					},
 				},
 				{
 					label: "Konva.js (Canvas/Pixel)",
-					icon: renderEngine === "konva" ? Check : undefined,
+					icon: renderingEngine === "konva" ? Check : undefined,
 					action: () => {
-						setRenderEngine("konva");
+						setRenderingEngine("konva");
 						toast.success("Switched to Konva.js engine");
 					},
 				},

@@ -21,8 +21,8 @@ vi.mock("@/components/ui/dropdown-menu", () => ({
     DropdownMenu: ({ children }: any) => children,
     DropdownMenuTrigger: ({ children }: any) => children,
     DropdownMenuContent: ({ children }: any) => children,
-    DropdownMenuItem: ({ children, onClick }: any) => (
-        <div onClick={onClick} data-testid="menu-item">{children}</div>
+    DropdownMenuItem: ({ children, onClick, disabled }: any) => (
+        <div onClick={!disabled ? onClick : undefined} data-testid="menu-item">{children}</div>
     ),
     DropdownMenuSeparator: () => null,
     DropdownMenuSub: ({ children }: any) => children,
@@ -92,7 +92,7 @@ describe("TopMenuBar component", () => {
     it("should handle engine switching", () => {
         render(<TopMenuBar />);
 
-        const konvaItem = screen.getByText(/Switch to Konva Engine/i);
+        const konvaItem = screen.getByText(/Konva\.js \(Canvas\/Pixel\)/i);
         fireEvent.click(konvaItem);
         expect(mockSetEngine).toHaveBeenCalledWith("konva");
     });
