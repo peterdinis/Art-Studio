@@ -149,6 +149,7 @@ export const TopMenuBar: React.FC = () => {
 		resetWorkspace,
 	} = useArtStudioStore();
 
+	const [renderEngine, setRenderEngine] = useState("fabric");
 	const getCanvas = () => window.fabricCanvas || window.konvaStage;
 	const isFabric = () => !!window.fabricCanvas;
 	const isKonva = () => !!window.konvaStage;
@@ -296,10 +297,10 @@ export const TopMenuBar: React.FC = () => {
 
 			const dataURL = isFabric()
 				? (canvas as any).toDataURL({
-						format: format.toLowerCase() === "jpeg" ? "jpeg" : "png",
-						quality: 0.9,
-						multiplier: 1,
-					})
+					format: format.toLowerCase() === "jpeg" ? "jpeg" : "png",
+					quality: 0.9,
+					multiplier: 1,
+				})
 				: (canvas as any).toDataURL({ pixelRatio: 2 });
 
 			const a = document.createElement("a");
@@ -365,10 +366,10 @@ export const TopMenuBar: React.FC = () => {
 		if (canvas) {
 			const dataURL = isFabric()
 				? (canvas as any).toDataURL({
-						format: "png",
-						quality: 1,
-						multiplier: 2,
-					})
+					format: "png",
+					quality: 1,
+					multiplier: 2,
+				})
 				: (canvas as any).toDataURL({ pixelRatio: 2 });
 			const printWindow = window.open("", "_blank");
 			if (printWindow) {
@@ -1160,6 +1161,29 @@ export const TopMenuBar: React.FC = () => {
 				);
 			},
 			checked: showRightPanel,
+		},
+		{ separator: true, label: "" },
+		{
+			label: "Rendering Engine",
+			icon: Settings,
+			submenu: [
+				{
+					label: "Fabric.js (Vector/Object)",
+					icon: renderEngine === "fabric" ? Check : undefined,
+					action: () => {
+						setRenderEngine("fabric");
+						toast.success("Switched to Fabric.js engine");
+					},
+				},
+				{
+					label: "Konva.js (Canvas/Pixel)",
+					icon: renderEngine === "konva" ? Check : undefined,
+					action: () => {
+						setRenderEngine("konva");
+						toast.success("Switched to Konva.js engine");
+					},
+				},
+			],
 		},
 	];
 

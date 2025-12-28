@@ -28,6 +28,11 @@ vi.mock("@/components/panels/LayersPanel", () => ({
 vi.mock("@/components/layout/StatusBar", () => ({
 	StatusBar: () => <div data-testid="status-bar" />,
 }));
+vi.mock("@/components/ui/resizable", () => ({
+	ResizablePanelGroup: ({ children }: any) => <div data-testid="resizable-group">{children}</div>,
+	ResizablePanel: ({ children }: any) => <div data-testid="resizable-panel">{children}</div>,
+	ResizableHandle: () => <div data-testid="resizable-handle" />,
+}));
 
 describe("HomeWrapper component", () => {
 	it("should render all main layout sections", () => {

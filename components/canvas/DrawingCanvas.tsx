@@ -287,7 +287,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 				return;
 			}
 
-			const pointer = canvas.getPointer(e.e);
+			const pointer = canvas.getScenePoint(e.e);
 
 			// Marquee selection tool
 			if (activeTool === "marquee") {
@@ -648,7 +648,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 				return;
 			}
 
-			const pointer = canvas.getPointer(e.e);
+			const pointer = canvas.getScenePoint(e.e);
 
 			// Marquee selection drawing
 			if (
