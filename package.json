@@ -1,6 +1,6 @@
 {
 	"name": "art-studio",
-	"version": "0.2.0",
+	"version": "0.3.0",
 	"private": true,
 	"scripts": {
 		"dev": "next dev",
@@ -42,6 +42,7 @@
 		"react": "19.2.3",
 		"react-dom": "19.2.3",
 		"react-konva": "^19.2.1",
+		"react-resizable-panels": "^4.0.15",
 		"sonner": "^2.0.7",
 		"tailwind-merge": "^3.4.0",
 		"zustand": "^5.0.9"
