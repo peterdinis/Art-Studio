@@ -110,8 +110,7 @@ export const BrushPanel: React.FC = () => {
 			},
 			{
 				name: "Opacity",
-				description:
-					"Controls the transparency of each stroke.",
+				description: "Controls the transparency of each stroke.",
 				min: 1,
 				max: 100,
 				value: brushSettings.opacity,
@@ -130,8 +129,7 @@ export const BrushPanel: React.FC = () => {
 			},
 			{
 				name: "Smoothing",
-				description:
-					"Controls stroke stabilization for smoother lines.",
+				description: "Controls stroke stabilization for smoother lines.",
 				min: 1,
 				max: 100,
 				value: brushSettings.smoothing,
@@ -141,9 +139,7 @@ export const BrushPanel: React.FC = () => {
 		];
 
 		return (
-			<div className="space-y-4">
-				{options.map(renderSliderWithTooltip)}
-			</div>
+			<div className="space-y-4">{options.map(renderSliderWithTooltip)}</div>
 		);
 	};
 
@@ -209,9 +205,7 @@ export const BrushPanel: React.FC = () => {
 							<HelpCircle className="w-3 h-3 text-muted-foreground/50 cursor-help" />
 						</TooltipTrigger>
 						<TooltipContent side="right" className="max-w-[200px]">
-							<p className="text-xs">
-								The thickness of the shape's outline.
-							</p>
+							<p className="text-xs">The thickness of the shape's outline.</p>
 						</TooltipContent>
 					</Tooltip>
 				</div>
@@ -229,28 +223,31 @@ export const BrushPanel: React.FC = () => {
 				<div className="flex gap-1">
 					<button
 						onClick={() => setBrushSettings({ fillType: "solid" })}
-						className={`flex-1 px-2 py-1.5 text-xs rounded transition-colors flex items-center justify-center gap-1 ${brushSettings.fillType === "solid"
+						className={`flex-1 px-2 py-1.5 text-xs rounded transition-colors flex items-center justify-center gap-1 ${
+							brushSettings.fillType === "solid"
 								? "bg-primary/20 border border-primary/30"
 								: "bg-muted/50 hover:bg-muted"
-							}`}
+						}`}
 					>
 						<Square className="w-3 h-3" /> Solid
 					</button>
 					<button
 						onClick={() => setBrushSettings({ fillType: "gradient" })}
-						className={`flex-1 px-2 py-1.5 text-xs rounded transition-colors flex items-center justify-center gap-1 ${brushSettings.fillType === "gradient"
+						className={`flex-1 px-2 py-1.5 text-xs rounded transition-colors flex items-center justify-center gap-1 ${
+							brushSettings.fillType === "gradient"
 								? "bg-primary/20 border border-primary/30"
 								: "bg-muted/50 hover:bg-muted"
-							}`}
+						}`}
 					>
 						<Blend className="w-3 h-3" /> Gradient
 					</button>
 					<button
 						onClick={() => setBrushSettings({ fillType: "none" })}
-						className={`flex-1 px-2 py-1.5 text-xs rounded transition-colors flex items-center justify-center gap-1 ${brushSettings.fillType === "none"
+						className={`flex-1 px-2 py-1.5 text-xs rounded transition-colors flex items-center justify-center gap-1 ${
+							brushSettings.fillType === "none"
 								? "bg-primary/20 border border-primary/30"
 								: "bg-muted/50 hover:bg-muted"
-							}`}
+						}`}
 					>
 						<Circle className="w-3 h-3" /> None
 					</button>
@@ -315,9 +312,7 @@ export const BrushPanel: React.FC = () => {
 						<HelpCircle className="w-4 h-4 text-muted-foreground/50 cursor-help" />
 					</TooltipTrigger>
 					<TooltipContent side="left" className="max-w-[200px]">
-						<p className="text-xs">
-							Customize how the current tool behaves.
-						</p>
+						<p className="text-xs">Customize how the current tool behaves.</p>
 					</TooltipContent>
 				</Tooltip>
 			</div>

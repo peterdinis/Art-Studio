@@ -19,7 +19,9 @@ export const ColorPanel: React.FC = () => {
 	const [isHovering, setIsHovering] = useState(false);
 
 	const [primaryHex, setPrimaryHex] = useState(primaryColor.toUpperCase());
-	const [secondaryHex, setSecondaryHex] = useState(secondaryColor.toUpperCase());
+	const [secondaryHex, setSecondaryHex] = useState(
+		secondaryColor.toUpperCase(),
+	);
 
 	// Sync local state with store changes (e.g. from eyedropper)
 	React.useEffect(() => {
