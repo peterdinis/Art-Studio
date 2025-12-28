@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import Link, { LinkProps } from "next/link";
 import { usePathname } from "next/navigation";
 
-interface NavLinkCompatProps extends Omit<LinkProps, "className" | "href"> {
+interface NavLinkCompatProps {
 	className?: string;
 	activeClassName?: string;
 	pendingClassName?: string;
@@ -26,7 +26,7 @@ const NavLink = forwardRef<HTMLAnchorElement, NavLinkCompatProps>(
 		return (
 			<Link
 				ref={ref}
-				href={href}
+				href={href as any}
 				className={cn(
 					className,
 					isActive && activeClassName,

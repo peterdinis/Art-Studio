@@ -411,11 +411,15 @@ export const TopMenuBar: React.FC = () => {
 	const handleClearCanvas = () => {
 		const canvas = getCanvas();
 		if (canvas) {
-			canvas.clear();
-			canvas.backgroundColor = "#2d3748";
-			canvas.renderAll();
+			if (isFabric()) {
+				(canvas as any).clear();
+				(canvas as any).backgroundColor = "#2d3748";
+				(canvas as any).renderAll();
+			} else {
+				window.dispatchEvent(new CustomEvent("artstudio:clear-canvas"));
+			}
+			toast.success("Canvas cleared");
 		}
-		toast.success("Canvas cleared");
 	};
 
 	const handleDeleteSelection = () => {
