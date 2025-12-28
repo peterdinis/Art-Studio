@@ -37,6 +37,12 @@ export interface BrushSettings {
 	opacity: number;
 	hardness: number;
 	smoothing: number;
+	strokeWidth: number;
+	feather: number;
+	tolerance: number;
+	cornerRadius: number;
+	fillType: "solid" | "gradient" | "none";
+	sides: number;
 }
 
 export interface HistoryEntry {
@@ -197,6 +203,12 @@ export const useArtStudioStore = create<ArtStudioState>((set, get) => ({
 		opacity: 100,
 		hardness: 100,
 		smoothing: 20,
+		strokeWidth: 2,
+		feather: 0,
+		tolerance: 32,
+		cornerRadius: 0,
+		fillType: "solid",
+		sides: 5,
 	},
 	setBrushSettings: (settings) =>
 		set((state) => ({

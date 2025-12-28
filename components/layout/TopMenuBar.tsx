@@ -261,7 +261,7 @@ export const TopMenuBar: React.FC = () => {
 		const canvas = getCanvas();
 		if (canvas) {
 			if (format === "JSON") {
-				const json = JSON.stringify(canvas.toJSON(), null, 2);
+				const json = JSON.stringify(isFabric() ? (canvas as any).toJSON() : (canvas as any).toJSON(), null, 2);
 				const blob = new Blob([json], { type: "application/json" });
 				const url = URL.createObjectURL(blob);
 				const a = document.createElement("a");
@@ -274,23 +274,30 @@ export const TopMenuBar: React.FC = () => {
 			}
 
 			if (format === "SVG") {
-				const svg = canvas.toSVG();
-				const blob = new Blob([svg], { type: "image/svg+xml" });
-				const url = URL.createObjectURL(blob);
-				const a = document.createElement("a");
-				a.href = url;
-				a.download = "artwork.svg";
-				a.click();
-				URL.revokeObjectURL(url);
-				toast.success("Exported as SVG");
+				if (isFabric()) {
+					const svg = (canvas as any).toSVG();
+					const blob = new Blob([svg], { type: "image/svg+xml" });
+					const url = URL.createObjectURL(blob);
+					const a = document.createElement("a");
+					a.href = url;
+					a.download = "artwork.svg";
+					a.click();
+					URL.revokeObjectURL(url);
+					toast.success("Exported as SVG");
+				} else {
+					toast.error("SVG export not supported for Konva yet");
+				}
 				return;
 			}
 
-			const dataURL = canvas.toDataURL({
-				format: format.toLowerCase() === "jpeg" ? "jpeg" : "png",
-				quality: 0.9,
-				multiplier: 1,
-			});
+			const dataURL = isFabric()
+				? (canvas as any).toDataURL({
+					format: format.toLowerCase() === "jpeg" ? "jpeg" : "png",
+					quality: 0.9,
+					multiplier: 1,
+				})
+				: (canvas as any).toDataURL({ pixelRatio: 2 });
+
 			const a = document.createElement("a");
 			a.href = dataURL;
 			a.download = `artwork.${format.toLowerCase()}`;
@@ -352,11 +359,13 @@ export const TopMenuBar: React.FC = () => {
 	const handlePrint = () => {
 		const canvas = getCanvas();
 		if (canvas) {
-			const dataURL = canvas.toDataURL({
-				format: "png",
-				quality: 1,
-				multiplier: 2,
-			});
+			const dataURL = isFabric()
+				? (canvas as any).toDataURL({
+					format: "png",
+					quality: 1,
+					multiplier: 2,
+				})
+				: (canvas as any).toDataURL({ pixelRatio: 2 });
 			const printWindow = window.open("", "_blank");
 			if (printWindow) {
 				printWindow.document.write(`
@@ -387,9 +396,13 @@ export const TopMenuBar: React.FC = () => {
 	const handleGlobalDelete = () => {
 		const canvas = getCanvas();
 		if (canvas) {
-			canvas.clear();
-			canvas.backgroundColor = "#2d3748";
-			canvas.renderAll();
+			if (isFabric()) {
+				(canvas as any).clear();
+				(canvas as any).backgroundColor = "#2d3748";
+				(canvas as any).renderAll();
+			} else {
+				window.dispatchEvent(new CustomEvent("artstudio:clear-canvas"));
+			}
 			clearHistory();
 		}
 		toast.warning("All canvas content deleted");

@@ -18,6 +18,18 @@ export const ColorPanel: React.FC = () => {
 	const secondaryInputRef = useRef<HTMLInputElement>(null);
 	const [isHovering, setIsHovering] = useState(false);
 
+	const [primaryHex, setPrimaryHex] = useState(primaryColor.toUpperCase());
+	const [secondaryHex, setSecondaryHex] = useState(secondaryColor.toUpperCase());
+
+	// Sync local state with store changes (e.g. from eyedropper)
+	React.useEffect(() => {
+		setPrimaryHex(primaryColor.toUpperCase());
+	}, [primaryColor]);
+
+	React.useEffect(() => {
+		setSecondaryHex(secondaryColor.toUpperCase());
+	}, [secondaryColor]);
+
 	return (
 		<div className="panel-glass p-4 w-full space-y-4 animate-fade-in">
 			<h3 className="text-sm font-medium text-foreground">Colors</h3>
@@ -76,11 +88,16 @@ export const ColorPanel: React.FC = () => {
 						<span className="text-xs text-muted-foreground">Pri:</span>
 						<input
 							type="text"
-							value={primaryColor.toUpperCase()}
+							value={primaryHex}
 							onChange={(e) => {
-								if (/^#[0-9A-Fa-f]{6}$/.test(e.target.value)) {
-									setPrimaryColor(e.target.value);
+								const val = e.target.value;
+								setPrimaryHex(val);
+								if (/^#[0-9A-Fa-f]{6}$/.test(val)) {
+									setPrimaryColor(val);
 								}
+							}}
+							onBlur={() => {
+								setPrimaryHex(primaryColor.toUpperCase());
 							}}
 							className="bg-muted/50 px-2 py-0.5 rounded text-xs font-mono w-20 focus:outline-none focus:ring-1 focus:ring-primary"
 						/>
@@ -89,11 +106,16 @@ export const ColorPanel: React.FC = () => {
 						<span className="text-xs text-muted-foreground">Sec:</span>
 						<input
 							type="text"
-							value={secondaryColor.toUpperCase()}
+							value={secondaryHex}
 							onChange={(e) => {
-								if (/^#[0-9A-Fa-f]{6}$/.test(e.target.value)) {
-									setSecondaryColor(e.target.value);
+								const val = e.target.value;
+								setSecondaryHex(val);
+								if (/^#[0-9A-Fa-f]{6}$/.test(val)) {
+									setSecondaryColor(val);
 								}
+							}}
+							onBlur={() => {
+								setSecondaryHex(secondaryColor.toUpperCase());
 							}}
 							className="bg-muted/50 px-2 py-0.5 rounded text-xs font-mono w-20 focus:outline-none focus:ring-1 focus:ring-primary"
 						/>

@@ -111,7 +111,7 @@ export const BrushPanel: React.FC = () => {
 			{
 				name: "Opacity",
 				description:
-					"Controls the transparency of each stroke. Lower values allow colors to build up gradually.",
+					"Controls the transparency of each stroke.",
 				min: 1,
 				max: 100,
 				value: brushSettings.opacity,
@@ -121,7 +121,7 @@ export const BrushPanel: React.FC = () => {
 			{
 				name: "Hardness",
 				description:
-					"Controls the edge softness of the brush. 100% = hard edge, 0% = soft feathered edge.",
+					"Controls the edge softness of the brush. 100% = hard edge.",
 				min: 0,
 				max: 100,
 				value: brushSettings.hardness,
@@ -129,9 +129,9 @@ export const BrushPanel: React.FC = () => {
 				unit: "%",
 			},
 			{
-				name: "Flow",
+				name: "Smoothing",
 				description:
-					"Controls how quickly paint is applied. Lower flow allows for more gradual buildup.",
+					"Controls stroke stabilization for smoother lines.",
 				min: 1,
 				max: 100,
 				value: brushSettings.smoothing,
@@ -140,7 +140,11 @@ export const BrushPanel: React.FC = () => {
 			},
 		];
 
-		return options.map(renderSliderWithTooltip);
+		return (
+			<div className="space-y-4">
+				{options.map(renderSliderWithTooltip)}
+			</div>
+		);
 	};
 
 	const renderSelectionOptions = () => (
@@ -159,7 +163,13 @@ export const BrushPanel: React.FC = () => {
 						</TooltipContent>
 					</Tooltip>
 				</div>
-				<Slider defaultValue={[0]} min={0} max={100} step={1} />
+				<Slider
+					value={[brushSettings.feather]}
+					onValueChange={([val]) => setBrushSettings({ feather: val })}
+					min={0}
+					max={100}
+					step={1}
+				/>
 			</div>
 
 			{activeTool === "magicwand" && (
@@ -172,41 +182,20 @@ export const BrushPanel: React.FC = () => {
 							</TooltipTrigger>
 							<TooltipContent side="right" className="max-w-[200px]">
 								<p className="text-xs">
-									Determines the range of similar colors selected. Higher = more
-									colors included.
+									Determines the range of similar colors selected.
 								</p>
 							</TooltipContent>
 						</Tooltip>
 					</div>
-					<Slider defaultValue={[32]} min={0} max={255} step={1} />
+					<Slider
+						value={[brushSettings.tolerance]}
+						onValueChange={([val]) => setBrushSettings({ tolerance: val })}
+						min={0}
+						max={255}
+						step={1}
+					/>
 				</div>
 			)}
-
-			<div className="space-y-2">
-				<Label className="text-xs text-muted-foreground">Selection Mode</Label>
-				<div className="flex gap-1">
-					{["New", "Add", "Subtract", "Intersect"].map((mode) => (
-						<Tooltip key={mode} delayDuration={300}>
-							<TooltipTrigger asChild>
-								<button className="flex-1 px-2 py-1.5 text-xs rounded bg-muted/50 hover:bg-muted transition-colors">
-									{mode}
-								</button>
-							</TooltipTrigger>
-							<TooltipContent>
-								<p className="text-xs">
-									{mode === "New" &&
-										"Create a new selection, replacing any existing one"}
-									{mode === "Add" && "Add to the current selection (Shift)"}
-									{mode === "Subtract" &&
-										"Remove from the current selection (Alt)"}
-									{mode === "Intersect" &&
-										"Keep only the overlapping area (Shift+Alt)"}
-								</p>
-							</TooltipContent>
-						</Tooltip>
-					))}
-				</div>
-			</div>
 		</div>
 	);
 
@@ -221,49 +210,50 @@ export const BrushPanel: React.FC = () => {
 						</TooltipTrigger>
 						<TooltipContent side="right" className="max-w-[200px]">
 							<p className="text-xs">
-								The thickness of the shape's outline. Set to 0 for no stroke.
+								The thickness of the shape's outline.
 							</p>
 						</TooltipContent>
 					</Tooltip>
 				</div>
-				<Slider defaultValue={[2]} min={0} max={50} step={1} />
+				<Slider
+					value={[brushSettings.strokeWidth]}
+					onValueChange={([val]) => setBrushSettings({ strokeWidth: val })}
+					min={0}
+					max={50}
+					step={1}
+				/>
 			</div>
 
 			<div className="space-y-2">
 				<Label className="text-xs text-muted-foreground">Fill Type</Label>
 				<div className="flex gap-1">
-					<Tooltip delayDuration={300}>
-						<TooltipTrigger asChild>
-							<button className="flex-1 px-2 py-1.5 text-xs rounded bg-primary/20 border border-primary/30 transition-colors flex items-center justify-center gap-1">
-								<Square className="w-3 h-3" /> Solid
-							</button>
-						</TooltipTrigger>
-						<TooltipContent>
-							<p className="text-xs">Fill with a solid foreground color</p>
-						</TooltipContent>
-					</Tooltip>
-					<Tooltip delayDuration={300}>
-						<TooltipTrigger asChild>
-							<button className="flex-1 px-2 py-1.5 text-xs rounded bg-muted/50 hover:bg-muted transition-colors flex items-center justify-center gap-1">
-								<Blend className="w-3 h-3" /> Gradient
-							</button>
-						</TooltipTrigger>
-						<TooltipContent>
-							<p className="text-xs">
-								Fill with a gradient using foreground and background colors
-							</p>
-						</TooltipContent>
-					</Tooltip>
-					<Tooltip delayDuration={300}>
-						<TooltipTrigger asChild>
-							<button className="flex-1 px-2 py-1.5 text-xs rounded bg-muted/50 hover:bg-muted transition-colors flex items-center justify-center gap-1">
-								<Circle className="w-3 h-3" /> None
-							</button>
-						</TooltipTrigger>
-						<TooltipContent>
-							<p className="text-xs">No fill, stroke only</p>
-						</TooltipContent>
-					</Tooltip>
+					<button
+						onClick={() => setBrushSettings({ fillType: "solid" })}
+						className={`flex-1 px-2 py-1.5 text-xs rounded transition-colors flex items-center justify-center gap-1 ${brushSettings.fillType === "solid"
+								? "bg-primary/20 border border-primary/30"
+								: "bg-muted/50 hover:bg-muted"
+							}`}
+					>
+						<Square className="w-3 h-3" /> Solid
+					</button>
+					<button
+						onClick={() => setBrushSettings({ fillType: "gradient" })}
+						className={`flex-1 px-2 py-1.5 text-xs rounded transition-colors flex items-center justify-center gap-1 ${brushSettings.fillType === "gradient"
+								? "bg-primary/20 border border-primary/30"
+								: "bg-muted/50 hover:bg-muted"
+							}`}
+					>
+						<Blend className="w-3 h-3" /> Gradient
+					</button>
+					<button
+						onClick={() => setBrushSettings({ fillType: "none" })}
+						className={`flex-1 px-2 py-1.5 text-xs rounded transition-colors flex items-center justify-center gap-1 ${brushSettings.fillType === "none"
+								? "bg-primary/20 border border-primary/30"
+								: "bg-muted/50 hover:bg-muted"
+							}`}
+					>
+						<Circle className="w-3 h-3" /> None
+					</button>
 				</div>
 			</div>
 
@@ -276,32 +266,31 @@ export const BrushPanel: React.FC = () => {
 								<HelpCircle className="w-3 h-3 text-muted-foreground/50 cursor-help" />
 							</TooltipTrigger>
 							<TooltipContent side="right" className="max-w-[200px]">
-								<p className="text-xs">
-									Number of sides for the polygon. 3 = triangle, 6 = hexagon,
-									etc.
-								</p>
+								<p className="text-xs">Number of sides for the polygon.</p>
 							</TooltipContent>
 						</Tooltip>
 					</div>
-					<Slider defaultValue={[6]} min={3} max={12} step={1} />
+					<Slider
+						value={[brushSettings.sides]}
+						onValueChange={([val]) => setBrushSettings({ sides: val })}
+						min={3}
+						max={12}
+						step={1}
+					/>
 				</div>
 			)}
 
 			<div className="space-y-2">
 				<div className="flex items-center gap-1.5">
 					<Label className="text-xs text-muted-foreground">Corner Radius</Label>
-					<Tooltip delayDuration={300}>
-						<TooltipTrigger asChild>
-							<HelpCircle className="w-3 h-3 text-muted-foreground/50 cursor-help" />
-						</TooltipTrigger>
-						<TooltipContent side="right" className="max-w-[200px]">
-							<p className="text-xs">
-								Rounds the corners of rectangles and polygons.
-							</p>
-						</TooltipContent>
-					</Tooltip>
 				</div>
-				<Slider defaultValue={[0]} min={0} max={50} step={1} />
+				<Slider
+					value={[brushSettings.cornerRadius]}
+					onValueChange={([val]) => setBrushSettings({ cornerRadius: val })}
+					min={0}
+					max={50}
+					step={1}
+				/>
 			</div>
 		</div>
 	);
@@ -327,8 +316,7 @@ export const BrushPanel: React.FC = () => {
 					</TooltipTrigger>
 					<TooltipContent side="left" className="max-w-[200px]">
 						<p className="text-xs">
-							Customize how the current tool behaves. These settings affect all
-							new strokes or selections.
+							Customize how the current tool behaves.
 						</p>
 					</TooltipContent>
 				</Tooltip>
@@ -342,21 +330,10 @@ export const BrushPanel: React.FC = () => {
 				!isShapeTool &&
 				renderGenericOptions()}
 
-			{/* Brush Preview */}
 			{isDrawingTool && (
 				<div className="pt-2">
 					<div className="flex items-center gap-1.5 mb-2">
 						<Label className="text-xs text-muted-foreground">Preview</Label>
-						<Tooltip delayDuration={300}>
-							<TooltipTrigger asChild>
-								<HelpCircle className="w-3 h-3 text-muted-foreground/50 cursor-help" />
-							</TooltipTrigger>
-							<TooltipContent side="right" className="max-w-[200px]">
-								<p className="text-xs">
-									Live preview of your current brush settings.
-								</p>
-							</TooltipContent>
-						</Tooltip>
 					</div>
 					<div className="h-16 bg-muted/30 rounded-md flex items-center justify-center border border-border/50">
 						<div

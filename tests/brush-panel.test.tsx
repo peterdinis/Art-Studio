@@ -43,6 +43,12 @@ describe("BrushPanel component", () => {
 				opacity: 100,
 				hardness: 100,
 				smoothing: 20,
+				strokeWidth: 2,
+				feather: 0,
+				tolerance: 32,
+				cornerRadius: 0,
+				fillType: "solid",
+				sides: 5,
 			},
 		});
 	});

@@ -468,11 +468,22 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			}
 		};
 
+		const clearAll = () => {
+			setShapes([]);
+			setLines([]);
+			setImages([]);
+			setSelectedId(null);
+			saveCanvasState("Canvas cleared");
+			toast.success("Canvas cleared");
+		};
+
 		window.addEventListener("keydown", handleKeyDown);
 		window.addEventListener("artstudio:delete-selection", deleteSelected);
+		window.addEventListener("artstudio:clear-canvas", clearAll);
 		return () => {
 			window.removeEventListener("keydown", handleKeyDown);
 			window.removeEventListener("artstudio:delete-selection", deleteSelected);
+			window.removeEventListener("artstudio:clear-canvas", clearAll);
 		};
 	}, [selectedId, shapes, lines, images, saveCanvasState]);
 

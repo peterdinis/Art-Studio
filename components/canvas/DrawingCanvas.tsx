@@ -380,6 +380,8 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 
 				cloneStartPointer.current = { x: pointer.x, y: pointer.y };
 				isCloning.current = true;
+				// Capture a snapshot of the canvas for cloning
+				cloneSnapshot.current = canvas.toCanvasElement();
 				return;
 			}
 
@@ -398,6 +400,8 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 
 				cloneStartPointer.current = { x: pointer.x, y: pointer.y };
 				isCloning.current = true;
+				// Capture a snapshot of the canvas for healing
+				cloneSnapshot.current = canvas.toCanvasElement();
 				return;
 			}
 
@@ -933,6 +937,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 				saveCanvasState(
 					activeTool === "clone" ? "Clone applied" : "Healing applied",
 				);
+				cloneSnapshot.current = null;
 				return;
 			}
 
