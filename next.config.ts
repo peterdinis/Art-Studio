@@ -4,16 +4,15 @@ const nextConfig: NextConfig = {
 	reactStrictMode: true,
 	reactCompiler: true,
 	devIndicators: {
-		position: "bottom-right"
+		position: "bottom-right",
 	},
 	typedRoutes: true,
 	logging: {
-		incomingRequests: true
+		incomingRequests: true,
 	},
 	experimental: {
 		optimizeCss: true,
 	},
-	
 };
 
 export default nextConfig;

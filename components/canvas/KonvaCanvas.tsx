@@ -227,11 +227,11 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				points:
 					activeTool === "line"
 						? [
-							transformedPos.x,
-							transformedPos.y,
-							transformedPos.x,
-							transformedPos.y,
-						]
+								transformedPos.x,
+								transformedPos.y,
+								transformedPos.x,
+								transformedPos.y,
+							]
 						: undefined,
 			};
 			setCurrentShape(newShape);
@@ -580,13 +580,13 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 						images.map((i) =>
 							i.id === image.id
 								? {
-									...i,
-									x: node.x(),
-									y: node.y(),
-									width: node.width() * node.scaleX(),
-									height: node.height() * node.scaleY(),
-									rotation: node.rotation(),
-								}
+										...i,
+										x: node.x(),
+										y: node.y(),
+										width: node.width() * node.scaleX(),
+										height: node.height() * node.scaleY(),
+										rotation: node.rotation(),
+									}
 								: i,
 						),
 					);
@@ -709,7 +709,9 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 											fill={shape.fill}
 											stroke={shape.stroke}
 											strokeWidth={shape.strokeWidth}
-											draggable={activeTool === "select" || activeTool === "move"}
+											draggable={
+												activeTool === "select" || activeTool === "move"
+											}
 											onClick={() => setSelectedId(shape.id)}
 											onTap={() => setSelectedId(shape.id)}
 											onDragEnd={(e) => {
@@ -738,7 +740,9 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 											fill={shape.fill}
 											stroke={shape.stroke}
 											strokeWidth={shape.strokeWidth}
-											draggable={activeTool === "select" || activeTool === "move"}
+											draggable={
+												activeTool === "select" || activeTool === "move"
+											}
 											onClick={() => setSelectedId(shape.id)}
 											onTap={() => setSelectedId(shape.id)}
 											onDragEnd={(e) => {
@@ -764,7 +768,9 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 											stroke={shape.fill}
 											strokeWidth={shape.strokeWidth}
 											lineCap="round"
-											draggable={activeTool === "select" || activeTool === "move"}
+											draggable={
+												activeTool === "select" || activeTool === "move"
+											}
 											onClick={() => setSelectedId(shape.id)}
 											onTap={() => setSelectedId(shape.id)}
 										/>
@@ -781,7 +787,9 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 											text={shape.text}
 											fontSize={shape.fontSize}
 											fill={shape.fill}
-											draggable={activeTool === "select" || activeTool === "move"}
+											draggable={
+												activeTool === "select" || activeTool === "move"
+											}
 											onClick={() => setSelectedId(shape.id)}
 											onTap={() => setSelectedId(shape.id)}
 											onDblClick={(e) => {
