@@ -6,6 +6,7 @@ const nextConfig: NextConfig = {
 	devIndicators: {
 		position: "bottom-right",
 	},
+
 	typedRoutes: true,
 	experimental: {
 		optimizeCss: true,
