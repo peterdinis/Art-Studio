@@ -224,14 +224,15 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				fill: primaryColor,
 				stroke: secondaryColor,
 				strokeWidth: 2,
+				layerId: activeLayerId || undefined,
 				points:
 					activeTool === "line"
 						? [
-								transformedPos.x,
-								transformedPos.y,
-								transformedPos.x,
-								transformedPos.y,
-							]
+							transformedPos.x,
+							transformedPos.y,
+							transformedPos.x,
+							transformedPos.y,
+						]
 						: undefined,
 			};
 			setCurrentShape(newShape);
@@ -580,13 +581,13 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 						images.map((i) =>
 							i.id === image.id
 								? {
-										...i,
-										x: node.x(),
-										y: node.y(),
-										width: node.width() * node.scaleX(),
-										height: node.height() * node.scaleY(),
-										rotation: node.rotation(),
-									}
+									...i,
+									x: node.x(),
+									y: node.y(),
+									width: node.width() * node.scaleX(),
+									height: node.height() * node.scaleY(),
+									rotation: node.rotation(),
+								}
 								: i,
 						),
 					);

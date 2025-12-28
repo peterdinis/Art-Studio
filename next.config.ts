@@ -7,9 +7,6 @@ const nextConfig: NextConfig = {
 		position: "bottom-right",
 	},
 	typedRoutes: true,
-	logging: {
-		incomingRequests: true,
-	},
 	experimental: {
 		optimizeCss: true,
 	},

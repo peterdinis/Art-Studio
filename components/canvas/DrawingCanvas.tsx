@@ -49,6 +49,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 	const cloneSourcePoint = useRef<{ x: number; y: number } | null>(null);
 	const cloneStartPointer = useRef<{ x: number; y: number } | null>(null);
 	const isCloning = useRef(false);
+	const cloneSnapshot = useRef<HTMLCanvasElement | null>(null);
 
 	// Selection tool state (marquee, lasso)
 	const selectionPoints = useRef<{ x: number; y: number }[]>([]);
@@ -701,23 +702,64 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 			if (
 				(activeTool === "clone" || activeTool === "healing") &&
 				isCloning.current &&
-				cloneSourcePoint.current
+				cloneSourcePoint.current &&
+				cloneStartPointer.current &&
+				cloneSnapshot.current
 			) {
-				// Create a small circle to simulate clone painting
-				const circle = new Circle({
-					left: pointer.x - brushSettings.size / 2,
-					top: pointer.y - brushSettings.size / 2,
-					radius: brushSettings.size / 2,
-					fill:
-						activeTool === "healing"
-							? "rgba(255, 200, 200, 0.4)"
-							: "rgba(200, 200, 255, 0.4)",
-					selectable: false,
-					evented: false,
-					layerId: activeLayerId,
+				const offset = {
+					x: pointer.x - cloneStartPointer.current.x,
+					y: pointer.y - cloneStartPointer.current.y,
+				};
+
+				const srcX = cloneSourcePoint.current.x + offset.x;
+				const srcY = cloneSourcePoint.current.y + offset.y;
+
+				// Create a small portion of the captured canvas as a pattern or image
+				import("fabric").then(({ FabricImage, Circle }) => {
+					// We'll create a small circle and fill it with a pattern from the snapshot
+					const size = brushSettings.size;
+					const radius = size / 2;
+
+					// Create a temporary canvas to hold the cropped source area
+					const tempCanvas = document.createElement("canvas");
+					tempCanvas.width = size;
+					tempCanvas.height = size;
+					const tempCtx = tempCanvas.getContext("2d");
+
+					if (tempCtx && cloneSnapshot.current) {
+						tempCtx.drawImage(
+							cloneSnapshot.current,
+							srcX - radius,
+							srcY - radius,
+							size,
+							size,
+							0,
+							0,
+							size,
+							size,
+						);
+
+						FabricImage.fromURL(tempCanvas.toDataURL()).then((img: any) => {
+							img.set({
+								left: pointer.x - radius,
+								top: pointer.y - radius,
+								selectable: false,
+								evented: false,
+								layerId: activeLayerId,
+							});
+
+							if (activeTool === "healing") {
+								img.set({
+									opacity: 0.7,
+									blur: 5,
+								});
+							}
+
+							canvas.add(img);
+							canvas.renderAll();
+						});
+					}
 				});
-				canvas.add(circle);
-				canvas.renderAll();
 				return;
 			}
 
