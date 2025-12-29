@@ -2,7 +2,6 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { TopMenuBar } from "@/components/layout/TopMenuBar";
 import { useArtStudioStore } from "@/stores/artStudioStore";
-import React from "react";
 
 // Mock store
 vi.mock("@/stores/artStudioStore", () => ({

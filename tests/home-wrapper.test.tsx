@@ -1,7 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 import HomeWrapper from "@/components/home/HomeWrapper";
-import React from "react";
 
 // Mock all sub-components using their absolute paths as they are imported in HomeWrapper
 vi.mock("@/components/layout/TopMenuBar", () => ({

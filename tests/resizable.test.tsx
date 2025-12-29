@@ -5,7 +5,6 @@ import {
 	ResizablePanel,
 	ResizableHandle,
 } from "@/components/ui/resizable";
-import React from "react";
 
 // Mock react-resizable-panels since it might rely on DOM measurements not available in JSDOM
 vi.mock("react-resizable-panels", () => {
