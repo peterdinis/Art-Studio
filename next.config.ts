@@ -10,6 +10,7 @@ const nextConfig: NextConfig = {
 	typedRoutes: true,
 	experimental: {
 		optimizeCss: true,
+		browserDebugInfoInTerminal: true
 	},
 };
 
