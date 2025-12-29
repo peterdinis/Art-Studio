@@ -298,10 +298,10 @@ export const TopMenuBar: React.FC = () => {
 
 			const dataURL = isFabric()
 				? (canvas as any).toDataURL({
-					format: format.toLowerCase() === "jpeg" ? "jpeg" : "png",
-					quality: 0.9,
-					multiplier: 1,
-				})
+						format: format.toLowerCase() === "jpeg" ? "jpeg" : "png",
+						quality: 0.9,
+						multiplier: 1,
+					})
 				: (canvas as any).toDataURL({ pixelRatio: 2 });
 
 			const a = document.createElement("a");
@@ -367,10 +367,10 @@ export const TopMenuBar: React.FC = () => {
 		if (canvas) {
 			const dataURL = isFabric()
 				? (canvas as any).toDataURL({
-					format: "png",
-					quality: 1,
-					multiplier: 2,
-				})
+						format: "png",
+						quality: 1,
+						multiplier: 2,
+					})
 				: (canvas as any).toDataURL({ pixelRatio: 2 });
 			const printWindow = window.open("", "_blank");
 			if (printWindow) {
