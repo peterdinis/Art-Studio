@@ -7,7 +7,6 @@ import {
 	TooltipContent,
 } from "@/components/ui/tooltip";
 import { PhotoshopLoading } from "@/components/shared/PhotoshopLoading";
-import React from "react";
 
 // Mock Radix UI Sliders and Tooltips as they are very complex to test in JSDOM
 // without full ARIA support or custom setups.

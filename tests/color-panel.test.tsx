@@ -2,7 +2,6 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { ColorPanel } from "@/components/panels/ColorPanel";
 import { useArtStudioStore } from "@/stores/artStudioStore";
-import React from "react";
 
 describe("ColorPanel component", () => {
 	beforeEach(() => {
