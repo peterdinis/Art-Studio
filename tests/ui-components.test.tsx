@@ -8,6 +8,41 @@ import {
 } from "@/components/ui/tooltip";
 import { PhotoshopLoading } from "@/components/shared/PhotoshopLoading";
 
+interface SliderMockProps {
+	children: React.ReactNode;
+	onValueChange: (value: number[]) => void;
+	value: number[];
+	defaultValue: number[];
+	min: number;
+	max: number;
+	[key: string]: unknown;
+}
+
+interface TooltipRootMockProps {
+	children: React.ReactNode;
+	open?: boolean;
+}
+
+interface TooltipTriggerMockProps {
+	children: React.ReactNode;
+}
+
+interface TooltipContentMockProps {
+	children: React.ReactNode;
+}
+
+interface TrackMockProps {
+	children: React.ReactNode;
+}
+
+interface ProviderMockProps {
+	children: React.ReactNode;
+}
+
+interface PortalMockProps {
+	children: React.ReactNode;
+}
+
 // Mock Radix UI Sliders and Tooltips as they are very complex to test in JSDOM
 // without full ARIA support or custom setups.
 vi.mock("@radix-ui/react-slider", () => ({
@@ -19,7 +54,7 @@ vi.mock("@radix-ui/react-slider", () => ({
 		min,
 		max,
 		...props
-	}: any) => (
+	}: SliderMockProps) => (
 		<div data-testid="slider-root" {...props}>
 			<input
 				type="range"
@@ -27,30 +62,30 @@ vi.mock("@radix-ui/react-slider", () => ({
 				max={max}
 				role="slider"
 				value={value ? value[0] : defaultValue ? defaultValue[0] : 0}
-				onChange={(e) =>
-					onValueChange && onValueChange([parseInt(e.target.value)])
+				onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+					onValueChange && onValueChange([parseInt(e.target.value, 10)])
 				}
 			/>
 			{children}
 		</div>
 	),
-	Track: ({ children }: any) => <div>{children}</div>,
+	Track: ({ children }: TrackMockProps) => <div>{children}</div>,
 	Range: () => <div />,
 	Thumb: () => <div />,
 }));
 
 vi.mock("@radix-ui/react-tooltip", () => ({
-	Provider: ({ children }: any) => <div>{children}</div>,
-	Root: ({ children, open }: any) => (
+	Provider: ({ children }: ProviderMockProps) => <div>{children}</div>,
+	Root: ({ children, open }: TooltipRootMockProps) => (
 		<div data-testid="tooltip-root" data-state={open ? "open" : "closed"}>
 			{children}
 		</div>
 	),
-	Trigger: ({ children }: any) => (
+	Trigger: ({ children }: TooltipTriggerMockProps) => (
 		<div data-testid="tooltip-trigger">{children}</div>
 	),
-	Portal: ({ children }: any) => <div>{children}</div>,
-	Content: ({ children }: any) => (
+	Portal: ({ children }: PortalMockProps) => <div>{children}</div>,
+	Content: ({ children }: TooltipContentMockProps) => (
 		<div data-testid="tooltip-content">{children}</div>
 	),
 	Arrow: () => <div />,
@@ -65,7 +100,7 @@ describe("UI Components", () => {
 			);
 
 			const sliderInput = screen.getByRole("slider");
-			fireEvent.change(sliderInput!, { target: { value: "75" } });
+			fireEvent.change(sliderInput, { target: { value: "75" } });
 
 			expect(handleChange).toHaveBeenCalledWith([75]);
 		});

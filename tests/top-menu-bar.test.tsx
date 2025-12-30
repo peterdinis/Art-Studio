@@ -3,6 +3,40 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { TopMenuBar } from "@/components/layout/TopMenuBar";
 import { useArtStudioStore } from "@/stores/artStudioStore";
 
+interface MockTooltipProps {
+	children: React.ReactNode;
+}
+
+interface MockDropdownMenuItemProps {
+	children: React.ReactNode;
+	onClick?: () => void;
+	disabled?: boolean;
+}
+
+interface MockDropdownMenuProps {
+	children: React.ReactNode;
+}
+
+interface MockDropdownMenuSubProps {
+	children: React.ReactNode;
+}
+
+interface MockDropdownMenuTriggerProps {
+	children: React.ReactNode;
+}
+
+interface MockDropdownMenuContentProps {
+	children: React.ReactNode;
+}
+
+interface MockDropdownMenuPortalProps {
+	children: React.ReactNode;
+}
+
+interface MockDropdownMenuShortcutProps {
+	children: React.ReactNode;
+}
+
 // Mock store
 vi.mock("@/stores/artStudioStore", () => ({
 	useArtStudioStore: vi.fn(),
@@ -10,27 +44,27 @@ vi.mock("@/stores/artStudioStore", () => ({
 
 // Mock modules that might interfere
 vi.mock("@/components/ui/tooltip", () => ({
-	Tooltip: ({ children }: any) => children,
-	TooltipTrigger: ({ children }: any) => children,
-	TooltipContent: ({ children }: any) => children,
-	TooltipProvider: ({ children }: any) => children,
+	Tooltip: ({ children }: MockTooltipProps) => children,
+	TooltipTrigger: ({ children }: MockTooltipProps) => children,
+	TooltipContent: ({ children }: MockTooltipProps) => children,
+	TooltipProvider: ({ children }: MockTooltipProps) => children,
 }));
 
 vi.mock("@/components/ui/dropdown-menu", () => ({
-	DropdownMenu: ({ children }: any) => children,
-	DropdownMenuTrigger: ({ children }: any) => children,
-	DropdownMenuContent: ({ children }: any) => children,
-	DropdownMenuItem: ({ children, onClick, disabled }: any) => (
+	DropdownMenu: ({ children }: MockDropdownMenuProps) => children,
+	DropdownMenuTrigger: ({ children }: MockDropdownMenuTriggerProps) => children,
+	DropdownMenuContent: ({ children }: MockDropdownMenuContentProps) => children,
+	DropdownMenuItem: ({ children, onClick, disabled }: MockDropdownMenuItemProps) => (
 		<div onClick={!disabled ? onClick : undefined} data-testid="menu-item">
 			{children}
 		</div>
 	),
 	DropdownMenuSeparator: () => null,
-	DropdownMenuSub: ({ children }: any) => children,
-	DropdownMenuSubTrigger: ({ children }: any) => children,
-	DropdownMenuSubContent: ({ children }: any) => children,
-	DropdownMenuPortal: ({ children }: any) => children,
-	DropdownMenuShortcut: ({ children }: any) => children,
+	DropdownMenuSub: ({ children }: MockDropdownMenuSubProps) => children,
+	DropdownMenuSubTrigger: ({ children }: MockTooltipProps) => children,
+	DropdownMenuSubContent: ({ children }: MockTooltipProps) => children,
+	DropdownMenuPortal: ({ children }: MockDropdownMenuPortalProps) => children,
+	DropdownMenuShortcut: ({ children }: MockDropdownMenuShortcutProps) => children,
 }));
 
 describe("TopMenuBar component", () => {
@@ -41,7 +75,7 @@ describe("TopMenuBar component", () => {
 
 	beforeEach(() => {
 		vi.clearAllMocks();
-		(useArtStudioStore as any).mockReturnValue({
+		(useArtStudioStore as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
 			renderingEngine: "fabric",
 			setRenderingEngine: mockSetEngine,
 			undo: mockUndo,
@@ -54,7 +88,7 @@ describe("TopMenuBar component", () => {
 		});
 
 		// Mock window objects
-		(window as any).fabricCanvas = {
+		(window as Window & typeof globalThis & { fabricCanvas?: unknown; konvaStage?: unknown }).fabricCanvas = {
 			toJSON: vi.fn(),
 			toDataURL: vi.fn(),
 			clear: vi.fn(),
@@ -63,7 +97,7 @@ describe("TopMenuBar component", () => {
 			discardActiveObject: vi.fn(),
 			renderAll: vi.fn(),
 		};
-		(window as any).konvaStage = {
+		(window as Window & typeof globalThis & { konvaStage?: unknown }).konvaStage = {
 			toJSON: vi.fn(),
 			toDataURL: vi.fn(),
 		};
