@@ -10,7 +10,7 @@ const nextConfig: NextConfig = {
 	typedRoutes: true,
 	experimental: {
 		optimizeCss: true,
-		optimizePackageImports: ["lucide-react", "framer-motion"],
+		optimizePackageImports: ["lucide-react", "framer-motion", "zustand"],
 		browserDebugInfoInTerminal: true,
 	},
 };
