@@ -193,7 +193,14 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 			canvas.dispose();
 			fabricRef.current = null;
 		};
-	}, [actualWidth, actualHeight, actualBackground, primaryColor, brushSettings.size, addToHistory]);
+	}, [
+		actualWidth,
+		actualHeight,
+		actualBackground,
+		primaryColor,
+		brushSettings.size,
+		addToHistory,
+	]);
 
 	// Handle tool mode changes
 	useEffect(() => {
@@ -758,27 +765,29 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 							size,
 						);
 
-						FabricImage.fromURL(tempCanvas.toDataURL()).then((img: FabricImage) => {
-							img.set({
-								left: pointer.x - radius,
-								top: pointer.y - radius,
-								selectable: false,
-								evented: false,
-							});
-
-							// Add layerId to the image
-							(img as LayerObject).layerId = activeLayerId;
-
-							if (activeTool === "healing") {
+						FabricImage.fromURL(tempCanvas.toDataURL()).then(
+							(img: FabricImage) => {
 								img.set({
-									opacity: 0.7,
-									blur: 5,
+									left: pointer.x - radius,
+									top: pointer.y - radius,
+									selectable: false,
+									evented: false,
 								});
-							}
 
-							canvas.add(img);
-							canvas.renderAll();
-						});
+								// Add layerId to the image
+								(img as LayerObject).layerId = activeLayerId;
+
+								if (activeTool === "healing") {
+									img.set({
+										opacity: 0.7,
+										blur: 5,
+									});
+								}
+
+								canvas.add(img);
+								canvas.renderAll();
+							},
+						);
 					}
 				});
 				return;

@@ -35,8 +35,8 @@ vi.mock("react-resizable-panels", () => {
 		</div>
 	);
 	const Separator = ({ className, withHandle }: MockSeparatorProps) => (
-		<div 
-			data-testid="resizable-handle" 
+		<div
+			data-testid="resizable-handle"
 			className={className}
 			data-with-handle={withHandle ? "true" : "false"}
 		/>

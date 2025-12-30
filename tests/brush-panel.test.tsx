@@ -30,7 +30,13 @@ vi.mock("@/components/ui/tooltip", () => ({
 }));
 
 vi.mock("@/components/ui/slider", () => ({
-	Slider: ({ value, defaultValue, onValueChange, min, max }: MockSliderProps) => {
+	Slider: ({
+		value,
+		defaultValue,
+		onValueChange,
+		min,
+		max,
+	}: MockSliderProps) => {
 		// Handle both controlled (value) and uncontrolled (defaultValue) cases
 		const val = value ? value[0] : defaultValue ? defaultValue[0] : 0;
 		return (

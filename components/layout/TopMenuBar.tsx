@@ -133,7 +133,11 @@ interface FabricCanvas {
 	getActiveObjects(): FabricObject[];
 	getObjects(): FabricObject[];
 	toJSON(): string;
-	toDataURL(options: { format: string; quality: number; multiplier: number }): string;
+	toDataURL(options: {
+		format: string;
+		quality: number;
+		multiplier: number;
+	}): string;
 	toSVG(): string;
 	loadFromJSON(json: string, callback: () => void): void;
 	add(object: FabricObject): void;
@@ -274,16 +278,18 @@ export const TopMenuBar: React.FC = () => {
 							const img = new Image();
 							img.onload = () => {
 								import("fabric").then(({ FabricImage }) => {
-									FabricImage.fromURL(img.src).then((fabricImg: FabricObject) => {
-										fabricImg.set({
-											left: 100,
-											top: 100,
-											scaleX: 0.5,
-											scaleY: 0.5,
-										});
-										canvas.add(fabricImg);
-										canvas.renderAll();
-									});
+									FabricImage.fromURL(img.src).then(
+										(fabricImg: FabricObject) => {
+											fabricImg.set({
+												left: 100,
+												top: 100,
+												scaleX: 0.5,
+												scaleY: 0.5,
+											});
+											canvas.add(fabricImg);
+											canvas.renderAll();
+										},
+									);
 								});
 							};
 							img.src = result;
@@ -394,7 +400,11 @@ export const TopMenuBar: React.FC = () => {
 		const canvas = getCanvas();
 		if (canvas) {
 			const dataURL = isFabric()
-				? (canvas as FabricCanvas).toDataURL({ format: "png", quality: 0.9, multiplier: 1 })
+				? (canvas as FabricCanvas).toDataURL({
+						format: "png",
+						quality: 0.9,
+						multiplier: 1,
+					})
 				: canvas.toDataURL({ pixelRatio: 2 });
 
 			// Try Web Share API
@@ -508,7 +518,7 @@ export const TopMenuBar: React.FC = () => {
 		if (isFabric()) {
 			const canvas = window.fabricCanvas;
 			if (!canvas) return;
-			
+
 			const activeObjects = canvas.getActiveObjects();
 			if (activeObjects.length > 0) {
 				activeObjects.forEach((obj) => canvas.remove(obj));
@@ -528,7 +538,7 @@ export const TopMenuBar: React.FC = () => {
 		if (isFabric()) {
 			const canvas = window.fabricCanvas;
 			if (!canvas) return;
-			
+
 			const activeObject = canvas.getActiveObject();
 			if (activeObject) {
 				// Note: Fabric.js clone method returns a Promise
@@ -564,7 +574,7 @@ export const TopMenuBar: React.FC = () => {
 		if (isFabric()) {
 			const canvas = window.fabricCanvas;
 			if (!canvas) return;
-			
+
 			const activeObject = canvas.getActiveObject();
 			if (activeObject) {
 				const cloned = activeObject.clone() as Promise<FabricObject>;
@@ -582,7 +592,7 @@ export const TopMenuBar: React.FC = () => {
 		if (isFabric()) {
 			const canvas = window.fabricCanvas;
 			if (!canvas) return;
-			
+
 			const activeObject = canvas.getActiveObject();
 			if (activeObject) {
 				activeObject.set("flipX", !activeObject.flipX);
@@ -596,7 +606,7 @@ export const TopMenuBar: React.FC = () => {
 		if (isFabric()) {
 			const canvas = window.fabricCanvas;
 			if (!canvas) return;
-			
+
 			const activeObject = canvas.getActiveObject();
 			if (activeObject) {
 				activeObject.set("flipY", !activeObject.flipY);
@@ -610,7 +620,7 @@ export const TopMenuBar: React.FC = () => {
 		if (isFabric()) {
 			const canvas = window.fabricCanvas;
 			if (!canvas) return;
-			
+
 			const activeObject = canvas.getActiveObject();
 			if (activeObject) {
 				activeObject.rotate((activeObject.angle || 0) + angle);
@@ -624,7 +634,7 @@ export const TopMenuBar: React.FC = () => {
 		if (isFabric()) {
 			const canvas = window.fabricCanvas;
 			if (!canvas) return;
-			
+
 			const activeObject = canvas.getActiveObject();
 			if (activeObject) {
 				activeObject.set("fill", color);
@@ -642,7 +652,7 @@ export const TopMenuBar: React.FC = () => {
 		if (isFabric()) {
 			const canvas = window.fabricCanvas;
 			if (!canvas) return;
-			
+
 			const activeObject = canvas.getActiveObject();
 			if (activeObject) {
 				canvas.bringObjectForward(activeObject);
@@ -656,7 +666,7 @@ export const TopMenuBar: React.FC = () => {
 		if (isFabric()) {
 			const canvas = window.fabricCanvas;
 			if (!canvas) return;
-			
+
 			const activeObject = canvas.getActiveObject();
 			if (activeObject) {
 				canvas.sendObjectBackwards(activeObject);
@@ -670,7 +680,7 @@ export const TopMenuBar: React.FC = () => {
 		if (isFabric()) {
 			const canvas = window.fabricCanvas;
 			if (!canvas) return;
-			
+
 			const activeObject = canvas.getActiveObject();
 			if (activeObject) {
 				canvas.bringObjectToFront(activeObject);
@@ -684,7 +694,7 @@ export const TopMenuBar: React.FC = () => {
 		if (isFabric()) {
 			const canvas = window.fabricCanvas;
 			if (!canvas) return;
-			
+
 			const activeObject = canvas.getActiveObject();
 			if (activeObject) {
 				canvas.sendObjectToBack(activeObject);
@@ -704,7 +714,7 @@ export const TopMenuBar: React.FC = () => {
 		if (isFabric()) {
 			const canvas = window.fabricCanvas;
 			if (!canvas) return;
-			
+
 			const objects = canvas.getObjects();
 			const centerX = canvas.width / 2;
 			const centerY = canvas.height / 2;
@@ -740,7 +750,7 @@ export const TopMenuBar: React.FC = () => {
 		if (isFabric()) {
 			const canvas = window.fabricCanvas;
 			if (!canvas) return;
-			
+
 			const objects = canvas.getObjects();
 			const centerX = canvas.width / 2;
 			const centerY = canvas.height / 2;
@@ -1019,9 +1029,13 @@ export const TopMenuBar: React.FC = () => {
 		if (isFabric()) {
 			const canvas = window.fabricCanvas;
 			if (!canvas) return;
-			
+
 			// Convert entire canvas to image
-			const dataURL = canvas.toDataURL({ format: "png", quality: 1, multiplier: 1 });
+			const dataURL = canvas.toDataURL({
+				format: "png",
+				quality: 1,
+				multiplier: 1,
+			});
 			canvas.clear();
 
 			const img = new Image();
@@ -1044,7 +1058,7 @@ export const TopMenuBar: React.FC = () => {
 		if (isFabric()) {
 			const canvas = window.fabricCanvas;
 			if (!canvas) return;
-			
+
 			const activeObject = canvas.getActiveObject();
 			if (activeObject) {
 				activeObject.set({

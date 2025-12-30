@@ -54,7 +54,11 @@ vi.mock("@/components/ui/dropdown-menu", () => ({
 	DropdownMenu: ({ children }: MockDropdownMenuProps) => children,
 	DropdownMenuTrigger: ({ children }: MockDropdownMenuTriggerProps) => children,
 	DropdownMenuContent: ({ children }: MockDropdownMenuContentProps) => children,
-	DropdownMenuItem: ({ children, onClick, disabled }: MockDropdownMenuItemProps) => (
+	DropdownMenuItem: ({
+		children,
+		onClick,
+		disabled,
+	}: MockDropdownMenuItemProps) => (
 		<div onClick={!disabled ? onClick : undefined} data-testid="menu-item">
 			{children}
 		</div>
@@ -64,7 +68,8 @@ vi.mock("@/components/ui/dropdown-menu", () => ({
 	DropdownMenuSubTrigger: ({ children }: MockTooltipProps) => children,
 	DropdownMenuSubContent: ({ children }: MockTooltipProps) => children,
 	DropdownMenuPortal: ({ children }: MockDropdownMenuPortalProps) => children,
-	DropdownMenuShortcut: ({ children }: MockDropdownMenuShortcutProps) => children,
+	DropdownMenuShortcut: ({ children }: MockDropdownMenuShortcutProps) =>
+		children,
 }));
 
 describe("TopMenuBar component", () => {
@@ -88,7 +93,10 @@ describe("TopMenuBar component", () => {
 		});
 
 		// Mock window objects
-		(window as Window & typeof globalThis & { fabricCanvas?: unknown; konvaStage?: unknown }).fabricCanvas = {
+		(
+			window as Window &
+				typeof globalThis & { fabricCanvas?: unknown; konvaStage?: unknown }
+		).fabricCanvas = {
 			toJSON: vi.fn(),
 			toDataURL: vi.fn(),
 			clear: vi.fn(),
@@ -97,7 +105,9 @@ describe("TopMenuBar component", () => {
 			discardActiveObject: vi.fn(),
 			renderAll: vi.fn(),
 		};
-		(window as Window & typeof globalThis & { konvaStage?: unknown }).konvaStage = {
+		(
+			window as Window & typeof globalThis & { konvaStage?: unknown }
+		).konvaStage = {
 			toJSON: vi.fn(),
 			toDataURL: vi.fn(),
 		};
