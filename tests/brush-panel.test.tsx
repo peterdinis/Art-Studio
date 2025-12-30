@@ -4,21 +4,33 @@ import { BrushPanel } from "@/components/panels/BrushPanel";
 import { useArtStudioStore } from "@/stores/artStudioStore";
 import React from "react";
 
+interface MockTooltipProps {
+	children: React.ReactNode;
+}
+
+interface MockSliderProps {
+	value?: number[];
+	defaultValue?: number[];
+	onValueChange?: (value: number[]) => void;
+	min: number;
+	max: number;
+}
+
 // Mock UI components
 vi.mock("@/components/ui/tooltip", () => ({
-	Tooltip: ({ children }: { children: React.ReactNode }) => (
+	Tooltip: ({ children }: MockTooltipProps) => (
 		<div data-testid="tooltip">{children}</div>
 	),
-	TooltipTrigger: ({ children }: { children: React.ReactNode }) => (
+	TooltipTrigger: ({ children }: MockTooltipProps) => (
 		<div data-testid="tooltip-trigger">{children}</div>
 	),
-	TooltipContent: ({ children }: { children: React.ReactNode }) => (
+	TooltipContent: ({ children }: MockTooltipProps) => (
 		<div data-testid="tooltip-content">{children}</div>
 	),
 }));
 
 vi.mock("@/components/ui/slider", () => ({
-	Slider: ({ value, defaultValue, onValueChange, min, max }: any) => {
+	Slider: ({ value, defaultValue, onValueChange, min, max }: MockSliderProps) => {
 		// Handle both controlled (value) and uncontrolled (defaultValue) cases
 		const val = value ? value[0] : defaultValue ? defaultValue[0] : 0;
 		return (
@@ -26,8 +38,8 @@ vi.mock("@/components/ui/slider", () => ({
 				type="range"
 				data-testid={`slider-${min}-${max}`}
 				value={val}
-				onChange={(e) =>
-					onValueChange && onValueChange([parseInt(e.target.value)])
+				onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+					onValueChange && onValueChange([parseInt(e.target.value, 10)])
 				}
 			/>
 		);

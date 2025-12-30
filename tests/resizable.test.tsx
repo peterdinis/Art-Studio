@@ -6,20 +6,40 @@ import {
 	ResizableHandle,
 } from "@/components/ui/resizable";
 
+interface MockGroupProps {
+	children: React.ReactNode;
+	className?: string;
+}
+
+interface MockPanelProps {
+	children: React.ReactNode;
+	className?: string;
+	defaultSize?: number;
+}
+
+interface MockSeparatorProps {
+	className?: string;
+	withHandle?: boolean;
+}
+
 // Mock react-resizable-panels since it might rely on DOM measurements not available in JSDOM
 vi.mock("react-resizable-panels", () => {
-	const Group = ({ children, className }: any) => (
+	const Group = ({ children, className }: MockGroupProps) => (
 		<div data-testid="resizable-group" className={className}>
 			{children}
 		</div>
 	);
-	const Panel = ({ children, className }: any) => (
+	const Panel = ({ children, className }: MockPanelProps) => (
 		<div data-testid="resizable-panel" className={className}>
 			{children}
 		</div>
 	);
-	const Separator = ({ className }: any) => (
-		<div data-testid="resizable-handle" className={className} />
+	const Separator = ({ className, withHandle }: MockSeparatorProps) => (
+		<div 
+			data-testid="resizable-handle" 
+			className={className}
+			data-with-handle={withHandle ? "true" : "false"}
+		/>
 	);
 	return {
 		Group,
@@ -62,7 +82,8 @@ describe("Resizable Components", () => {
 			</ResizablePanelGroup>,
 		);
 
-		// The handle icon uses GripVertical from lucide-react but it's nested in a div
-		expect(screen.getByTestId("resizable-handle")).toBeInTheDocument();
+		const handleElement = screen.getByTestId("resizable-handle");
+		expect(handleElement).toBeInTheDocument();
+		expect(handleElement).toHaveAttribute("data-with-handle", "true");
 	});
 });
