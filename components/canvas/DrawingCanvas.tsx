@@ -16,6 +16,12 @@ import {
 	Path,
 	Point,
 	filters,
+	ActiveSelection,
+	Blur,
+	TEvent,
+	TPointerEvent,
+	TPointerEventInfo,
+	CanvasEvents,
 } from "fabric";
 import { useArtStudioStore } from "@/stores/artStudioStore";
 import { toast } from "sonner";
@@ -26,6 +32,14 @@ interface DrawingCanvasProps {
 	backgroundColor?: string;
 }
 
+interface LayerObject extends FabricObject {
+	layerId?: string;
+	imageId?: string;
+}
+
+// Type for Fabric.js event handlers
+type FabricEventHandler = (e: TPointerEvent) => void;
+
 export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 	width = 1920,
 	height = 1080,
@@ -33,7 +47,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 }) => {
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const containerRef = useRef<HTMLDivElement>(null);
-	const fabricRef = useRef<any | null>(null);
+	const fabricRef = useRef<FabricCanvas | null>(null);
 	const [isReady, setIsReady] = useState(false);
 
 	// Shape drawing state
@@ -122,7 +136,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 
 		fabricRef.current = canvas;
 		// Expose canvas to window for menu bar access
-		(window as any).fabricCanvas = canvas;
+		(window as Window & { fabricCanvas?: FabricCanvas }).fabricCanvas = canvas;
 		setIsReady(true);
 
 		// Save initial state
@@ -141,7 +155,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 		}, 100);
 
 		// Save state after each drawing path
-		canvas.on("path:created", () => {
+		const handlePathCreated = () => {
 			try {
 				const state = JSON.stringify(canvas.toJSON());
 				const thumbnail = canvas.toDataURL({
@@ -153,10 +167,10 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 			} catch (err) {
 				console.error("Failed to save path state:", err);
 			}
-		});
+		};
 
 		// Save state after object modified
-		canvas.on("object:modified", () => {
+		const handleObjectModified = () => {
 			try {
 				const state = JSON.stringify(canvas.toJSON());
 				const thumbnail = canvas.toDataURL({
@@ -168,13 +182,25 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 			} catch (err) {
 				console.error("Failed to save modified state:", err);
 			}
-		});
+		};
+
+		canvas.on("path:created", handlePathCreated);
+		canvas.on("object:modified", handleObjectModified);
 
 		return () => {
+			canvas.off("path:created", handlePathCreated);
+			canvas.off("object:modified", handleObjectModified);
 			canvas.dispose();
 			fabricRef.current = null;
 		};
-	}, [actualWidth, actualHeight, actualBackground]);
+	}, [
+		actualWidth,
+		actualHeight,
+		actualBackground,
+		primaryColor,
+		brushSettings.size,
+		addToHistory,
+	]);
 
 	// Handle tool mode changes
 	useEffect(() => {
@@ -204,16 +230,16 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 			canvas.freeDrawingBrush.width = brushSettings.size;
 
 			if (activeTool === "eraser") {
-				(canvas.freeDrawingBrush as any).globalCompositeOperation =
+				(canvas.freeDrawingBrush as PencilBrush).globalCompositeOperation =
 					"destination-out";
 			} else {
-				(canvas.freeDrawingBrush as any).globalCompositeOperation =
+				(canvas.freeDrawingBrush as PencilBrush).globalCompositeOperation =
 					"source-over";
 			}
 		} else if (selectionTools.includes(activeTool)) {
 			// Selection mode
 			canvas.selection = true;
-			canvas.forEachObject((obj: { selectable: boolean; evented: boolean }) => {
+			canvas.forEachObject((obj) => {
 				obj.selectable = true;
 				obj.evented = true;
 			});
@@ -224,22 +250,22 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 		) {
 			// Custom tool handling - disable default modes
 			canvas.selection = false;
-			canvas.forEachObject((obj: { selectable: boolean; evented: boolean }) => {
+			canvas.forEachObject((obj) => {
 				obj.selectable = false;
 				obj.evented = clickTools.includes(activeTool);
 			});
 		}
 
 		canvas.renderAll();
-	}, [activeTool, primaryColor, brushSettings, isReady, actualBackground]);
+	}, [activeTool, primaryColor, brushSettings.size, isReady, actualBackground]);
 
 	// Sync layers and objects visibility
 	useEffect(() => {
 		if (!fabricRef.current || !isReady) return;
 
 		const canvas = fabricRef.current;
-		canvas.getObjects().forEach((obj: any) => {
-			const layer = layers.find((l) => l.id === obj.layerId);
+		canvas.getObjects().forEach((obj) => {
+			const layer = layers.find((l) => l.id === (obj as LayerObject).layerId);
 			if (layer) {
 				obj.visible = layer.visible;
 				obj.opacity = layer.opacity / 100;
@@ -255,8 +281,8 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 
 		const canvas = fabricRef.current;
 
-		const handleObjectAdded = (e: any) => {
-			const obj = e.target;
+		const handleObjectAdded = (e: CanvasEvents["object:added"]) => {
+			const obj = e.target as LayerObject;
 			if (obj && !obj.layerId) {
 				obj.layerId = activeLayerId;
 			}
@@ -278,7 +304,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 		const drawingTools = ["brush", "pencil", "eraser"];
 		const customSelectionTools = ["marquee", "lasso", "magicwand"];
 
-		const handleMouseDown = (e: any) => {
+		const handleMouseDown = (e: TPointerEvent) => {
 			// Let Fabric.js handle native selection/move and drawing tools
 			if (
 				nativeSelectionTools.includes(activeTool) ||
@@ -287,7 +313,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 				return;
 			}
 
-			const pointer = canvas.getScenePoint(e.e);
+			const pointer = canvas.getScenePoint(e);
 
 			// Marquee selection tool
 			if (activeTool === "marquee") {
@@ -336,12 +362,12 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 
 			// Magic wand tool - select similar colored objects
 			if (activeTool === "magicwand") {
-				const target = canvas.findTarget(e.e);
+				const target = canvas.findTarget(e);
 				if (target && target.fill) {
 					const targetColor =
 						typeof target.fill === "string" ? target.fill : null;
 					if (targetColor) {
-						const similarObjects = canvas.getObjects().filter((obj: any) => {
+						const similarObjects = canvas.getObjects().filter((obj) => {
 							if (typeof obj.fill === "string") {
 								return obj.fill === targetColor;
 							}
@@ -350,10 +376,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 
 						if (similarObjects.length > 0) {
 							canvas.discardActiveObject();
-							const selection = new (canvas as any).ActiveSelection(
-								similarObjects,
-								{ canvas },
-							);
+							const selection = new ActiveSelection(similarObjects, { canvas });
 							canvas.setActiveObject(selection);
 							canvas.renderAll();
 							toast.success(
@@ -407,15 +430,14 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 
 			// Blur tool - applies blur effect to clicked object
 			if (activeTool === "blur") {
-				const target = canvas.findTarget(e.e);
+				const target = canvas.findTarget(e);
 				if (target) {
 					if (target instanceof FabricImage) {
-						const blurFilter = new filters.Blur({ blur: 0.1 });
-						target.filters.push(blurFilter);
+						const blurFilter = new Blur({ blur: 0.1 });
+						target.filters?.push(blurFilter);
 						target.applyFilters();
 					} else {
 						// For shapes, we simulate blur by creating a semi-transparent copy
-						const clone = target.toObject();
 						target.set({ opacity: (target.opacity || 1) * 0.8 });
 					}
 					canvas.renderAll();
@@ -567,7 +589,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 
 			// Fill tool
 			if (activeTool === "fill") {
-				const target = canvas.findTarget(e.e);
+				const target = canvas.findTarget(e);
 				if (target) {
 					target.set({ fill: primaryColor });
 					canvas.renderAll();
@@ -582,7 +604,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 
 			// Gradient tool
 			if (activeTool === "gradient") {
-				const target = canvas.findTarget(e.e);
+				const target = canvas.findTarget(e);
 				if (target) {
 					const gradient = new Gradient({
 						type: "linear",
@@ -606,7 +628,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 
 			// Eyedropper tool
 			if (activeTool === "eyedropper") {
-				const target = canvas.findTarget(e.e);
+				const target = canvas.findTarget(e);
 				if (target && target.fill && typeof target.fill === "string") {
 					setPrimaryColor(target.fill);
 					toast.success(`Color sampled: ${target.fill}`);
@@ -639,7 +661,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 			}
 		};
 
-		const handleMouseMove = (e: any) => {
+		const handleMouseMove = (e: TPointerEvent) => {
 			// Let Fabric.js handle native selection/move and drawing tools
 			if (
 				nativeSelectionTools.includes(activeTool) ||
@@ -648,7 +670,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 				return;
 			}
 
-			const pointer = canvas.getScenePoint(e.e);
+			const pointer = canvas.getScenePoint(e);
 
 			// Marquee selection drawing
 			if (
@@ -743,25 +765,29 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 							size,
 						);
 
-						FabricImage.fromURL(tempCanvas.toDataURL()).then((img: any) => {
-							img.set({
-								left: pointer.x - radius,
-								top: pointer.y - radius,
-								selectable: false,
-								evented: false,
-								layerId: activeLayerId,
-							});
-
-							if (activeTool === "healing") {
+						FabricImage.fromURL(tempCanvas.toDataURL()).then(
+							(img: FabricImage) => {
 								img.set({
-									opacity: 0.7,
-									blur: 5,
+									left: pointer.x - radius,
+									top: pointer.y - radius,
+									selectable: false,
+									evented: false,
 								});
-							}
 
-							canvas.add(img);
-							canvas.renderAll();
-						});
+								// Add layerId to the image
+								(img as LayerObject).layerId = activeLayerId;
+
+								if (activeTool === "healing") {
+									img.set({
+										opacity: 0.7,
+										blur: 5,
+									});
+								}
+
+								canvas.add(img);
+								canvas.renderAll();
+							},
+						);
 					}
 				});
 				return;
@@ -855,7 +881,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 				const bounds = rect.getBoundingRect();
 
 				// Find objects within selection
-				const objectsInSelection = canvas.getObjects().filter((obj: any) => {
+				const objectsInSelection = canvas.getObjects().filter((obj) => {
 					if (obj === rect) return false;
 					const objBounds = obj.getBoundingRect();
 					return (
@@ -871,10 +897,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 
 				if (objectsInSelection.length > 0) {
 					canvas.discardActiveObject();
-					const selection = new (canvas as any).ActiveSelection(
-						objectsInSelection,
-						{ canvas },
-					);
+					const selection = new ActiveSelection(objectsInSelection, { canvas });
 					canvas.setActiveObject(selection);
 					toast.success(`Selected ${objectsInSelection.length} objects`);
 				}
@@ -895,7 +918,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 				const bounds = path.getBoundingRect();
 
 				// Find objects within selection bounds
-				const objectsInSelection = canvas.getObjects().filter((obj: any) => {
+				const objectsInSelection = canvas.getObjects().filter((obj) => {
 					if (obj === path) return false;
 					const objBounds = obj.getBoundingRect();
 					const objCenterX = objBounds.left + objBounds.width / 2;
@@ -915,10 +938,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 
 				if (objectsInSelection.length > 0) {
 					canvas.discardActiveObject();
-					const selection = new (canvas as any).ActiveSelection(
-						objectsInSelection,
-						{ canvas },
-					);
+					const selection = new ActiveSelection(objectsInSelection, { canvas });
 					canvas.setActiveObject(selection);
 					toast.success(`Selected ${objectsInSelection.length} objects`);
 				}
@@ -984,6 +1004,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 		panOffset,
 		setPanOffset,
 		setPrimaryColor,
+		activeLayerId,
 	]);
 
 	// Restore canvas when history index changes
@@ -996,7 +1017,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 		fabricRef.current.loadFromJSON(JSON.parse(entry.canvasData)).then(() => {
 			fabricRef.current?.renderAll();
 		});
-	}, [historyIndex, isReady]);
+	}, [historyIndex, isReady, history]);
 
 	// Handle zoom with mouse wheel
 	const handleWheel = useCallback(
@@ -1065,7 +1086,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 				if (fabricRef.current) {
 					const activeObjects = fabricRef.current.getActiveObjects();
 					if (activeObjects.length > 0) {
-						activeObjects.forEach((obj: any) => fabricRef.current?.remove(obj));
+						activeObjects.forEach((obj) => fabricRef.current?.remove(obj));
 						fabricRef.current.discardActiveObject();
 						fabricRef.current.renderAll();
 						saveCanvasState("Object deleted");
@@ -1113,7 +1134,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 
 		const existingObjects = canvas.getObjects();
 		const alreadyLoaded = existingObjects.some(
-			(obj: any) => obj.imageId === latestImage.id,
+			(obj) => (obj as LayerObject).imageId === latestImage.id,
 		);
 		if (alreadyLoaded) return;
 
@@ -1131,7 +1152,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 					top: (canvas.height! - img.height! * scale) / 2,
 				});
 
-				(img as any).imageId = latestImage.id;
+				(img as LayerObject).imageId = latestImage.id;
 
 				canvas.add(img);
 				canvas.setActiveObject(img);

@@ -2,6 +2,14 @@ import { render, screen } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 import HomeWrapper from "@/components/home/HomeWrapper";
 
+interface MockResizablePanelGroupProps {
+	children: React.ReactNode;
+}
+
+interface MockResizablePanelProps {
+	children: React.ReactNode;
+}
+
 // Mock all sub-components using their absolute paths as they are imported in HomeWrapper
 vi.mock("@/components/layout/TopMenuBar", () => ({
 	TopMenuBar: () => <div data-testid="top-menu-bar" />,
@@ -28,10 +36,10 @@ vi.mock("@/components/layout/StatusBar", () => ({
 	StatusBar: () => <div data-testid="status-bar" />,
 }));
 vi.mock("@/components/ui/resizable", () => ({
-	ResizablePanelGroup: ({ children }: any) => (
+	ResizablePanelGroup: ({ children }: MockResizablePanelGroupProps) => (
 		<div data-testid="resizable-group">{children}</div>
 	),
-	ResizablePanel: ({ children }: any) => (
+	ResizablePanel: ({ children }: MockResizablePanelProps) => (
 		<div data-testid="resizable-panel">{children}</div>
 	),
 	ResizableHandle: () => <div data-testid="resizable-handle" />,

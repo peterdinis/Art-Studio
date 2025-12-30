@@ -1,5 +1,3 @@
-"use client";
-
 import React, { useRef, useEffect, useState, useCallback } from "react";
 import {
 	Stage,
@@ -116,10 +114,10 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 	// Expose stage to window for menu bar access
 	useEffect(() => {
 		if (stageRef.current) {
-			(window as any).konvaStage = stageRef.current;
+			(window as Window).konvaStage = stageRef.current;
 		}
 		return () => {
-			delete (window as any).konvaStage;
+			delete (window as Window).konvaStage;
 		};
 	}, []);
 
