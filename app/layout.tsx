@@ -3,13 +3,6 @@ import { Inter, Ubuntu } from "next/font/google";
 import "./globals.css";
 import ScrollToTop from "@/components/shared/ScrollToTop";
 
-const inter = Inter({
-	variable: "--font-inter",
-	subsets: ["latin", "latin-ext"],
-	display: "swap",
-	preload: true,
-});
-
 const ubuntu = Ubuntu({
 	variable: "--font-ubuntu",
 	subsets: ["latin", "latin-ext"],
@@ -112,7 +105,7 @@ export default function RootLayout({
 			lang="en"
 			suppressHydrationWarning
 			suppressContentEditableWarning
-			className={`${inter.variable} ${ubuntu.variable}`}
+			className={`${ubuntu.variable}`}
 		>
 			<head>
 				{/* Preconnect for external resources */}
@@ -160,7 +153,7 @@ export default function RootLayout({
 				/>
 			</head>
 			<body
-				className={`${inter.variable} ${ubuntu.variable} font-sans antialiased bg-background text-foreground`}
+				className={`${ubuntu.variable} font-sans antialiased bg-background text-foreground`}
 				suppressHydrationWarning
 			>
 				{/* Main content */}

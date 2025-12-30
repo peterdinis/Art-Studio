@@ -18,10 +18,12 @@ import {
 	filters,
 	ActiveSelection,
 	Blur,
-	TEvent,
 	TPointerEvent,
-	TPointerEventInfo,
 	CanvasEvents,
+	Object as FabricObjectType,
+	Canvas,
+	util,
+	FabricImage as FabricImageType,
 } from "fabric";
 import { useArtStudioStore } from "@/stores/artStudioStore";
 import { toast } from "sonner";
@@ -36,9 +38,6 @@ interface LayerObject extends FabricObject {
 	layerId?: string;
 	imageId?: string;
 }
-
-// Type for Fabric.js event handlers
-type FabricEventHandler = (e: TPointerEvent) => void;
 
 export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 	width = 1920,
@@ -281,7 +280,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 
 		const canvas = fabricRef.current;
 
-		const handleObjectAdded = (e: CanvasEvents["object:added"]) => {
+		const handleObjectAdded: (e: CanvasEvents["object:added"]) => void = (e) => {
 			const obj = e.target as LayerObject;
 			if (obj && !obj.layerId) {
 				obj.layerId = activeLayerId;
@@ -313,7 +312,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 				return;
 			}
 
-			const pointer = canvas.getScenePoint(e);
+			const pointer = canvas.getPointer(e.e);
 
 			// Marquee selection tool
 			if (activeTool === "marquee") {
@@ -362,7 +361,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 
 			// Magic wand tool - select similar colored objects
 			if (activeTool === "magicwand") {
-				const target = canvas.findTarget(e);
+				const target = canvas.findTarget(e.e, true);
 				if (target && target.fill) {
 					const targetColor =
 						typeof target.fill === "string" ? target.fill : null;
@@ -430,7 +429,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 
 			// Blur tool - applies blur effect to clicked object
 			if (activeTool === "blur") {
-				const target = canvas.findTarget(e);
+				const target = canvas.findTarget(e.e, true);
 				if (target) {
 					if (target instanceof FabricImage) {
 						const blurFilter = new Blur({ blur: 0.1 });
@@ -589,13 +588,13 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 
 			// Fill tool
 			if (activeTool === "fill") {
-				const target = canvas.findTarget(e);
+				const target = canvas.findTarget(e.e, true);
 				if (target) {
 					target.set({ fill: primaryColor });
 					canvas.renderAll();
 					saveCanvasState("Fill applied");
 				} else {
-					canvas.backgroundColor = primaryColor;
+					canvas.setBackgroundColor(primaryColor);
 					canvas.renderAll();
 					saveCanvasState("Background filled");
 				}
@@ -604,7 +603,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 
 			// Gradient tool
 			if (activeTool === "gradient") {
-				const target = canvas.findTarget(e);
+				const target = canvas.findTarget(e.e, true);
 				if (target) {
 					const gradient = new Gradient({
 						type: "linear",
@@ -628,7 +627,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 
 			// Eyedropper tool
 			if (activeTool === "eyedropper") {
-				const target = canvas.findTarget(e);
+				const target = canvas.findTarget(e.e, true);
 				if (target && target.fill && typeof target.fill === "string") {
 					setPrimaryColor(target.fill);
 					toast.success(`Color sampled: ${target.fill}`);
@@ -670,7 +669,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 				return;
 			}
 
-			const pointer = canvas.getScenePoint(e);
+			const pointer = canvas.getPointer(e.e);
 
 			// Marquee selection drawing
 			if (
@@ -741,7 +740,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 				const srcY = cloneSourcePoint.current.y + offset.y;
 
 				// Create a small portion of the captured canvas as a pattern or image
-				import("fabric").then(({ FabricImage, Circle }) => {
+				import("fabric").then(({ FabricImage }) => {
 					// We'll create a small circle and fill it with a pattern from the snapshot
 					const size = brushSettings.size;
 					const radius = size / 2;
@@ -1141,15 +1140,15 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 		FabricImage.fromURL(latestImage.src)
 			.then((img) => {
 				const scale = Math.min(
-					(canvas.width! * 0.8) / img.width!,
-					(canvas.height! * 0.8) / img.height!,
+					(canvas.width! * 0.8) / (img.width || 1),
+					(canvas.height! * 0.8) / (img.height || 1),
 					1,
 				);
 
 				img.scale(scale);
 				img.set({
-					left: (canvas.width! - img.width! * scale) / 2,
-					top: (canvas.height! - img.height! * scale) / 2,
+					left: (canvas.width! - (img.width || 1) * scale) / 2,
+					top: (canvas.height! - (img.height || 1) * scale) / 2,
 				});
 
 				(img as LayerObject).imageId = latestImage.id;
