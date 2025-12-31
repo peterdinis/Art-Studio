@@ -6,7 +6,6 @@ import {
 	PencilBrush,
 	FabricImage,
 	Rect,
-	Circle,
 	Line,
 	Polygon,
 	IText,
@@ -17,12 +16,9 @@ import {
 	Point,
 	filters,
 	ActiveSelection,
-	TPointerEvent,
-	CanvasEvents,
 	Object as FabricObjectType,
 	FabricImage as FabricImageType,
-	IText as FabricIText, // Added import for IText
-	Textbox,
+	IText as FabricIText,
 	ObjectEvents,
 	RectProps,
 	SerializedRectProps,
@@ -150,7 +146,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 					format: "png",
 					quality: 0.3,
 					multiplier: 0.2,
-				}) as any;
+				});
 				addToHistory(initialState, initialThumbnail, "Initial state");
 			} catch (err) {
 				console.error("Failed to save initial state:", err);
