@@ -198,7 +198,7 @@ export const TopMenuBar: React.FC = () => {
 							const img = new window.Image();
 							img.onload = () => {
 								import("fabric").then(({ FabricImage }) => {
-									FabricImage.fromURL(img.src).then((fabricImg: any) => {
+									FabricImage.fromURL(img.src).then((fabricImg) => {
 										fabricImg.set({
 											left: 100,
 											top: 100,
@@ -264,7 +264,7 @@ export const TopMenuBar: React.FC = () => {
 		if (canvas) {
 			if (format === "JSON") {
 				const json = JSON.stringify(
-					isFabric() ? (canvas as any).toJSON() : (canvas as any).toJSON(),
+					isFabric() ? (canvas).toJSON() : (canvas).toJSON(),
 					null,
 					2,
 				);
@@ -281,7 +281,7 @@ export const TopMenuBar: React.FC = () => {
 
 			if (format === "SVG") {
 				if (isFabric()) {
-					const svg = (canvas as any).toSVG();
+					const svg = (canvas).toSVG();
 					const blob = new Blob([svg], { type: "image/svg+xml" });
 					const url = URL.createObjectURL(blob);
 					const a = document.createElement("a");
@@ -297,12 +297,12 @@ export const TopMenuBar: React.FC = () => {
 			}
 
 			const dataURL = isFabric()
-				? (canvas as any).toDataURL({
+				? (canvas).toDataURL({
 						format: format.toLowerCase() === "jpeg" ? "jpeg" : "png",
 						quality: 0.9,
 						multiplier: 1,
 					})
-				: (canvas as any).toDataURL({ pixelRatio: 2 });
+				: (canvas).toDataURL({ pixelRatio: 2 });
 
 			const a = document.createElement("a");
 			a.href = dataURL;
@@ -366,12 +366,12 @@ export const TopMenuBar: React.FC = () => {
 		const canvas = getCanvas();
 		if (canvas) {
 			const dataURL = isFabric()
-				? (canvas as any).toDataURL({
+				? (canvas).toDataURL({
 						format: "png",
 						quality: 1,
 						multiplier: 2,
 					})
-				: (canvas as any).toDataURL({ pixelRatio: 2 });
+				: (canvas).toDataURL({ pixelRatio: 2 });
 			const printWindow = window.open("", "_blank");
 			if (printWindow) {
 				printWindow.document.write(`
@@ -403,9 +403,9 @@ export const TopMenuBar: React.FC = () => {
 		const canvas = getCanvas();
 		if (canvas) {
 			if (isFabric()) {
-				(canvas as any).clear();
-				(canvas as any).backgroundColor = "#2d3748";
-				(canvas as any).renderAll();
+				(canvas).clear();
+				(canvas).backgroundColor = "#2d3748";
+				(canvas).renderAll();
 			} else {
 				window.dispatchEvent(new CustomEvent("artstudio:clear-canvas"));
 			}
@@ -418,9 +418,9 @@ export const TopMenuBar: React.FC = () => {
 		const canvas = getCanvas();
 		if (canvas) {
 			if (isFabric()) {
-				(canvas as any).clear();
-				(canvas as any).backgroundColor = "#2d3748";
-				(canvas as any).renderAll();
+				(canvas).clear();
+				(canvas).backgroundColor = "#2d3748";
+				(canvas).renderAll();
 			} else {
 				window.dispatchEvent(new CustomEvent("artstudio:clear-canvas"));
 			}
@@ -433,7 +433,7 @@ export const TopMenuBar: React.FC = () => {
 			const canvas = window.fabricCanvas;
 			const activeObjects = canvas.getActiveObjects();
 			if (activeObjects.length > 0) {
-				activeObjects.forEach((obj: any) => canvas.remove(obj));
+				activeObjects.forEach((obj: unknown) => canvas.remove(obj));
 				canvas.discardActiveObject();
 				canvas.renderAll();
 				toast.success("Selection deleted");
@@ -451,7 +451,7 @@ export const TopMenuBar: React.FC = () => {
 		if (canvas) {
 			const activeObject = canvas.getActiveObject();
 			if (activeObject) {
-				activeObject.clone().then((cloned: any) => {
+				activeObject.clone().then((cloned: unknown) => {
 					window.copiedObject = cloned;
 					toast.success("Copied");
 				});
@@ -463,8 +463,8 @@ export const TopMenuBar: React.FC = () => {
 
 	const handlePaste = () => {
 		const canvas = getCanvas();
-		if (canvas && (window as any).copiedObject) {
-			(window as any).copiedObject.clone().then((cloned: any) => {
+		if (canvas && (window as Window).copiedObject) {
+			(window as Window).copiedObject.clone().then((cloned: { set: (arg0: { left: number; top: number; }) => void; left: number; top: number; }) => {
 				cloned.set({
 					left: (cloned.left || 0) + 20,
 					top: (cloned.top || 0) + 20,
@@ -482,8 +482,8 @@ export const TopMenuBar: React.FC = () => {
 		if (canvas) {
 			const activeObject = canvas.getActiveObject();
 			if (activeObject) {
-				activeObject.clone().then((cloned: any) => {
-					(window as any).copiedObject = cloned;
+				activeObject.clone().then((cloned: unknown) => {
+					(window as Window).copiedObject = cloned;
 					canvas.remove(activeObject);
 					canvas.renderAll();
 					toast.success("Cut");
@@ -605,7 +605,7 @@ export const TopMenuBar: React.FC = () => {
 			const centerX = canvas.width! / 2;
 			const centerY = canvas.height! / 2;
 
-			objects.forEach((obj: any) => {
+			objects.forEach((obj: { left: number; width: number; scaleX: number; top: number; height: number; scaleY: number; set: (arg0: { left: number; top: number; angle: number; }) => void; angle: number; setCoords: () => void; }) => {
 				const objCenterX = obj.left + (obj.width * obj.scaleX) / 2;
 				const objCenterY = obj.top + (obj.height * obj.scaleY) / 2;
 
@@ -639,7 +639,7 @@ export const TopMenuBar: React.FC = () => {
 			const centerX = canvas.width! / 2;
 			const centerY = canvas.height! / 2;
 
-			objects.forEach((obj: any) => {
+			objects.forEach((obj: { set: (arg0: { left?: number; flipX?: boolean; top?: number; flipY?: boolean; }) => void; left: number; width: number; scaleX: number; flipX: number; top: number; height: number; scaleY: number; flipY: number; setCoords: () => void; }) => {
 				if (direction === "horizontal") {
 					obj.set({
 						left: centerX - (obj.left - centerX) - obj.width * obj.scaleX,
@@ -729,7 +729,7 @@ export const TopMenuBar: React.FC = () => {
 					const value = parseInt(brightnessValue);
 					if (!isNaN(value)) {
 						// Adjust all object opacities as a brightness simulation
-						canvas.getObjects().forEach((obj: any) => {
+						canvas.getObjects().forEach((obj: { opacity: number; set: (arg0: string, arg1: number) => void; }) => {
 							const currentOpacity = obj.opacity || 1;
 							const newOpacity = Math.max(
 								0.1,
@@ -851,7 +851,7 @@ export const TopMenuBar: React.FC = () => {
 				break;
 
 			case "AI Enhance":
-				canvas.getObjects().forEach((obj: any) => {
+				canvas.getObjects().forEach((obj: { set: (arg0: { opacity: number; scaleX: number; scaleY: number; }) => void; scaleX: number; scaleY: number; setCoords: () => void; }) => {
 					obj.set({
 						opacity: 1,
 						scaleX: (obj.scaleX || 1) * 1.05,
@@ -876,7 +876,7 @@ export const TopMenuBar: React.FC = () => {
 					width: currentWidth * 2,
 					height: currentHeight * 2,
 				});
-				canvas.getObjects().forEach((obj: any) => {
+				canvas.getObjects().forEach((obj: { set: (arg0: { left: number; top: number; scaleX: number; scaleY: number; }) => void; left: number; top: number; scaleX: number; scaleY: number; setCoords: () => void; }) => {
 					obj.set({
 						left: obj.left * 2,
 						top: obj.top * 2,
@@ -918,7 +918,7 @@ export const TopMenuBar: React.FC = () => {
 			const img = new window.Image();
 			img.onload = () => {
 				import("fabric").then(({ FabricImage }) => {
-					FabricImage.fromURL(dataURL).then((fabricImg: any) => {
+					FabricImage.fromURL(dataURL).then((fabricImg) => {
 						fabricImg.set({ left: 0, top: 0 });
 						canvas.add(fabricImg);
 						canvas.backgroundColor = "#2d3748";
@@ -1646,15 +1646,6 @@ export const TopMenuBar: React.FC = () => {
 
 				<Tooltip>
 					<TooltipTrigger asChild>
-						<button className="tool-button w-8 h-8">
-							<Settings className="w-4 h-4" />
-						</button>
-					</TooltipTrigger>
-					<TooltipContent>Settings</TooltipContent>
-				</Tooltip>
-
-				<Tooltip>
-					<TooltipTrigger asChild>
 						<button
 							onClick={() => setShowShortcuts(true)}
 							className="tool-button w-8 h-8"
@@ -1663,18 +1654,6 @@ export const TopMenuBar: React.FC = () => {
 						</button>
 					</TooltipTrigger>
 					<TooltipContent>Keyboard Shortcuts (⌘/)</TooltipContent>
-				</Tooltip>
-
-				<Tooltip>
-					<TooltipTrigger asChild>
-						<button
-							onClick={() => window.open("https://docs.lovable.dev", "_blank")}
-							className="tool-button w-8 h-8"
-						>
-							<HelpCircle className="w-4 h-4" />
-						</button>
-					</TooltipTrigger>
-					<TooltipContent>Help</TooltipContent>
 				</Tooltip>
 			</div>
 

@@ -139,7 +139,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 
 		fabricRef.current = canvas;
 		// Expose canvas to window for menu bar access
-		(window as any).fabricCanvas = canvas;
+		(window as Window).fabricCanvas = canvas;
 		setIsReady(true);
 
 		// Save initial state
@@ -233,10 +233,10 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 			canvas.freeDrawingBrush.width = brushSettings.size;
 
 			if (activeTool === "eraser") {
-				(canvas.freeDrawingBrush as any).globalCompositeOperation =
+				(canvas.freeDrawingBrush).globalCompositeOperation =
 					"destination-out";
 			} else {
-				(canvas.freeDrawingBrush as any).globalCompositeOperation =
+				(canvas.freeDrawingBrush).globalCompositeOperation =
 					"source-over";
 			}
 		} else if (selectionTools.includes(activeTool)) {
@@ -307,7 +307,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 		const drawingTools = ["brush", "pencil", "eraser"];
 		const customSelectionTools = ["marquee", "lasso", "magicwand"];
 
-		const handleMouseDown = (e: any) => {
+		const handleMouseDown = (e: { e: { altKey: string; detail: number; clientX: number; clientY: number; }; }) => {
 			// Let Fabric.js handle native selection/move and drawing tools
 			if (
 				nativeSelectionTools.includes(activeTool) ||
@@ -664,7 +664,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 			}
 		};
 
-		const handleMouseMove = (e: any) => {
+		const handleMouseMove = (e: { e: { clientX: number; clientY: number; }; }) => {
 			// Let Fabric.js handle native selection/move and drawing tools
 			if (
 				nativeSelectionTools.includes(activeTool) ||
@@ -769,7 +769,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 						);
 
 						FabricImageClass.fromURL(tempCanvas.toDataURL()).then(
-							(img: any) => {
+							(img) => {
 								img.set({
 									left: pointer.x - radius,
 									top: pointer.y - radius,
@@ -1089,7 +1089,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 				if (fabricRef.current) {
 					const activeObjects = fabricRef.current.getActiveObjects();
 					if (activeObjects.length > 0) {
-						activeObjects.forEach((obj: any) => fabricRef.current?.remove(obj));
+						activeObjects.forEach((obj: unknown) => fabricRef.current?.remove(obj));
 						fabricRef.current.discardActiveObject();
 						fabricRef.current.renderAll();
 						saveCanvasState("Object deleted");
