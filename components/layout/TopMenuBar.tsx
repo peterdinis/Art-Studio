@@ -911,7 +911,7 @@ export const TopMenuBar: React.FC = () => {
 							opacity: 0.3,
 							selectable: false,
 							evented: false,
-						} as unknown as FabricObject);
+						} as any);
 						fabricCanvas.add(noise);
 					});
 				}
