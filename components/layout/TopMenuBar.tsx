@@ -80,7 +80,6 @@ import { useArtStudioStore, Tool } from "@/stores/artStudioStore";
 import { toast } from "sonner";
 import { TemplatesDialog } from "../templates/TemplatesDialog";
 import { KeyboardShortcutsDialog } from "../dialogs/KeyboardSettingsDialog";
-
 interface MenuItemConfig {
 	label: string;
 	icon?: React.ComponentType<{ className?: string }>;
@@ -92,83 +91,12 @@ interface MenuItemConfig {
 	checked?: boolean;
 }
 
-// Type for Fabric.js objects
-interface FabricObject {
-	left: number;
-	top: number;
-	width: number;
-	height: number;
-	scaleX: number;
-	scaleY: number;
-	angle?: number;
-	fill: string | { toObject(): unknown };
-	stroke?: string;
-	strokeWidth?: number;
-	opacity?: number;
-	flipX?: boolean;
-	flipY?: boolean;
-	shadow?: {
-		color: string;
-		blur: number;
-		offsetX: number;
-		offsetY: number;
-	};
-	lockMovementX?: boolean;
-	lockMovementY?: boolean;
-	lockRotation?: boolean;
-	lockScalingX?: boolean;
-	lockScalingY?: boolean;
-	get(property: string): unknown;
-	set(properties: Record<string, unknown>): void;
-	rotate(angle: number): void;
-	setCoords(): void;
-}
-
-// Type for Fabric.js Canvas
-interface FabricCanvas {
-	width: number;
-	height: number;
-	backgroundColor: string;
-	getActiveObject(): FabricObject | null;
-	getActiveObjects(): FabricObject[];
-	getObjects(): FabricObject[];
-	toJSON(): string;
-	toDataURL(options: {
-		format: string;
-		quality: number;
-		multiplier: number;
-	}): string;
-	toSVG(): string;
-	loadFromJSON(json: string, callback: () => void): void;
-	add(object: FabricObject): void;
-	remove(object: FabricObject): void;
-	clear(): void;
-	setActiveObject(object: FabricObject): void;
-	discardActiveObject(): void;
-	setDimensions(dimensions: { width: number; height: number }): void;
-	renderAll(): void;
-	bringObjectForward(object: FabricObject): void;
-	sendObjectBackwards(object: FabricObject): void;
-	bringObjectToFront(object: FabricObject): void;
-	sendObjectToBack(object: FabricObject): void;
-}
-
-// Type for Konva.js objects
-interface KonvaObject {
-	toJSON(): string;
-	toDataURL(options: { pixelRatio: number }): string;
-}
-
-interface KonvaCanvas extends KonvaObject {
-	// Add any Konva-specific methods here
-}
-
 // Get canvas reference from window for direct manipulation
 declare global {
 	interface Window {
-		fabricCanvas?: FabricCanvas;
-		konvaStage?: KonvaCanvas;
-		copiedObject?: FabricObject;
+		fabricCanvas?: any;
+		konvaStage?: any;
+		copiedObject?: any;
 	}
 }
 
@@ -223,17 +151,9 @@ export const TopMenuBar: React.FC = () => {
 		setRenderingEngine,
 	} = useArtStudioStore();
 
-	const getCanvas = (): FabricCanvas | KonvaCanvas | undefined => {
-		return window.fabricCanvas || window.konvaStage;
-	};
-
-	const isFabric = (): boolean => {
-		return !!window.fabricCanvas;
-	};
-
-	const isKonva = (): boolean => {
-		return !!window.konvaStage;
-	};
+	const getCanvas = () => window.fabricCanvas || window.konvaStage;
+	const isFabric = () => !!window.fabricCanvas;
+	const isKonva = () => !!window.konvaStage;
 
 	const handleNewCanvas = () => {
 		setShowTemplates(true);
@@ -255,7 +175,7 @@ export const TopMenuBar: React.FC = () => {
 					if (file.name.endsWith(".json")) {
 						try {
 							const canvas = getCanvas();
-							if (canvas && isFabric()) {
+							if (canvas) {
 								canvas.loadFromJSON(result, () => {
 									canvas.renderAll();
 									toast.success(`Loaded project: ${file.name}`);
@@ -274,22 +194,20 @@ export const TopMenuBar: React.FC = () => {
 
 						// Also add to canvas
 						const canvas = getCanvas();
-						if (canvas && isFabric()) {
-							const img = new Image();
+						if (canvas) {
+							const img = new window.Image();
 							img.onload = () => {
 								import("fabric").then(({ FabricImage }) => {
-									FabricImage.fromURL(img.src).then(
-										(fabricImg: FabricObject) => {
-											fabricImg.set({
-												left: 100,
-												top: 100,
-												scaleX: 0.5,
-												scaleY: 0.5,
-											});
-											canvas.add(fabricImg);
-											canvas.renderAll();
-										},
-									);
+									FabricImage.fromURL(img.src).then((fabricImg) => {
+										fabricImg.set({
+											left: 100,
+											top: 100,
+											scaleX: 0.5,
+											scaleY: 0.5,
+										});
+										canvas.add(fabricImg);
+										canvas.renderAll();
+									});
 								});
 							};
 							img.src = result;
@@ -346,7 +264,7 @@ export const TopMenuBar: React.FC = () => {
 		if (canvas) {
 			if (format === "JSON") {
 				const json = JSON.stringify(
-					isFabric() ? (canvas as FabricCanvas).toJSON() : canvas.toJSON(),
+					isFabric() ? (canvas).toJSON() : (canvas).toJSON(),
 					null,
 					2,
 				);
@@ -363,7 +281,7 @@ export const TopMenuBar: React.FC = () => {
 
 			if (format === "SVG") {
 				if (isFabric()) {
-					const svg = (canvas as FabricCanvas).toSVG();
+					const svg = (canvas).toSVG();
 					const blob = new Blob([svg], { type: "image/svg+xml" });
 					const url = URL.createObjectURL(blob);
 					const a = document.createElement("a");
@@ -379,12 +297,12 @@ export const TopMenuBar: React.FC = () => {
 			}
 
 			const dataURL = isFabric()
-				? (canvas as FabricCanvas).toDataURL({
+				? (canvas).toDataURL({
 						format: format.toLowerCase() === "jpeg" ? "jpeg" : "png",
 						quality: 0.9,
 						multiplier: 1,
 					})
-				: canvas.toDataURL({ pixelRatio: 2 });
+				: (canvas).toDataURL({ pixelRatio: 2 });
 
 			const a = document.createElement("a");
 			a.href = dataURL;
@@ -399,13 +317,7 @@ export const TopMenuBar: React.FC = () => {
 	const handleShare = () => {
 		const canvas = getCanvas();
 		if (canvas) {
-			const dataURL = isFabric()
-				? (canvas as FabricCanvas).toDataURL({
-						format: "png",
-						quality: 0.9,
-						multiplier: 1,
-					})
-				: canvas.toDataURL({ pixelRatio: 2 });
+			const dataURL = canvas.toDataURL({ format: "png", quality: 0.9 });
 
 			// Try Web Share API
 			if (navigator.share && navigator.canShare) {
@@ -454,12 +366,12 @@ export const TopMenuBar: React.FC = () => {
 		const canvas = getCanvas();
 		if (canvas) {
 			const dataURL = isFabric()
-				? (canvas as FabricCanvas).toDataURL({
+				? (canvas).toDataURL({
 						format: "png",
 						quality: 1,
 						multiplier: 2,
 					})
-				: canvas.toDataURL({ pixelRatio: 2 });
+				: (canvas).toDataURL({ pixelRatio: 2 });
 			const printWindow = window.open("", "_blank");
 			if (printWindow) {
 				printWindow.document.write(`
@@ -489,14 +401,16 @@ export const TopMenuBar: React.FC = () => {
 
 	const handleGlobalDelete = () => {
 		const canvas = getCanvas();
-		if (canvas && isFabric()) {
-			(canvas as FabricCanvas).clear();
-			(canvas as FabricCanvas).backgroundColor = "#2d3748";
-			(canvas as FabricCanvas).renderAll();
-		} else if (isKonva()) {
-			window.dispatchEvent(new CustomEvent("artstudio:clear-canvas"));
+		if (canvas) {
+			if (isFabric()) {
+				(canvas).clear();
+				(canvas).backgroundColor = "#2d3748";
+				(canvas).renderAll();
+			} else {
+				window.dispatchEvent(new CustomEvent("artstudio:clear-canvas"));
+			}
+			clearHistory();
 		}
-		clearHistory();
 		toast.warning("All canvas content deleted");
 	};
 
@@ -504,9 +418,9 @@ export const TopMenuBar: React.FC = () => {
 		const canvas = getCanvas();
 		if (canvas) {
 			if (isFabric()) {
-				(canvas as FabricCanvas).clear();
-				(canvas as FabricCanvas).backgroundColor = "#2d3748";
-				(canvas as FabricCanvas).renderAll();
+				(canvas).clear();
+				(canvas).backgroundColor = "#2d3748";
+				(canvas).renderAll();
 			} else {
 				window.dispatchEvent(new CustomEvent("artstudio:clear-canvas"));
 			}
@@ -517,11 +431,9 @@ export const TopMenuBar: React.FC = () => {
 	const handleDeleteSelection = () => {
 		if (isFabric()) {
 			const canvas = window.fabricCanvas;
-			if (!canvas) return;
-
 			const activeObjects = canvas.getActiveObjects();
 			if (activeObjects.length > 0) {
-				activeObjects.forEach((obj) => canvas.remove(obj));
+				activeObjects.forEach((obj: unknown) => canvas.remove(obj));
 				canvas.discardActiveObject();
 				canvas.renderAll();
 				toast.success("Selection deleted");
@@ -535,16 +447,12 @@ export const TopMenuBar: React.FC = () => {
 	};
 
 	const handleCopy = () => {
-		if (isFabric()) {
-			const canvas = window.fabricCanvas;
-			if (!canvas) return;
-
+		const canvas = getCanvas();
+		if (canvas) {
 			const activeObject = canvas.getActiveObject();
 			if (activeObject) {
-				// Note: Fabric.js clone method returns a Promise
-				const cloned = activeObject.clone() as Promise<FabricObject>;
-				cloned.then((clonedObj) => {
-					window.copiedObject = clonedObj;
+				activeObject.clone().then((cloned: unknown) => {
+					window.copiedObject = cloned;
 					toast.success("Copied");
 				});
 			} else {
@@ -554,16 +462,15 @@ export const TopMenuBar: React.FC = () => {
 	};
 
 	const handlePaste = () => {
-		if (isFabric() && window.copiedObject && window.fabricCanvas) {
-			const canvas = window.fabricCanvas;
-			const cloned = window.copiedObject.clone() as Promise<FabricObject>;
-			cloned.then((clonedObj) => {
-				clonedObj.set({
-					left: (clonedObj.left || 0) + 20,
-					top: (clonedObj.top || 0) + 20,
+		const canvas = getCanvas();
+		if (canvas && (window as Window).copiedObject) {
+			(window as Window).copiedObject.clone().then((cloned: { set: (arg0: { left: number; top: number; }) => void; left: number; top: number; }) => {
+				cloned.set({
+					left: (cloned.left || 0) + 20,
+					top: (cloned.top || 0) + 20,
 				});
-				canvas.add(clonedObj);
-				canvas.setActiveObject(clonedObj);
+				canvas.add(cloned);
+				canvas.setActiveObject(cloned);
 				canvas.renderAll();
 				toast.success("Pasted");
 			});
@@ -571,15 +478,12 @@ export const TopMenuBar: React.FC = () => {
 	};
 
 	const handleCut = () => {
-		if (isFabric()) {
-			const canvas = window.fabricCanvas;
-			if (!canvas) return;
-
+		const canvas = getCanvas();
+		if (canvas) {
 			const activeObject = canvas.getActiveObject();
 			if (activeObject) {
-				const cloned = activeObject.clone() as Promise<FabricObject>;
-				cloned.then((clonedObj) => {
-					window.copiedObject = clonedObj;
+				activeObject.clone().then((cloned: unknown) => {
+					(window as Window).copiedObject = cloned;
 					canvas.remove(activeObject);
 					canvas.renderAll();
 					toast.success("Cut");
@@ -589,10 +493,8 @@ export const TopMenuBar: React.FC = () => {
 	};
 
 	const handleFlipHorizontal = () => {
-		if (isFabric()) {
-			const canvas = window.fabricCanvas;
-			if (!canvas) return;
-
+		const canvas = getCanvas();
+		if (canvas) {
 			const activeObject = canvas.getActiveObject();
 			if (activeObject) {
 				activeObject.set("flipX", !activeObject.flipX);
@@ -603,10 +505,8 @@ export const TopMenuBar: React.FC = () => {
 	};
 
 	const handleFlipVertical = () => {
-		if (isFabric()) {
-			const canvas = window.fabricCanvas;
-			if (!canvas) return;
-
+		const canvas = getCanvas();
+		if (canvas) {
 			const activeObject = canvas.getActiveObject();
 			if (activeObject) {
 				activeObject.set("flipY", !activeObject.flipY);
@@ -617,10 +517,8 @@ export const TopMenuBar: React.FC = () => {
 	};
 
 	const handleRotate = (angle: number) => {
-		if (isFabric()) {
-			const canvas = window.fabricCanvas;
-			if (!canvas) return;
-
+		const canvas = getCanvas();
+		if (canvas) {
 			const activeObject = canvas.getActiveObject();
 			if (activeObject) {
 				activeObject.rotate((activeObject.angle || 0) + angle);
@@ -631,10 +529,8 @@ export const TopMenuBar: React.FC = () => {
 	};
 
 	const handleFillWithColor = (color: string) => {
-		if (isFabric()) {
-			const canvas = window.fabricCanvas;
-			if (!canvas) return;
-
+		const canvas = getCanvas();
+		if (canvas) {
 			const activeObject = canvas.getActiveObject();
 			if (activeObject) {
 				activeObject.set("fill", color);
@@ -649,10 +545,8 @@ export const TopMenuBar: React.FC = () => {
 	};
 
 	const handleBringForward = () => {
-		if (isFabric()) {
-			const canvas = window.fabricCanvas;
-			if (!canvas) return;
-
+		const canvas = getCanvas();
+		if (canvas) {
 			const activeObject = canvas.getActiveObject();
 			if (activeObject) {
 				canvas.bringObjectForward(activeObject);
@@ -663,10 +557,8 @@ export const TopMenuBar: React.FC = () => {
 	};
 
 	const handleSendBackward = () => {
-		if (isFabric()) {
-			const canvas = window.fabricCanvas;
-			if (!canvas) return;
-
+		const canvas = getCanvas();
+		if (canvas) {
 			const activeObject = canvas.getActiveObject();
 			if (activeObject) {
 				canvas.sendObjectBackwards(activeObject);
@@ -677,10 +569,8 @@ export const TopMenuBar: React.FC = () => {
 	};
 
 	const handleBringToFront = () => {
-		if (isFabric()) {
-			const canvas = window.fabricCanvas;
-			if (!canvas) return;
-
+		const canvas = getCanvas();
+		if (canvas) {
 			const activeObject = canvas.getActiveObject();
 			if (activeObject) {
 				canvas.bringObjectToFront(activeObject);
@@ -691,10 +581,8 @@ export const TopMenuBar: React.FC = () => {
 	};
 
 	const handleSendToBack = () => {
-		if (isFabric()) {
-			const canvas = window.fabricCanvas;
-			if (!canvas) return;
-
+		const canvas = getCanvas();
+		if (canvas) {
 			const activeObject = canvas.getActiveObject();
 			if (activeObject) {
 				canvas.sendObjectToBack(activeObject);
@@ -711,15 +599,13 @@ export const TopMenuBar: React.FC = () => {
 
 	// Canvas manipulation functions
 	const handleRotateCanvas = (angle: number) => {
-		if (isFabric()) {
-			const canvas = window.fabricCanvas;
-			if (!canvas) return;
-
+		const canvas = getCanvas();
+		if (canvas) {
 			const objects = canvas.getObjects();
-			const centerX = canvas.width / 2;
-			const centerY = canvas.height / 2;
+			const centerX = canvas.width! / 2;
+			const centerY = canvas.height! / 2;
 
-			objects.forEach((obj) => {
+			objects.forEach((obj: { left: number; width: number; scaleX: number; top: number; height: number; scaleY: number; set: (arg0: { left: number; top: number; angle: number; }) => void; angle: number; setCoords: () => void; }) => {
 				const objCenterX = obj.left + (obj.width * obj.scaleX) / 2;
 				const objCenterY = obj.top + (obj.height * obj.scaleY) / 2;
 
@@ -747,15 +633,13 @@ export const TopMenuBar: React.FC = () => {
 	};
 
 	const handleFlipCanvas = (direction: "horizontal" | "vertical") => {
-		if (isFabric()) {
-			const canvas = window.fabricCanvas;
-			if (!canvas) return;
-
+		const canvas = getCanvas();
+		if (canvas) {
 			const objects = canvas.getObjects();
-			const centerX = canvas.width / 2;
-			const centerY = canvas.height / 2;
+			const centerX = canvas.width! / 2;
+			const centerY = canvas.height! / 2;
 
-			objects.forEach((obj) => {
+			objects.forEach((obj: { set: (arg0: { left?: number; flipX?: boolean; top?: number; flipY?: boolean; }) => void; left: number; width: number; scaleX: number; flipX: number; top: number; height: number; scaleY: number; flipY: number; setCoords: () => void; }) => {
 				if (direction === "horizontal") {
 					obj.set({
 						left: centerX - (obj.left - centerX) - obj.width * obj.scaleX,
@@ -785,7 +669,7 @@ export const TopMenuBar: React.FC = () => {
 
 			if (!isNaN(width) && !isNaN(height) && width > 0 && height > 0) {
 				const canvas = getCanvas();
-				if (canvas && isFabric()) {
+				if (canvas) {
 					canvas.setDimensions({ width, height });
 					canvas.renderAll();
 				}
@@ -803,13 +687,12 @@ export const TopMenuBar: React.FC = () => {
 	// Filter functions that actually apply effects
 	const handleApplyFilter = (filter: string) => {
 		const canvas = getCanvas();
-		if (!canvas || !isFabric()) {
+		if (!canvas) {
 			toast.error("No canvas available");
 			return;
 		}
 
-		const fabricCanvas = canvas as FabricCanvas;
-		const activeObject = fabricCanvas.getActiveObject();
+		const activeObject = canvas.getActiveObject();
 
 		switch (filter) {
 			case "Invert":
@@ -824,7 +707,7 @@ export const TopMenuBar: React.FC = () => {
 								.padStart(6, "0");
 						activeObject.set("fill", inverted);
 					}
-					fabricCanvas.renderAll();
+					canvas.renderAll();
 					toast.success("Colors inverted");
 				}
 				break;
@@ -832,7 +715,7 @@ export const TopMenuBar: React.FC = () => {
 			case "Desaturate":
 				if (activeObject) {
 					activeObject.set("fill", "#808080");
-					fabricCanvas.renderAll();
+					canvas.renderAll();
 					toast.success("Desaturated");
 				}
 				break;
@@ -846,7 +729,7 @@ export const TopMenuBar: React.FC = () => {
 					const value = parseInt(brightnessValue);
 					if (!isNaN(value)) {
 						// Adjust all object opacities as a brightness simulation
-						fabricCanvas.getObjects().forEach((obj) => {
+						canvas.getObjects().forEach((obj: { opacity: number; set: (arg0: string, arg1: number) => void; }) => {
 							const currentOpacity = obj.opacity || 1;
 							const newOpacity = Math.max(
 								0.1,
@@ -854,7 +737,7 @@ export const TopMenuBar: React.FC = () => {
 							);
 							obj.set("opacity", newOpacity);
 						});
-						fabricCanvas.renderAll();
+						canvas.renderAll();
 						toast.success("Brightness adjusted");
 					}
 				}
@@ -875,7 +758,7 @@ export const TopMenuBar: React.FC = () => {
 							offsetY: 0,
 						},
 					});
-					fabricCanvas.renderAll();
+					canvas.renderAll();
 					toast.success(`${filter} applied`);
 				} else {
 					toast.info("Select an object to apply blur");
@@ -892,7 +775,7 @@ export const TopMenuBar: React.FC = () => {
 						strokeWidth: (activeObject.strokeWidth || 0) + 1,
 						stroke: activeObject.stroke || "#000000",
 					});
-					fabricCanvas.renderAll();
+					canvas.renderAll();
 					toast.success(`${filter} applied`);
 				} else {
 					toast.info("Select an object to sharpen");
@@ -904,18 +787,18 @@ export const TopMenuBar: React.FC = () => {
 				for (let i = 0; i < 50; i++) {
 					import("fabric").then(({ Circle }) => {
 						const noise = new Circle({
-							left: Math.random() * fabricCanvas.width,
-							top: Math.random() * fabricCanvas.height,
+							left: Math.random() * canvas.width!,
+							top: Math.random() * canvas.height!,
 							radius: 1,
 							fill: Math.random() > 0.5 ? "#ffffff" : "#000000",
 							opacity: 0.3,
 							selectable: false,
 							evented: false,
-						} as unknown as FabricObject);
-						fabricCanvas.add(noise);
+						});
+						canvas.add(noise);
 					});
 				}
-				fabricCanvas.renderAll();
+				canvas.renderAll();
 				toast.success("Noise added");
 				break;
 
@@ -925,7 +808,7 @@ export const TopMenuBar: React.FC = () => {
 						strokeWidth: 3,
 						stroke: activeObject.fill || "#000000",
 					});
-					fabricCanvas.renderAll();
+					canvas.renderAll();
 					toast.success("Oil paint effect applied");
 				}
 				break;
@@ -940,7 +823,7 @@ export const TopMenuBar: React.FC = () => {
 							offsetY: -2,
 						},
 					});
-					fabricCanvas.renderAll();
+					canvas.renderAll();
 					toast.success("Emboss effect applied");
 				}
 				break;
@@ -952,7 +835,7 @@ export const TopMenuBar: React.FC = () => {
 						stroke: "#000000",
 						strokeWidth: 2,
 					});
-					fabricCanvas.renderAll();
+					canvas.renderAll();
 					toast.success("Edges found");
 				}
 				break;
@@ -962,13 +845,13 @@ export const TopMenuBar: React.FC = () => {
 					const color = activeObject.fill;
 					// Shift hue
 					activeObject.set("fill", color === "#ffffff" ? "#ff0000" : "#00ff00");
-					fabricCanvas.renderAll();
+					canvas.renderAll();
 					toast.success("Solarize effect applied");
 				}
 				break;
 
 			case "AI Enhance":
-				fabricCanvas.getObjects().forEach((obj) => {
+				canvas.getObjects().forEach((obj: { set: (arg0: { opacity: number; scaleX: number; scaleY: number; }) => void; scaleX: number; scaleY: number; setCoords: () => void; }) => {
 					obj.set({
 						opacity: 1,
 						scaleX: (obj.scaleX || 1) * 1.05,
@@ -976,24 +859,24 @@ export const TopMenuBar: React.FC = () => {
 					});
 					obj.setCoords();
 				});
-				fabricCanvas.renderAll();
+				canvas.renderAll();
 				toast.success("AI Enhancement applied");
 				break;
 
 			case "Remove Background":
-				fabricCanvas.backgroundColor = "transparent";
-				fabricCanvas.renderAll();
+				canvas.backgroundColor = "transparent";
+				canvas.renderAll();
 				toast.success("Background removed");
 				break;
 
 			case "Upscale 2x":
-				const currentWidth = fabricCanvas.width;
-				const currentHeight = fabricCanvas.height;
-				fabricCanvas.setDimensions({
+				const currentWidth = canvas.width!;
+				const currentHeight = canvas.height!;
+				canvas.setDimensions({
 					width: currentWidth * 2,
 					height: currentHeight * 2,
 				});
-				fabricCanvas.getObjects().forEach((obj) => {
+				canvas.getObjects().forEach((obj: { set: (arg0: { left: number; top: number; scaleX: number; scaleY: number; }) => void; left: number; top: number; scaleX: number; scaleY: number; setCoords: () => void; }) => {
 					obj.set({
 						left: obj.left * 2,
 						top: obj.top * 2,
@@ -1002,7 +885,7 @@ export const TopMenuBar: React.FC = () => {
 					});
 					obj.setCoords();
 				});
-				fabricCanvas.renderAll();
+				canvas.renderAll();
 				toast.success("Image upscaled 2x");
 				break;
 
@@ -1026,22 +909,16 @@ export const TopMenuBar: React.FC = () => {
 	};
 
 	const handleFlattenImage = () => {
-		if (isFabric()) {
-			const canvas = window.fabricCanvas;
-			if (!canvas) return;
-
+		const canvas = getCanvas();
+		if (canvas) {
 			// Convert entire canvas to image
-			const dataURL = canvas.toDataURL({
-				format: "png",
-				quality: 1,
-				multiplier: 1,
-			});
+			const dataURL = canvas.toDataURL({ format: "png", quality: 1 });
 			canvas.clear();
 
-			const img = new Image();
+			const img = new window.Image();
 			img.onload = () => {
 				import("fabric").then(({ FabricImage }) => {
-					FabricImage.fromURL(dataURL).then((fabricImg: FabricObject) => {
+					FabricImage.fromURL(dataURL).then((fabricImg) => {
 						fabricImg.set({ left: 0, top: 0 });
 						canvas.add(fabricImg);
 						canvas.backgroundColor = "#2d3748";
@@ -1055,10 +932,8 @@ export const TopMenuBar: React.FC = () => {
 	};
 
 	const handleLockLayer = () => {
-		if (isFabric()) {
-			const canvas = window.fabricCanvas;
-			if (!canvas) return;
-
+		const canvas = getCanvas();
+		if (canvas) {
 			const activeObject = canvas.getActiveObject();
 			if (activeObject) {
 				activeObject.set({
@@ -1771,15 +1646,6 @@ export const TopMenuBar: React.FC = () => {
 
 				<Tooltip>
 					<TooltipTrigger asChild>
-						<button className="tool-button w-8 h-8">
-							<Settings className="w-4 h-4" />
-						</button>
-					</TooltipTrigger>
-					<TooltipContent>Settings</TooltipContent>
-				</Tooltip>
-
-				<Tooltip>
-					<TooltipTrigger asChild>
 						<button
 							onClick={() => setShowShortcuts(true)}
 							className="tool-button w-8 h-8"
@@ -1788,18 +1654,6 @@ export const TopMenuBar: React.FC = () => {
 						</button>
 					</TooltipTrigger>
 					<TooltipContent>Keyboard Shortcuts (⌘/)</TooltipContent>
-				</Tooltip>
-
-				<Tooltip>
-					<TooltipTrigger asChild>
-						<button
-							onClick={() => window.open("https://docs.lovable.dev", "_blank")}
-							className="tool-button w-8 h-8"
-						>
-							<HelpCircle className="w-4 h-4" />
-						</button>
-					</TooltipTrigger>
-					<TooltipContent>Help</TooltipContent>
 				</Tooltip>
 			</div>
 

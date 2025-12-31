@@ -23,11 +23,8 @@ import {
 	Droplet,
 	Blend,
 	Sparkles,
-	Scissors,
-	Grid3X3,
 	RectangleHorizontal,
 	Hexagon,
-	Triangle,
 	Spline,
 } from "lucide-react";
 import { useArtStudioStore, Tool } from "@/stores/artStudioStore";
@@ -48,7 +45,6 @@ interface ToolConfig {
 }
 
 const tools: ToolConfig[] = [
-	// Selection Tools
 	{
 		id: "select",
 		icon: MousePointer,
@@ -305,7 +301,7 @@ export const ToolSidebar: React.FC = () => {
 						</TooltipTrigger>
 						<TooltipContent
 							side="right"
-							className="max-w-[280px] p-3"
+							className="max-w-70 p-3"
 							sideOffset={8}
 						>
 							<div className="space-y-1.5">

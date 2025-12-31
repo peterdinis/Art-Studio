@@ -6,7 +6,6 @@ import {
 	PencilBrush,
 	FabricImage,
 	Rect,
-	Circle,
 	Line,
 	Polygon,
 	IText,
@@ -17,11 +16,14 @@ import {
 	Point,
 	filters,
 	ActiveSelection,
-	Blur,
-	TEvent,
-	TPointerEvent,
-	TPointerEventInfo,
-	CanvasEvents,
+	Object as FabricObjectType,
+	FabricImage as FabricImageType,
+	IText as FabricIText,
+	ObjectEvents,
+	RectProps,
+	SerializedRectProps,
+	PathProps,
+	SerializedPathProps,
 } from "fabric";
 import { useArtStudioStore } from "@/stores/artStudioStore";
 import { toast } from "sonner";
@@ -37,9 +39,6 @@ interface LayerObject extends FabricObject {
 	imageId?: string;
 }
 
-// Type for Fabric.js event handlers
-type FabricEventHandler = (e: TPointerEvent) => void;
-
 export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 	width = 1920,
 	height = 1080,
@@ -47,7 +46,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 }) => {
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const containerRef = useRef<HTMLDivElement>(null);
-	const fabricRef = useRef<FabricCanvas | null>(null);
+	const fabricRef = useRef<any | null>(null);
 	const [isReady, setIsReady] = useState(false);
 
 	// Shape drawing state
@@ -107,7 +106,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 					format: "png",
 					quality: 0.3,
 					multiplier: 0.2,
-				});
+				}) as string;
 				addToHistory(state, thumbnail, action);
 			} catch (err) {
 				console.error("Failed to save canvas state:", err);
@@ -136,7 +135,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 
 		fabricRef.current = canvas;
 		// Expose canvas to window for menu bar access
-		(window as Window & { fabricCanvas?: FabricCanvas }).fabricCanvas = canvas;
+		(window as Window).fabricCanvas = canvas;
 		setIsReady(true);
 
 		// Save initial state
@@ -155,14 +154,14 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 		}, 100);
 
 		// Save state after each drawing path
-		const handlePathCreated = () => {
+		const handlePathCreated: (e: { path: FabricObject }) => void = () => {
 			try {
 				const state = JSON.stringify(canvas.toJSON());
 				const thumbnail = canvas.toDataURL({
 					format: "png",
 					quality: 0.3,
 					multiplier: 0.2,
-				});
+				}) as string;
 				addToHistory(state, thumbnail, "Stroke added");
 			} catch (err) {
 				console.error("Failed to save path state:", err);
@@ -170,14 +169,14 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 		};
 
 		// Save state after object modified
-		const handleObjectModified = () => {
+		const handleObjectModified: () => void = () => {
 			try {
 				const state = JSON.stringify(canvas.toJSON());
 				const thumbnail = canvas.toDataURL({
 					format: "png",
 					quality: 0.3,
 					multiplier: 0.2,
-				});
+				}) as string;
 				addToHistory(state, thumbnail, "Object modified");
 			} catch (err) {
 				console.error("Failed to save modified state:", err);
@@ -230,16 +229,16 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 			canvas.freeDrawingBrush.width = brushSettings.size;
 
 			if (activeTool === "eraser") {
-				(canvas.freeDrawingBrush as PencilBrush).globalCompositeOperation =
+				(canvas.freeDrawingBrush).globalCompositeOperation =
 					"destination-out";
 			} else {
-				(canvas.freeDrawingBrush as PencilBrush).globalCompositeOperation =
+				(canvas.freeDrawingBrush).globalCompositeOperation =
 					"source-over";
 			}
 		} else if (selectionTools.includes(activeTool)) {
 			// Selection mode
 			canvas.selection = true;
-			canvas.forEachObject((obj) => {
+			canvas.forEachObject((obj: { selectable: boolean; evented: boolean; }) => {
 				obj.selectable = true;
 				obj.evented = true;
 			});
@@ -250,7 +249,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 		) {
 			// Custom tool handling - disable default modes
 			canvas.selection = false;
-			canvas.forEachObject((obj) => {
+			canvas.forEachObject((obj: { selectable: boolean; evented: boolean; }) => {
 				obj.selectable = false;
 				obj.evented = clickTools.includes(activeTool);
 			});
@@ -264,7 +263,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 		if (!fabricRef.current || !isReady) return;
 
 		const canvas = fabricRef.current;
-		canvas.getObjects().forEach((obj) => {
+		canvas.getObjects().forEach((obj: LayerObject) => {
 			const layer = layers.find((l) => l.id === (obj as LayerObject).layerId);
 			if (layer) {
 				obj.visible = layer.visible;
@@ -281,10 +280,10 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 
 		const canvas = fabricRef.current;
 
-		const handleObjectAdded = (e: CanvasEvents["object:added"]) => {
-			const obj = e.target as LayerObject;
+		const handleObjectAdded: (e: { target?: FabricObject }) => void = (e) => {
+			const obj = e.target as unknown as LayerObject;
 			if (obj && !obj.layerId) {
-				obj.layerId = activeLayerId;
+				obj.layerId = activeLayerId as string;
 			}
 		};
 
@@ -304,7 +303,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 		const drawingTools = ["brush", "pencil", "eraser"];
 		const customSelectionTools = ["marquee", "lasso", "magicwand"];
 
-		const handleMouseDown = (e: TPointerEvent) => {
+		const handleMouseDown = (e: { e: { altKey: string; detail: number; clientX: number; clientY: number; }; }) => {
 			// Let Fabric.js handle native selection/move and drawing tools
 			if (
 				nativeSelectionTools.includes(activeTool) ||
@@ -313,7 +312,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 				return;
 			}
 
-			const pointer = canvas.getScenePoint(e);
+			const pointer = canvas.getPointer(e.e);
 
 			// Marquee selection tool
 			if (activeTool === "marquee") {
@@ -362,12 +361,12 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 
 			// Magic wand tool - select similar colored objects
 			if (activeTool === "magicwand") {
-				const target = canvas.findTarget(e);
+				const target = canvas.findTarget(e.e, true);
 				if (target && target.fill) {
 					const targetColor =
 						typeof target.fill === "string" ? target.fill : null;
 					if (targetColor) {
-						const similarObjects = canvas.getObjects().filter((obj) => {
+						const similarObjects = canvas.getObjects().filter((obj: unknown[]) => {
 							if (typeof obj.fill === "string") {
 								return obj.fill === targetColor;
 							}
@@ -404,7 +403,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 				cloneStartPointer.current = { x: pointer.x, y: pointer.y };
 				isCloning.current = true;
 				// Capture a snapshot of the canvas for cloning
-				cloneSnapshot.current = canvas.toCanvasElement();
+				cloneSnapshot.current = canvas.toCanvasElement() as HTMLCanvasElement;
 				return;
 			}
 
@@ -424,16 +423,16 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 				cloneStartPointer.current = { x: pointer.x, y: pointer.y };
 				isCloning.current = true;
 				// Capture a snapshot of the canvas for healing
-				cloneSnapshot.current = canvas.toCanvasElement();
+				cloneSnapshot.current = canvas.toCanvasElement() as HTMLCanvasElement;
 				return;
 			}
 
 			// Blur tool - applies blur effect to clicked object
 			if (activeTool === "blur") {
-				const target = canvas.findTarget(e);
+				const target = canvas.findTarget(e.e, true);
 				if (target) {
 					if (target instanceof FabricImage) {
-						const blurFilter = new Blur({ blur: 0.1 });
+						const blurFilter = new filters.Blur({ blur: 0.1 }); // Fixed: using filters.Blur
 						target.filters?.push(blurFilter);
 						target.applyFilters();
 					} else {
@@ -580,8 +579,8 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 
 				canvas.add(text);
 				canvas.setActiveObject(text);
-				text.enterEditing();
-				text.selectAll();
+				(text as IText).enterEditing();
+				(text as IText).selectAll();
 				canvas.renderAll();
 				saveCanvasState("Text added");
 				return;
@@ -589,13 +588,13 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 
 			// Fill tool
 			if (activeTool === "fill") {
-				const target = canvas.findTarget(e);
+				const target = canvas.findTarget(e.e, true);
 				if (target) {
 					target.set({ fill: primaryColor });
 					canvas.renderAll();
 					saveCanvasState("Fill applied");
 				} else {
-					canvas.backgroundColor = primaryColor;
+					canvas.setBackgroundColor(primaryColor);
 					canvas.renderAll();
 					saveCanvasState("Background filled");
 				}
@@ -604,7 +603,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 
 			// Gradient tool
 			if (activeTool === "gradient") {
-				const target = canvas.findTarget(e);
+				const target = canvas.findTarget(e.e, true);
 				if (target) {
 					const gradient = new Gradient({
 						type: "linear",
@@ -628,12 +627,12 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 
 			// Eyedropper tool
 			if (activeTool === "eyedropper") {
-				const target = canvas.findTarget(e);
+				const target = canvas.findTarget(e.e, true);
 				if (target && target.fill && typeof target.fill === "string") {
 					setPrimaryColor(target.fill);
 					toast.success(`Color sampled: ${target.fill}`);
 				} else {
-					const bgColor = canvas.backgroundColor;
+					const bgColor = canvas.backgroundColor as string;
 					if (typeof bgColor === "string") {
 						setPrimaryColor(bgColor);
 						toast.success(`Background color sampled: ${bgColor}`);
@@ -661,7 +660,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 			}
 		};
 
-		const handleMouseMove = (e: TPointerEvent) => {
+		const handleMouseMove = (e: { e: { clientX: number; clientY: number; }; }) => {
 			// Let Fabric.js handle native selection/move and drawing tools
 			if (
 				nativeSelectionTools.includes(activeTool) ||
@@ -670,7 +669,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 				return;
 			}
 
-			const pointer = canvas.getScenePoint(e);
+			const pointer = canvas.getPointer(e.e);
 
 			// Marquee selection drawing
 			if (
@@ -741,7 +740,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 				const srcY = cloneSourcePoint.current.y + offset.y;
 
 				// Create a small portion of the captured canvas as a pattern or image
-				import("fabric").then(({ FabricImage, Circle }) => {
+				import("fabric").then(({ FabricImage: FabricImageClass }) => {
 					// We'll create a small circle and fill it with a pattern from the snapshot
 					const size = brushSettings.size;
 					const radius = size / 2;
@@ -765,8 +764,8 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 							size,
 						);
 
-						FabricImage.fromURL(tempCanvas.toDataURL()).then(
-							(img: FabricImage) => {
+						FabricImageClass.fromURL(tempCanvas.toDataURL()).then(
+							(img) => {
 								img.set({
 									left: pointer.x - radius,
 									top: pointer.y - radius,
@@ -775,7 +774,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 								});
 
 								// Add layerId to the image
-								(img as LayerObject).layerId = activeLayerId;
+								(img as any).layerId = activeLayerId;
 
 								if (activeTool === "healing") {
 									img.set({
@@ -881,7 +880,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 				const bounds = rect.getBoundingRect();
 
 				// Find objects within selection
-				const objectsInSelection = canvas.getObjects().filter((obj) => {
+				const objectsInSelection = canvas.getObjects().filter((obj: Rect<Partial<RectProps>, SerializedRectProps, ObjectEvents>) => {
 					if (obj === rect) return false;
 					const objBounds = obj.getBoundingRect();
 					return (
@@ -918,7 +917,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 				const bounds = path.getBoundingRect();
 
 				// Find objects within selection bounds
-				const objectsInSelection = canvas.getObjects().filter((obj) => {
+				const objectsInSelection = canvas.getObjects().filter((obj: Path<Partial<PathProps>, SerializedPathProps, ObjectEvents>) => {
 					if (obj === path) return false;
 					const objBounds = obj.getBoundingRect();
 					const objCenterX = objBounds.left + objBounds.width / 2;
@@ -1086,10 +1085,11 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 				if (fabricRef.current) {
 					const activeObjects = fabricRef.current.getActiveObjects();
 					if (activeObjects.length > 0) {
-						activeObjects.forEach((obj) => fabricRef.current?.remove(obj));
+						activeObjects.forEach((obj: unknown) => fabricRef.current?.remove(obj));
 						fabricRef.current.discardActiveObject();
 						fabricRef.current.renderAll();
 						saveCanvasState("Object deleted");
+						toast.success(`${activeObjects.length} objects deleted`);
 					}
 				}
 				return;
@@ -1134,25 +1134,31 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 
 		const existingObjects = canvas.getObjects();
 		const alreadyLoaded = existingObjects.some(
-			(obj) => (obj as LayerObject).imageId === latestImage.id,
+			(obj: LayerObject) => (obj as LayerObject).imageId === latestImage.id,
 		);
 		if (alreadyLoaded) return;
 
 		FabricImage.fromURL(latestImage.src)
 			.then((img) => {
+				const canvasWidth = canvas.getWidth();
+				const canvasHeight = canvas.getHeight();
+				const imgWidth = img.width || 1;
+				const imgHeight = img.height || 1;
+				
 				const scale = Math.min(
-					(canvas.width! * 0.8) / img.width!,
-					(canvas.height! * 0.8) / img.height!,
+					(canvasWidth * 0.8) / imgWidth,
+					(canvasHeight * 0.8) / imgHeight,
 					1,
 				);
 
 				img.scale(scale);
 				img.set({
-					left: (canvas.width! - img.width! * scale) / 2,
-					top: (canvas.height! - img.height! * scale) / 2,
+					left: (canvasWidth - imgWidth * scale) / 2,
+					top: (canvasHeight - imgHeight * scale) / 2,
 				});
 
 				(img as LayerObject).imageId = latestImage.id;
+				(img as any).layerId = activeLayerId;
 
 				canvas.add(img);
 				canvas.setActiveObject(img);
@@ -1161,10 +1167,11 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 				toast.success(`Image loaded: ${latestImage.name}`);
 				saveCanvasState("Image added");
 			})
-			.catch(() => {
+			.catch((error) => {
+				console.error("Failed to load image:", error);
 				toast.error("Failed to load image");
 			});
-	}, [loadedImages, isReady, saveCanvasState]);
+	}, [loadedImages, isReady, saveCanvasState, activeLayerId]);
 
 	// Get cursor based on active tool
 	const getCursor = () => {
