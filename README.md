@@ -39,38 +39,24 @@ cd art-studio
 ```bash
 bun install
 # or
-npm install
+bun install
 ```
 
 ### 3. Run the development server
 ```bash
-npm run dev
+bun run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
 ---
 
-## 📂 Project Structure
-
-- `app/`: Next.js App Router pages and global styles.
-- `components/`:
-  - `canvas/`: Fabric.js canvas implementation.
-  - `panels/`: Control panels (Brush, Color, Layers, History).
-  - `toolbar/`: Main navigation and tool selection.
-  - `ui/`: Reusable primitive components (Shadcn-like).
-- `stores/`: Zustand state management for canvas and app state.
-- `lib/`: Utility functions and helper methods.
-- `types/`: TypeScript definitions.
-
----
-
 ## 📜 Available Scripts
 
-- `npm run dev`: Starts the development server.
-- `npm run build`: Builds the application for production.
-- `npm run format`: Runs Biome formatter and linter fix.
-- `npm run lint:all`: Runs full Bione check and lint.
+- `bun run dev`: Starts the development server.
+- `bun run build`: Builds the application for production.
+- `bun run format`: Runs Biome formatter and linter fix.
+- `bun run lint:all`: Runs full Bione check and lint.
 
 ---
 
@@ -79,11 +65,3 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 Contributions are welcome! Please feel free to submit a Pull Request.
 
 ---
-
-## 📄 License
-
-This project is licensed under the MIT License.
-
----
-
-Made with ❤️ by [Art-Studio Team]
