@@ -154,7 +154,6 @@ export default function RootLayout({
 			</head>
 			<body
 				className={`${ubuntu.variable} font-sans antialiased bg-background text-foreground`}
-				suppressHydrationWarning
 			>
 				{/* Main content */}
 				<main className="min-h-screen overflow-hidden">

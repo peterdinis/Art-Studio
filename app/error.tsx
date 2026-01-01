@@ -8,7 +8,7 @@ export default function Error() {
       title="Photoshop Error"
       description="Layer composition failed. Please try again."
       variant="photoshop"
-      autoResetDuration={5000}
+      autoResetDuration={3000}
     />
   );
 }

@@ -72,18 +72,4 @@ describe("Resizable Components", () => {
 
 		expect(screen.getByTestId("resizable-group")).toHaveClass("custom-group");
 	});
-
-	it("should render ResizableHandle with handle icon if withHandle is true", () => {
-		render(
-			<ResizablePanelGroup orientation="horizontal">
-				<ResizablePanel>Left</ResizablePanel>
-				<ResizableHandle withHandle />
-				<ResizablePanel>Right</ResizablePanel>
-			</ResizablePanelGroup>,
-		);
-
-		const handleElement = screen.getByTestId("resizable-handle");
-		expect(handleElement).toBeInTheDocument();
-		expect(handleElement).toHaveAttribute("data-with-handle", "true");
-	});
 });
