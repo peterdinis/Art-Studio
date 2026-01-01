@@ -51,15 +51,6 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 ---
 
-## 📜 Available Scripts
-
-- `bun run dev`: Starts the development server.
-- `bun run build`: Builds the application for production.
-- `bun run format`: Runs Biome formatter and linter fix.
-- `bun run lint:all`: Runs full Bione check and lint.
-
----
-
 ## 🤝 Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
