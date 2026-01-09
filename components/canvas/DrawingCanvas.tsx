@@ -213,6 +213,34 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 		addToHistory,
 	]);
 
+	// Update canvas viewport transform based on zoom and pan
+	useEffect(() => {
+		if (!fabricRef.current || !isReady) return;
+		const canvas = fabricRef.current;
+		
+		// Get container dimensions for centering
+		const container = containerRef.current;
+		if (!container) return;
+		
+		const containerWidth = container.clientWidth;
+		const containerHeight = container.clientHeight;
+		const canvasWidth = canvas.getWidth();
+		const canvasHeight = canvas.getHeight();
+		
+		// Calculate center offsets
+		const centerX = (containerWidth - canvasWidth) / 2;
+		const centerY = (containerHeight - canvasHeight) / 2;
+		
+		// Set viewport transform to handle zoom and pan
+		const zoomFactor = zoom / 100;
+		canvas.setViewportTransform([
+			zoomFactor, 0, 0, zoomFactor,
+			centerX + panOffset.x - (canvasWidth * (zoomFactor - 1)) / 2,
+			centerY + panOffset.y - (canvasHeight * (zoomFactor - 1)) / 2
+		]);
+		canvas.renderAll();
+	}, [zoom, panOffset, isReady]);
+
 	// Handle tool mode changes
 	useEffect(() => {
 		if (!fabricRef.current || !isReady) return;
@@ -261,9 +289,26 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 		) {
 			// Custom tool handling - disable default modes
 			canvas.selection = false;
+			canvas.isDrawingMode = false;
+			
+			// Set cursor based on tool
+			if (panTools.includes(activeTool)) {
+				canvas.defaultCursor = "grab";
+				canvas.hoverCursor = "grab";
+			} else {
+				canvas.defaultCursor = "default";
+				canvas.hoverCursor = "move";
+			}
+			
 			canvas.forEachObject((obj: { selectable: boolean; evented: boolean; }) => {
-				obj.selectable = false;
-				obj.evented = clickTools.includes(activeTool);
+				// For shape tools, allow objects to be selectable but disable default selection
+				if (shapeTools.includes(activeTool)) {
+					obj.selectable = true;
+					obj.evented = true;
+				} else {
+					obj.selectable = false;
+					obj.evented = clickTools.includes(activeTool);
+				}
 			});
 		}
 
@@ -315,7 +360,13 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 		const drawingTools = ["brush", "pencil", "eraser"];
 		const customSelectionTools = ["marquee", "lasso", "magicwand"];
 
-		const handleMouseDown = (e: { e: { altKey: string; detail: number; clientX: number; clientY: number; }; }) => {
+		const handleMouseDown = (e: { e: { altKey: string; detail: number; clientX: number; clientY: number; preventDefault?: () => void; stopPropagation?: () => void; }; }) => {
+			// Prevent default behavior for shape tools and hand tool
+			if (shapeTools.includes(activeTool) || activeTool === "hand") {
+				if (e.e.preventDefault) e.e.preventDefault();
+				if (e.e.stopPropagation) e.e.stopPropagation();
+			}
+
 			// Let Fabric.js handle native selection/move and drawing tools
 			if (
 				nativeSelectionTools.includes(activeTool) ||
@@ -512,8 +563,8 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 				return;
 			}
 
-			// Shape tools
-			if (shapeTools.includes(activeTool)) {
+			// Shape tools - rectangle, ellipse, line
+			if (shapeTools.includes(activeTool) && activeTool !== "polygon" && activeTool !== "pen") {
 				isDrawingShape.current = true;
 				shapeStartPoint.current = { x: pointer.x, y: pointer.y };
 
@@ -530,6 +581,8 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 						strokeWidth: 2,
 						selectable: false,
 						evented: false,
+						originX: "left",
+						originY: "top",
 					});
 				} else if (activeTool === "ellipse") {
 					shape = new Ellipse({
@@ -542,11 +595,13 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 						strokeWidth: 2,
 						selectable: false,
 						evented: false,
+						originX: "left",
+						originY: "top",
 					});
 				} else if (activeTool === "line") {
 					shape = new Line([pointer.x, pointer.y, pointer.x, pointer.y], {
 						stroke: primaryColor,
-						strokeWidth: brushSettings.size,
+						strokeWidth: brushSettings.size || 2,
 						selectable: false,
 						evented: false,
 					});
@@ -590,8 +645,12 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 			// Text tool
 			if (activeTool === "text") {
 				const existingText = canvas.getActiveObject();
-				if (existingText instanceof IText) return; // Don't add new text while editing
+				if (existingText instanceof IText) {
+					// If clicking on existing text, don't create new one
+					return;
+				}
 
+				// Create new text object
 				const text = new IText("Type here", {
 					left: pointer.x,
 					top: pointer.y,
@@ -599,14 +658,25 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 					fontSize: Math.max(16, brushSettings.size * 2),
 					fill: primaryColor,
 					editable: true,
+					selectable: true,
+					evented: true,
 				});
 
 				canvas.add(text);
 				canvas.setActiveObject(text);
-				(text as IText).enterEditing();
-				(text as IText).selectAll();
 				canvas.renderAll();
+				
+				// Enter editing mode after a short delay to ensure object is added
+				setTimeout(() => {
+					if (text && canvas.getActiveObject() === text) {
+						(text as IText).enterEditing();
+						(text as IText).selectAll();
+						canvas.renderAll();
+					}
+				}, 10);
+				
 				saveCanvasState("Text added");
+				toast.success("Text added - click to edit");
 				return;
 			}
 
@@ -683,7 +753,9 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 			if (activeTool === "hand") {
 				isPanning.current = true;
 				lastPanPos.current = { x: e.e.clientX, y: e.e.clientY };
+				canvas.defaultCursor = "grabbing";
 				canvas.setCursor("grabbing");
+				e.e.preventDefault?.();
 				return;
 			}
 		};
@@ -872,32 +944,42 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 					});
 				} else if (activeTool === "ellipse") {
 					const ellipse = currentShape.current as Ellipse;
-					const rx = Math.abs(pointer.x - startX) / 2;
-					const ry = Math.abs(pointer.y - startY) / 2;
+					const width = Math.abs(pointer.x - startX);
+					const height = Math.abs(pointer.y - startY);
+					const rx = width / 2;
+					const ry = height / 2;
 
 					ellipse.set({
 						rx: rx || 1,
 						ry: ry || 1,
 						left: Math.min(startX, pointer.x),
 						top: Math.min(startY, pointer.y),
+						originX: "left",
+						originY: "top",
 					});
+					ellipse.setCoords();
 				} else if (activeTool === "line") {
 					const line = currentShape.current as Line;
 					line.set({ x2: pointer.x, y2: pointer.y });
+					line.setCoords();
 				}
 
 				canvas.renderAll();
 				return;
 			}
 
-			// Panning
+			// Panning with hand tool
 			if (isPanning.current && activeTool === "hand") {
 				const deltaX = e.e.clientX - lastPanPos.current.x;
 				const deltaY = e.e.clientY - lastPanPos.current.y;
 
+				// Update pan offset (in canvas coordinates)
+				const newPanX = panOffset.x + deltaX;
+				const newPanY = panOffset.y + deltaY;
+				
 				setPanOffset({
-					x: panOffset.x + deltaX,
-					y: panOffset.y + deltaY,
+					x: newPanX,
+					y: newPanY,
 				});
 
 				lastPanPos.current = { x: e.e.clientX, y: e.e.clientY };
@@ -1067,20 +1149,28 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 
 			// Finish shape drawing
 			if (isDrawingShape.current && currentShape.current) {
-				currentShape.current.set({
-					selectable: true,
-					evented: true,
-				});
-				currentShape.current.setCoords();
-				saveCanvasState(`${activeTool} created`);
+				// Only finalize if it's a shape tool (not polygon which is handled separately)
+				if (shapeTools.includes(activeTool) && activeTool !== "polygon") {
+					currentShape.current.set({
+						selectable: true,
+						evented: true,
+					});
+					currentShape.current.setCoords();
+					saveCanvasState(`${activeTool} created`);
+					toast.success(`${activeTool} created`);
+				}
 			}
-			isDrawingShape.current = false;
-			shapeStartPoint.current = null;
-			currentShape.current = null;
+			// Only reset if not polygon (polygon handles its own state)
+			if (activeTool !== "polygon") {
+				isDrawingShape.current = false;
+				shapeStartPoint.current = null;
+				currentShape.current = null;
+			}
 
 			// Finish panning
-			if (isPanning.current) {
+			if (isPanning.current && activeTool === "hand") {
 				isPanning.current = false;
+				canvas.defaultCursor = "grab";
 				canvas.setCursor("grab");
 			}
 
@@ -1373,11 +1463,6 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 
 			<div
 				className="relative shadow-2xl rounded-sm overflow-hidden"
-				style={{
-					transform: `scale(${zoom / 100}) translate(${panOffset.x}px, ${panOffset.y}px)`,
-					transformOrigin: "center center",
-					transition: "transform 0.1s ease-out",
-				}}
 			>
 				<canvas ref={canvasRef} className="block" />
 			</div>

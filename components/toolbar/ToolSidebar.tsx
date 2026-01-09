@@ -370,7 +370,25 @@ export const ToolSidebar: React.FC = () => {
 			<Tooltip delayDuration={400}>
 				<TooltipTrigger asChild>
 					<button
-						onClick={() => undo()}
+						onClick={() => {
+							const entry = undo();
+							if (entry) {
+								const canvas = window.fabricCanvas || window.konvaStage;
+								if (canvas) {
+									if (window.fabricCanvas) {
+										canvas.loadFromJSON(JSON.parse(entry.canvasData)).then(() => {
+											canvas.renderAll();
+										});
+									} else if (window.konvaStage) {
+										window.dispatchEvent(
+											new CustomEvent("artstudio:restore-history", {
+												detail: { canvasData: entry.canvasData },
+											}),
+										);
+									}
+								}
+							}
+						}}
 						disabled={!canUndo()}
 						className="tool-button disabled:opacity-30 disabled:cursor-not-allowed"
 					>
@@ -399,7 +417,25 @@ export const ToolSidebar: React.FC = () => {
 			<Tooltip delayDuration={400}>
 				<TooltipTrigger asChild>
 					<button
-						onClick={() => redo()}
+						onClick={() => {
+							const entry = redo();
+							if (entry) {
+								const canvas = window.fabricCanvas || window.konvaStage;
+								if (canvas) {
+									if (window.fabricCanvas) {
+										canvas.loadFromJSON(JSON.parse(entry.canvasData)).then(() => {
+											canvas.renderAll();
+										});
+									} else if (window.konvaStage) {
+										window.dispatchEvent(
+											new CustomEvent("artstudio:restore-history", {
+												detail: { canvasData: entry.canvasData },
+											}),
+										);
+									}
+								}
+							}
+						}}
 						disabled={!canRedo()}
 						className="tool-button disabled:opacity-30 disabled:cursor-not-allowed"
 					>

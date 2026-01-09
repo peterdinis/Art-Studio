@@ -121,6 +121,7 @@ export const TopMenuBar: React.FC = () => {
 		secondaryColor,
 		clearHistory,
 		duplicateLayer,
+		setPanOffset,
 		// Panel visibility
 		showLeftPanel,
 		setShowLeftPanel,
@@ -153,6 +154,70 @@ export const TopMenuBar: React.FC = () => {
 	const getCanvas = () => window.fabricCanvas || window.konvaStage;
 	const isFabric = () => !!window.fabricCanvas;
 	const isKonva = () => !!window.konvaStage;
+
+	// Keyboard shortcuts for View menu
+	React.useEffect(() => {
+		const handleKeyDown = (e: KeyboardEvent) => {
+			// Skip if typing in an input field
+			if (
+				e.target instanceof HTMLInputElement ||
+				e.target instanceof HTMLTextAreaElement
+			)
+				return;
+
+			// Zoom shortcuts
+			if ((e.ctrlKey || e.metaKey) && e.key === "=") {
+				e.preventDefault();
+				handleZoomIn();
+				return;
+			}
+
+			if ((e.ctrlKey || e.metaKey) && e.key === "-") {
+				e.preventDefault();
+				handleZoomOut();
+				return;
+			}
+
+			if ((e.ctrlKey || e.metaKey) && e.key === "0") {
+				e.preventDefault();
+				handleFitToScreen();
+				return;
+			}
+
+			if ((e.ctrlKey || e.metaKey) && e.key === "1") {
+				e.preventDefault();
+				handleActualSize();
+				return;
+			}
+
+			// Grid toggle
+			if ((e.ctrlKey || e.metaKey) && e.key === "'") {
+				e.preventDefault();
+				setShowGrid(!showGrid);
+				toast.success(showGrid ? "Grid hidden" : "Grid shown");
+				return;
+			}
+
+			// Rulers toggle
+			if ((e.ctrlKey || e.metaKey) && e.key === "r") {
+				e.preventDefault();
+				setShowRulers(!showRulers);
+				toast.success(showRulers ? "Rulers hidden" : "Rulers shown");
+				return;
+			}
+
+			// Guides toggle
+			if ((e.ctrlKey || e.metaKey) && e.key === ";") {
+				e.preventDefault();
+				setShowGuides(!showGuides);
+				toast.success(showGuides ? "Guides hidden" : "Guides shown");
+				return;
+			}
+		};
+
+		window.addEventListener("keydown", handleKeyDown);
+		return () => window.removeEventListener("keydown", handleKeyDown);
+	}, [zoom, showGrid, showRulers, showGuides, setZoom, setPanOffset, setShowGrid, setShowRulers, setShowGuides, showLeftPanel, showRightPanel]);
 
 	const handleNewCanvas = () => {
 		setShowTemplates(true);
@@ -428,78 +493,113 @@ export const TopMenuBar: React.FC = () => {
 	};
 
 	const handleDeleteSelection = () => {
-		if (isFabric()) {
-			const canvas = window.fabricCanvas;
-			const activeObjects = canvas.getActiveObjects();
-			if (activeObjects.length > 0) {
-				activeObjects.forEach((obj: unknown) => canvas.remove(obj));
-				canvas.discardActiveObject();
-				canvas.renderAll();
+		const canvas = getCanvas();
+		if (canvas) {
+			if (isFabric()) {
+				const activeObjects = canvas.getActiveObjects();
+				if (activeObjects.length > 0) {
+					activeObjects.forEach((obj: unknown) => canvas.remove(obj));
+					canvas.discardActiveObject();
+					canvas.renderAll();
+					toast.success("Selection deleted");
+				} else {
+					toast.info("No selection to delete");
+				}
+			} else if (isKonva()) {
+				// Trigger a custom event for Konva to handle deletion
+				window.dispatchEvent(new CustomEvent("artstudio:delete-selection"));
 				toast.success("Selection deleted");
-			} else {
-				toast.info("No selection to delete");
 			}
-		} else if (isKonva()) {
-			// Trigger a custom event for Konva to handle deletion
-			window.dispatchEvent(new CustomEvent("artstudio:delete-selection"));
+		} else {
+			toast.error("No canvas available");
 		}
 	};
 
 	const handleCopy = () => {
 		const canvas = getCanvas();
 		if (canvas) {
-			const activeObject = canvas.getActiveObject();
-			if (activeObject) {
-				activeObject.clone().then((cloned: unknown) => {
-					window.copiedObject = cloned;
-					toast.success("Copied");
-				});
-			} else {
-				toast.info("Nothing to copy");
+			if (isFabric()) {
+				const activeObject = canvas.getActiveObject();
+				if (activeObject) {
+					activeObject.clone().then((cloned: unknown) => {
+						window.copiedObject = cloned;
+						toast.success("Copied");
+					});
+				} else {
+					toast.info("Nothing to copy");
+				}
+			} else if (isKonva()) {
+				window.dispatchEvent(new CustomEvent("artstudio:copy-selection"));
+				toast.success("Copied");
 			}
 		}
 	};
 
 	const handlePaste = () => {
 		const canvas = getCanvas();
-		if (canvas && (window as Window).copiedObject) {
-			(window as Window).copiedObject.clone().then((cloned: { set: (arg0: { left: number; top: number; }) => void; left: number; top: number; }) => {
-				cloned.set({
-					left: (cloned.left || 0) + 20,
-					top: (cloned.top || 0) + 20,
+		if (canvas) {
+			if (isFabric() && (window as Window).copiedObject) {
+				(window as Window).copiedObject.clone().then((cloned: { set: (arg0: { left: number; top: number; }) => void; left: number; top: number; }) => {
+					cloned.set({
+						left: (cloned.left || 0) + 20,
+						top: (cloned.top || 0) + 20,
+					});
+					canvas.add(cloned);
+					canvas.setActiveObject(cloned);
+					canvas.renderAll();
+					toast.success("Pasted");
 				});
-				canvas.add(cloned);
-				canvas.setActiveObject(cloned);
-				canvas.renderAll();
+			} else if (isKonva()) {
+				window.dispatchEvent(
+					new CustomEvent("artstudio:paste", { detail: { offset: true } }),
+				);
 				toast.success("Pasted");
-			});
+			} else {
+				toast.info("Nothing to paste");
+			}
 		}
 	};
 
 	const handlePasteInPlace = () => {
 		const canvas = getCanvas();
-		if (canvas && (window as Window).copiedObject) {
-			(window as Window).copiedObject.clone().then((cloned: { set: (arg0: { left: number; top: number; }) => void; left: number; top: number; }) => {
-				// Paste at original position (no offset)
-				canvas.add(cloned);
-				canvas.setActiveObject(cloned);
-				canvas.renderAll();
+		if (canvas) {
+			if (isFabric() && (window as Window).copiedObject) {
+				(window as Window).copiedObject.clone().then((cloned: { set: (arg0: { left: number; top: number; }) => void; left: number; top: number; }) => {
+					// Paste at original position (no offset)
+					canvas.add(cloned);
+					canvas.setActiveObject(cloned);
+					canvas.renderAll();
+					toast.success("Pasted in place");
+				});
+			} else if (isKonva()) {
+				window.dispatchEvent(
+					new CustomEvent("artstudio:paste", { detail: { offset: false } }),
+				);
 				toast.success("Pasted in place");
-			});
+			} else {
+				toast.info("Nothing to paste");
+			}
 		}
 	};
 
 	const handleCut = () => {
 		const canvas = getCanvas();
 		if (canvas) {
-			const activeObject = canvas.getActiveObject();
-			if (activeObject) {
-				activeObject.clone().then((cloned: unknown) => {
-					(window as Window).copiedObject = cloned;
-					canvas.remove(activeObject);
-					canvas.renderAll();
-					toast.success("Cut");
-				});
+			if (isFabric()) {
+				const activeObject = canvas.getActiveObject();
+				if (activeObject) {
+					activeObject.clone().then((cloned: unknown) => {
+						(window as Window).copiedObject = cloned;
+						canvas.remove(activeObject);
+						canvas.renderAll();
+						toast.success("Cut");
+					});
+				} else {
+					toast.info("Nothing to cut");
+				}
+			} else if (isKonva()) {
+				window.dispatchEvent(new CustomEvent("artstudio:cut-selection"));
+				toast.success("Cut");
 			}
 		}
 	};
@@ -507,10 +607,21 @@ export const TopMenuBar: React.FC = () => {
 	const handleFlipHorizontal = () => {
 		const canvas = getCanvas();
 		if (canvas) {
-			const activeObject = canvas.getActiveObject();
-			if (activeObject) {
-				activeObject.set("flipX", !activeObject.flipX);
-				canvas.renderAll();
+			if (isFabric()) {
+				const activeObject = canvas.getActiveObject();
+				if (activeObject) {
+					activeObject.set("flipX", !activeObject.flipX);
+					canvas.renderAll();
+					toast.success("Flipped horizontal");
+				} else {
+					toast.info("Select an object to flip");
+				}
+			} else if (isKonva()) {
+				window.dispatchEvent(
+					new CustomEvent("artstudio:flip-selection", {
+						detail: { direction: "horizontal" },
+					}),
+				);
 				toast.success("Flipped horizontal");
 			}
 		}
@@ -519,10 +630,21 @@ export const TopMenuBar: React.FC = () => {
 	const handleFlipVertical = () => {
 		const canvas = getCanvas();
 		if (canvas) {
-			const activeObject = canvas.getActiveObject();
-			if (activeObject) {
-				activeObject.set("flipY", !activeObject.flipY);
-				canvas.renderAll();
+			if (isFabric()) {
+				const activeObject = canvas.getActiveObject();
+				if (activeObject) {
+					activeObject.set("flipY", !activeObject.flipY);
+					canvas.renderAll();
+					toast.success("Flipped vertical");
+				} else {
+					toast.info("Select an object to flip");
+				}
+			} else if (isKonva()) {
+				window.dispatchEvent(
+					new CustomEvent("artstudio:flip-selection", {
+						detail: { direction: "vertical" },
+					}),
+				);
 				toast.success("Flipped vertical");
 			}
 		}
@@ -531,10 +653,21 @@ export const TopMenuBar: React.FC = () => {
 	const handleRotate = (angle: number) => {
 		const canvas = getCanvas();
 		if (canvas) {
-			const activeObject = canvas.getActiveObject();
-			if (activeObject) {
-				activeObject.rotate((activeObject.angle || 0) + angle);
-				canvas.renderAll();
+			if (isFabric()) {
+				const activeObject = canvas.getActiveObject();
+				if (activeObject) {
+					activeObject.rotate((activeObject.angle || 0) + angle);
+					canvas.renderAll();
+					toast.success(`Rotated ${angle}°`);
+				} else {
+					toast.info("Select an object to rotate");
+				}
+			} else if (isKonva()) {
+				window.dispatchEvent(
+					new CustomEvent("artstudio:rotate-selection", {
+						detail: { angle },
+					}),
+				);
 				toast.success(`Rotated ${angle}°`);
 			}
 		}
@@ -543,26 +676,46 @@ export const TopMenuBar: React.FC = () => {
 	const handleFillWithColor = (color: string) => {
 		const canvas = getCanvas();
 		if (canvas) {
-			const activeObject = canvas.getActiveObject();
-			if (activeObject) {
-				activeObject.set("fill", color);
-				canvas.renderAll();
+			if (isFabric()) {
+				const activeObject = canvas.getActiveObject();
+				if (activeObject) {
+					activeObject.set("fill", color);
+					canvas.renderAll();
+					toast.success("Fill applied");
+				} else {
+					canvas.backgroundColor = color;
+					canvas.renderAll();
+					toast.success("Background filled");
+				}
+			} else if (isKonva()) {
+				window.dispatchEvent(
+					new CustomEvent("artstudio:fill-selection", {
+						detail: { color },
+					}),
+				);
 				toast.success("Fill applied");
-			} else {
-				canvas.backgroundColor = color;
-				canvas.renderAll();
-				toast.success("Background filled");
 			}
+		} else {
+			toast.error("No canvas available");
 		}
 	};
 
 	const handleBringForward = () => {
 		const canvas = getCanvas();
 		if (canvas) {
-			const activeObject = canvas.getActiveObject();
-			if (activeObject) {
-				canvas.bringObjectForward(activeObject);
-				canvas.renderAll();
+			if (isFabric()) {
+				const activeObject = canvas.getActiveObject();
+				if (activeObject) {
+					canvas.bringObjectForward(activeObject);
+					canvas.renderAll();
+					toast.success("Brought forward");
+				} else {
+					toast.info("Select an object to bring forward");
+				}
+			} else if (isKonva()) {
+				window.dispatchEvent(
+					new CustomEvent("artstudio:bring-forward"),
+				);
 				toast.success("Brought forward");
 			}
 		}
@@ -571,10 +724,19 @@ export const TopMenuBar: React.FC = () => {
 	const handleSendBackward = () => {
 		const canvas = getCanvas();
 		if (canvas) {
-			const activeObject = canvas.getActiveObject();
-			if (activeObject) {
-				canvas.sendObjectBackwards(activeObject);
-				canvas.renderAll();
+			if (isFabric()) {
+				const activeObject = canvas.getActiveObject();
+				if (activeObject) {
+					canvas.sendObjectBackwards(activeObject);
+					canvas.renderAll();
+					toast.success("Sent backward");
+				} else {
+					toast.info("Select an object to send backward");
+				}
+			} else if (isKonva()) {
+				window.dispatchEvent(
+					new CustomEvent("artstudio:send-backward"),
+				);
 				toast.success("Sent backward");
 			}
 		}
@@ -583,10 +745,19 @@ export const TopMenuBar: React.FC = () => {
 	const handleBringToFront = () => {
 		const canvas = getCanvas();
 		if (canvas) {
-			const activeObject = canvas.getActiveObject();
-			if (activeObject) {
-				canvas.bringObjectToFront(activeObject);
-				canvas.renderAll();
+			if (isFabric()) {
+				const activeObject = canvas.getActiveObject();
+				if (activeObject) {
+					canvas.bringObjectToFront(activeObject);
+					canvas.renderAll();
+					toast.success("Brought to front");
+				} else {
+					toast.info("Select an object to bring to front");
+				}
+			} else if (isKonva()) {
+				window.dispatchEvent(
+					new CustomEvent("artstudio:bring-to-front"),
+				);
 				toast.success("Brought to front");
 			}
 		}
@@ -595,10 +766,19 @@ export const TopMenuBar: React.FC = () => {
 	const handleSendToBack = () => {
 		const canvas = getCanvas();
 		if (canvas) {
-			const activeObject = canvas.getActiveObject();
-			if (activeObject) {
-				canvas.sendObjectToBack(activeObject);
-				canvas.renderAll();
+			if (isFabric()) {
+				const activeObject = canvas.getActiveObject();
+				if (activeObject) {
+					canvas.sendObjectToBack(activeObject);
+					canvas.renderAll();
+					toast.success("Sent to back");
+				} else {
+					toast.info("Select an object to send to back");
+				}
+			} else if (isKonva()) {
+				window.dispatchEvent(
+					new CustomEvent("artstudio:send-to-back"),
+				);
 				toast.success("Sent to back");
 			}
 		}
@@ -1093,19 +1273,69 @@ export const TopMenuBar: React.FC = () => {
 		{ label: "Print...", icon: Printer, shortcut: "⌘P", action: handlePrint },
 	];
 
+	const handleUndo = () => {
+		const entry = undo();
+		if (entry) {
+			const canvas = getCanvas();
+			if (canvas) {
+				if (isFabric()) {
+					canvas.loadFromJSON(JSON.parse(entry.canvasData)).then(() => {
+						canvas.renderAll();
+						toast.success("Undone");
+					});
+				} else if (isKonva()) {
+					// For Konva, dispatch event to restore state
+					window.dispatchEvent(
+						new CustomEvent("artstudio:restore-history", {
+							detail: { canvasData: entry.canvasData },
+						}),
+					);
+					toast.success("Undone");
+				}
+			}
+		} else {
+			toast.info("Nothing to undo");
+		}
+	};
+
+	const handleRedo = () => {
+		const entry = redo();
+		if (entry) {
+			const canvas = getCanvas();
+			if (canvas) {
+				if (isFabric()) {
+					canvas.loadFromJSON(JSON.parse(entry.canvasData)).then(() => {
+						canvas.renderAll();
+						toast.success("Redone");
+					});
+				} else if (isKonva()) {
+					// For Konva, dispatch event to restore state
+					window.dispatchEvent(
+						new CustomEvent("artstudio:restore-history", {
+							detail: { canvasData: entry.canvasData },
+						}),
+					);
+					toast.success("Redone");
+				}
+			}
+		} else {
+			toast.info("Nothing to redo");
+		}
+	};
+
 	const editMenu: MenuItemConfig[] = [
 		{
 			label: "Undo",
 			icon: RotateCcw,
 			shortcut: "⌘Z",
-			action: () => undo(),
+			action: handleUndo,
 			disabled: !canUndo(),
 		},
 		{
 			label: "Redo",
 			icon: RotateCw,
 			shortcut: "⇧⌘Z",
-			action: () => redo(),
+			action: handleRedo,
 			disabled: !canRedo(),
 		},
 		{ separator: true, label: "" },
