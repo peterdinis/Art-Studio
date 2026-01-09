@@ -233,7 +233,7 @@ export const KeyboardShortcutsDialog: React.FC<
 													<React.Fragment key={keyIdx}>
 														<Badge
 															variant="secondary"
-															className="font-mono text-xs px-1.5 py-0.5 min-w-[24px] justify-center"
+															className="font-mono text-xs px-1.5 py-0.5 min-w-6 justify-center"
 														>
 															{key}
 														</Badge>

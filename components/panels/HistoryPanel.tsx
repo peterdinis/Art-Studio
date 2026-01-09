@@ -54,7 +54,7 @@ export const HistoryPanel: React.FC = () => {
 			</div>
 
 			{/* History List */}
-			<ScrollArea className="flex-1 max-h-[250px]">
+			<ScrollArea className="flex-1 max-h-62.5">
 				<div className="space-y-2 pr-2">
 					{history.map((entry, index) => (
 						<button
