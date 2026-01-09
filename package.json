@@ -35,7 +35,7 @@
 		"clsx": "^2.1.1",
 		"date-fns": "^4.1.0",
 		"fabric": "^7.1.0",
-		"framer-motion": "^12.23.26",
+		"framer-motion": "^12.25.0",
 		"konva": "^10.0.12",
 		"lucide-react": "^0.562.0",
 		"next": "16.1.1",
@@ -43,7 +43,7 @@
 		"react": "19.2.3",
 		"react-dom": "19.2.3",
 		"react-konva": "^19.2.1",
-		"react-resizable-panels": "^4.1.1",
+		"react-resizable-panels": "^4.3.3",
 		"sonner": "^2.0.7",
 		"tailwind-merge": "^3.4.0",
 		"zustand": "^5.0.9"
