@@ -5,13 +5,7 @@ import { useArtStudioStore } from "@/stores/artStudioStore";
 import {
 	ZoomIn,
 	ZoomOut,
-	Maximize2,
-	RotateCcw,
-	Grid3X3,
-	Ruler,
 	MousePointer2,
-	Layers,
-	Box,
 } from "lucide-react";
 import {
 	Tooltip,
@@ -31,14 +25,6 @@ export const StatusBar: React.FC = () => {
 		setRenderingEngine,
 	} = useArtStudioStore();
 
-	const toggleRenderingEngine = () => {
-		const newEngine = renderingEngine === "fabric" ? "konva" : "fabric";
-		setRenderingEngine(newEngine);
-		toast.success(
-			`Switched to ${newEngine === "fabric" ? "Fabric.js" : "Konva"} engine`,
-		);
-	};
-
 	const zoomLevels = [25, 50, 75, 100, 150, 200, 300, 400];
 
 	const handleZoomIn = () => {
@@ -50,11 +36,6 @@ export const StatusBar: React.FC = () => {
 		const prevLevel =
 			[...zoomLevels].reverse().find((z) => z < zoom) || zoom - 25;
 		setZoom(Math.max(prevLevel, 10));
-	};
-
-	const handleResetView = () => {
-		setZoom(100);
-		setPanOffset({ x: 0, y: 0 });
 	};
 
 	const getToolDisplayName = () => {
@@ -201,7 +182,7 @@ export const StatusBar: React.FC = () => {
 					<TooltipTrigger asChild>
 						<button
 							onClick={() => setZoom(100)}
-							className="min-w-[60px] text-center font-mono hover:text-foreground transition-colors"
+							className="min-w-15 text-center font-mono hover:text-foreground transition-colors"
 						>
 							{zoom.toFixed(0)}%
 						</button>
@@ -233,99 +214,6 @@ export const StatusBar: React.FC = () => {
 				</Tooltip>
 
 				<div className="w-px h-4 bg-border mx-1" />
-
-				<Tooltip delayDuration={300}>
-					<TooltipTrigger asChild>
-						<button onClick={handleResetView} className="tool-button w-6 h-6">
-							<RotateCcw className="w-3.5 h-3.5" />
-						</button>
-					</TooltipTrigger>
-					<TooltipContent side="top">
-						<div className="space-y-0.5">
-							<p className="font-medium">Reset View</p>
-							<p className="text-xs text-muted-foreground">
-								Reset zoom to 100% and center canvas
-							</p>
-						</div>
-					</TooltipContent>
-				</Tooltip>
-
-				<Tooltip delayDuration={300}>
-					<TooltipTrigger asChild>
-						<button className="tool-button w-6 h-6">
-							<Maximize2 className="w-3.5 h-3.5" />
-						</button>
-					</TooltipTrigger>
-					<TooltipContent side="top">
-						<div className="space-y-0.5">
-							<p className="font-medium">Fit to Screen</p>
-							<p className="text-xs text-muted-foreground">
-								Zoom to fit entire canvas in view (⌘0)
-							</p>
-						</div>
-					</TooltipContent>
-				</Tooltip>
-
-				<Tooltip delayDuration={300}>
-					<TooltipTrigger asChild>
-						<button className="tool-button w-6 h-6">
-							<Grid3X3 className="w-3.5 h-3.5" />
-						</button>
-					</TooltipTrigger>
-					<TooltipContent side="top">
-						<div className="space-y-0.5">
-							<p className="font-medium">Toggle Grid</p>
-							<p className="text-xs text-muted-foreground">
-								Show/hide pixel grid overlay (⌘')
-							</p>
-						</div>
-					</TooltipContent>
-				</Tooltip>
-
-				<Tooltip delayDuration={300}>
-					<TooltipTrigger asChild>
-						<button className="tool-button w-6 h-6">
-							<Ruler className="w-3.5 h-3.5" />
-						</button>
-					</TooltipTrigger>
-					<TooltipContent side="top">
-						<div className="space-y-0.5">
-							<p className="font-medium">Toggle Rulers</p>
-							<p className="text-xs text-muted-foreground">
-								Show/hide rulers on canvas edges (⌘R)
-							</p>
-						</div>
-					</TooltipContent>
-				</Tooltip>
-
-				<div className="w-px h-4 bg-border mx-1" />
-
-				{/* Rendering Engine Toggle */}
-				<Tooltip delayDuration={300}>
-					<TooltipTrigger asChild>
-						<button
-							onClick={toggleRenderingEngine}
-							className="flex items-center gap-1.5 px-2 py-1 rounded hover:bg-muted/50 transition-colors"
-						>
-							{renderingEngine === "fabric" ? (
-								<Layers className="w-3.5 h-3.5" />
-							) : (
-								<Box className="w-3.5 h-3.5" />
-							)}
-							<span className="font-mono text-xs">
-								{renderingEngine === "fabric" ? "Fabric.js" : "Konva"}
-							</span>
-						</button>
-					</TooltipTrigger>
-					<TooltipContent side="top">
-						<div className="space-y-0.5">
-							<p className="font-medium">Rendering Engine</p>
-							<p className="text-xs text-muted-foreground">
-								Click to switch between Fabric.js and Konva rendering engines
-							</p>
-						</div>
-					</TooltipContent>
-				</Tooltip>
 			</div>
 		</div>
 	);
