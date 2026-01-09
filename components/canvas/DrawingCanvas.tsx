@@ -73,6 +73,18 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 	const penPoints = useRef<{ x: number; y: number }[]>([]);
 	const penPath = useRef<Path | null>(null);
 
+	// Gradient tool state
+	const gradientStartPoint = useRef<{ x: number; y: number } | null>(null);
+	const gradientEndPoint = useRef<{ x: number; y: number } | null>(null);
+	const isDrawingGradient = useRef(false);
+	const gradientTarget = useRef<FabricObject | null>(null);
+	const gradientLine = useRef<Line | null>(null);
+
+	// Polygon tool state
+	const polygonPoints = useRef<{ x: number; y: number }[]>([]);
+	const polygonShape = useRef<Polygon | null>(null);
+	const isDrawingPolygon = useRef(false);
+
 	const {
 		activeTool,
 		primaryColor,
@@ -539,20 +551,32 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 						evented: false,
 					});
 				} else if (activeTool === "polygon") {
-					shape = new Polygon(
-						[
-							{ x: pointer.x, y: pointer.y },
-							{ x: pointer.x + 1, y: pointer.y },
-							{ x: pointer.x, y: pointer.y + 1 },
-						],
-						{
+					// Start new polygon or add point to existing
+					if (!isDrawingPolygon.current) {
+						polygonPoints.current = [{ x: pointer.x, y: pointer.y }];
+						isDrawingPolygon.current = true;
+					} else {
+						polygonPoints.current.push({ x: pointer.x, y: pointer.y });
+					}
+
+					// Need at least 3 points for a polygon
+					if (polygonPoints.current.length >= 3) {
+						if (polygonShape.current) {
+							canvas.remove(polygonShape.current);
+						}
+
+						shape = new Polygon(polygonPoints.current, {
 							fill: primaryColor,
 							stroke: secondaryColor,
 							strokeWidth: 2,
 							selectable: false,
 							evented: false,
-						},
-					);
+						});
+						polygonShape.current = shape;
+						canvas.add(shape);
+						canvas.renderAll();
+					}
+					return; // Don't add to currentShape, handle separately
 				}
 
 				if (shape) {
@@ -601,26 +625,30 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 				return;
 			}
 
-			// Gradient tool
+			// Gradient tool - click and drag to define gradient direction
 			if (activeTool === "gradient") {
 				const target = canvas.findTarget(e.e, true);
 				if (target) {
-					const gradient = new Gradient({
-						type: "linear",
-						coords: {
-							x1: 0,
-							y1: 0,
-							x2: target.width || 100,
-							y2: target.height || 100,
+					gradientStartPoint.current = { x: pointer.x, y: pointer.y };
+					gradientTarget.current = target;
+					isDrawingGradient.current = true;
+
+					// Draw a preview line
+					const line = new Line(
+						[pointer.x, pointer.y, pointer.x, pointer.y],
+						{
+							stroke: primaryColor,
+							strokeWidth: 2,
+							strokeDashArray: [5, 5],
+							selectable: false,
+							evented: false,
 						},
-						colorStops: [
-							{ offset: 0, color: primaryColor },
-							{ offset: 1, color: secondaryColor },
-						],
-					});
-					target.set({ fill: gradient });
+					);
+					gradientLine.current = line;
+					canvas.add(line);
 					canvas.renderAll();
-					saveCanvasState("Gradient applied");
+				} else {
+					toast.info("Click on an object to apply gradient");
 				}
 				return;
 			}
@@ -792,6 +820,36 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 				return;
 			}
 
+			// Gradient tool preview line
+			if (
+				isDrawingGradient.current &&
+				gradientStartPoint.current &&
+				gradientLine.current
+			) {
+				gradientLine.current.set({
+					x2: pointer.x,
+					y2: pointer.y,
+				});
+				canvas.renderAll();
+				return;
+			}
+
+			// Polygon tool - update preview with new point
+			if (
+				isDrawingPolygon.current &&
+				polygonPoints.current.length >= 2 &&
+				polygonShape.current
+			) {
+				// Update last point to current pointer position for preview
+				const previewPoints = [
+					...polygonPoints.current,
+					{ x: pointer.x, y: pointer.y },
+				];
+				polygonShape.current.set({ points: previewPoints });
+				canvas.renderAll();
+				return;
+			}
+
 			// Shape drawing
 			if (
 				isDrawingShape.current &&
@@ -826,20 +884,6 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 				} else if (activeTool === "line") {
 					const line = currentShape.current as Line;
 					line.set({ x2: pointer.x, y2: pointer.y });
-				} else if (activeTool === "polygon") {
-					const polygon = currentShape.current as Polygon;
-					const dx = pointer.x - startX;
-					const dy = pointer.y - startY;
-					const size = Math.sqrt(dx * dx + dy * dy);
-
-					if (size > 5) {
-						const points = [
-							{ x: startX, y: startY - size },
-							{ x: startX - size * 0.866, y: startY + size * 0.5 },
-							{ x: startX + size * 0.866, y: startY + size * 0.5 },
-						];
-						polygon.set({ points });
-					}
 				}
 
 				canvas.renderAll();
@@ -861,7 +905,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 			}
 		};
 
-		const handleMouseUp = () => {
+		const handleMouseUp = (e: { e: { clientX: number; clientY: number; }; }) => {
 			// Let Fabric.js handle native selection/move and drawing tools
 			if (
 				nativeSelectionTools.includes(activeTool) ||
@@ -869,6 +913,8 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 			) {
 				return;
 			}
+
+			const pointer = canvas.getPointer(e.e);
 
 			// Finish marquee selection
 			if (
@@ -960,6 +1006,65 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 				return;
 			}
 
+			// Finish gradient tool
+			if (
+				isDrawingGradient.current &&
+				gradientStartPoint.current &&
+				gradientTarget.current &&
+				gradientLine.current
+			) {
+				const target = gradientTarget.current;
+				const bounds = target.getBoundingRect();
+				// Calculate relative positions within the object bounds
+				const startX = gradientStartPoint.current.x - bounds.left;
+				const startY = gradientStartPoint.current.y - bounds.top;
+				const endX = pointer.x - bounds.left;
+				const endY = pointer.y - bounds.top;
+
+				const gradient = new Gradient({
+					type: "linear",
+					coords: {
+						x1: startX,
+						y1: startY,
+						x2: endX,
+						y2: endY,
+					},
+					colorStops: [
+						{ offset: 0, color: primaryColor },
+						{ offset: 1, color: secondaryColor },
+					],
+				});
+
+				target.set({ fill: gradient });
+				canvas.remove(gradientLine.current);
+				canvas.renderAll();
+				saveCanvasState("Gradient applied");
+
+				isDrawingGradient.current = false;
+				gradientStartPoint.current = null;
+				gradientEndPoint.current = null;
+				gradientTarget.current = null;
+				gradientLine.current = null;
+			}
+
+			// Finish polygon tool - double click or right click to finish
+			if (isDrawingPolygon.current && polygonShape.current) {
+				// Keep polygon as is, allow more points on next click
+				// User can double-click or press Enter to finalize
+				// For now, we'll finalize on mouse up if they have at least 3 points
+				if (polygonPoints.current.length >= 3) {
+					polygonShape.current.set({
+						selectable: true,
+						evented: true,
+					});
+					polygonShape.current.setCoords();
+					saveCanvasState("Polygon created");
+					isDrawingPolygon.current = false;
+					polygonPoints.current = [];
+					polygonShape.current = null;
+				}
+			}
+
 			// Finish shape drawing
 			if (isDrawingShape.current && currentShape.current) {
 				currentShape.current.set({
@@ -991,7 +1096,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 			canvas.off("mouse:move", handleMouseMove);
 			canvas.off("mouse:up", handleMouseUp);
 		};
-	}, [
+		}, [
 		activeTool,
 		primaryColor,
 		secondaryColor,
@@ -1004,6 +1109,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 		setPanOffset,
 		setPrimaryColor,
 		activeLayerId,
+		actualBackground,
 	]);
 
 	// Restore canvas when history index changes
@@ -1092,6 +1198,39 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 						toast.success(`${activeObjects.length} objects deleted`);
 					}
 				}
+				return;
+			}
+
+			// Finalize polygon tool with Enter key
+			if (e.key === "Enter" && isDrawingPolygon.current && polygonShape.current) {
+				if (polygonPoints.current.length >= 3) {
+					polygonShape.current.set({
+						selectable: true,
+						evented: true,
+					});
+					polygonShape.current.setCoords();
+					saveCanvasState("Polygon created");
+					isDrawingPolygon.current = false;
+					polygonPoints.current = [];
+					polygonShape.current = null;
+					if (fabricRef.current) {
+						fabricRef.current.renderAll();
+					}
+					toast.success("Polygon finalized");
+				}
+				return;
+			}
+
+			// Cancel polygon tool with Escape key
+			if (e.key === "Escape" && isDrawingPolygon.current) {
+				if (polygonShape.current && fabricRef.current) {
+					fabricRef.current.remove(polygonShape.current);
+					fabricRef.current.renderAll();
+				}
+				isDrawingPolygon.current = false;
+				polygonPoints.current = [];
+				polygonShape.current = null;
+				toast.info("Polygon cancelled");
 				return;
 			}
 

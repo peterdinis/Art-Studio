@@ -239,8 +239,20 @@ const tools: ToolConfig[] = [
 ];
 
 export const ToolSidebar: React.FC = () => {
-	const { activeTool, setActiveTool, canUndo, canRedo, undo, redo } =
-		useArtStudioStore();
+	const {
+		activeTool,
+		setActiveTool,
+		canUndo,
+		canRedo,
+		undo,
+		redo,
+		primaryColor,
+		secondaryColor,
+		setPrimaryColor,
+		setSecondaryColor,
+		swapColors,
+		setShowColorsPanel,
+	} = useArtStudioStore();
 
 	// Keyboard shortcuts - using capture phase for priority
 	React.useEffect(() => {
@@ -306,14 +318,14 @@ export const ToolSidebar: React.FC = () => {
 						>
 							<div className="space-y-1.5">
 								<div className="flex items-center justify-between gap-4">
-									<span className="font-semibold text-foreground">
+									<span className="font-semibold text-black">
 										{tool.label}
 									</span>
-									<kbd className="px-1.5 py-0.5 text-xs bg-muted rounded font-mono">
+									<kbd className="px-1.5 py-0.5 text-xs text-blue-100 bg-muted rounded font-mono">
 										{tool.shortcut}
 									</kbd>
 								</div>
-								<p className="text-xs text-muted-foreground leading-relaxed">
+								<p className="text-xs text-black leading-relaxed">
 									{tool.description}
 								</p>
 							</div>
@@ -417,14 +429,48 @@ export const ToolSidebar: React.FC = () => {
 			<div className="mt-auto pt-2">
 				<Tooltip delayDuration={400}>
 					<TooltipTrigger asChild>
-						<div className="relative w-10 h-10 cursor-pointer">
-							<div
-								className="absolute top-0 left-0 w-6 h-6 rounded border-2 border-card bg-foreground z-10"
-								style={{ backgroundColor: "#ffffff" }}
+						<div className="relative w-10 h-10">
+							{/* Primary Color - Clickable */}
+							<button
+								onClick={() => {
+									const input = document.createElement("input");
+									input.type = "color";
+									input.value = primaryColor;
+									input.onchange = (e) => {
+										const color = (e.target as HTMLInputElement).value;
+										setPrimaryColor(color);
+									};
+									input.click();
+								}}
+								className="absolute top-0 left-0 w-6 h-6 rounded border-2 border-card bg-foreground z-10 cursor-pointer hover:scale-110 transition-transform"
+								style={{ backgroundColor: primaryColor }}
+								title="Primary Color - Click to change"
 							/>
-							<div
-								className="absolute bottom-0 right-0 w-6 h-6 rounded border-2 border-card"
-								style={{ backgroundColor: "#000000" }}
+							{/* Secondary Color - Clickable */}
+							<button
+								onClick={() => {
+									const input = document.createElement("input");
+									input.type = "color";
+									input.value = secondaryColor;
+									input.onchange = (e) => {
+										const color = (e.target as HTMLInputElement).value;
+										setSecondaryColor(color);
+									};
+									input.click();
+								}}
+								className="absolute bottom-0 right-0 w-6 h-6 rounded border-2 border-card cursor-pointer hover:scale-110 transition-transform"
+								style={{ backgroundColor: secondaryColor }}
+								title="Secondary Color - Click to change"
+							/>
+							{/* Swap button overlay - double click to swap */}
+							<button
+								onDoubleClick={(e) => {
+									e.preventDefault();
+									e.stopPropagation();
+									swapColors();
+								}}
+								className="absolute inset-0 z-20 cursor-pointer"
+								title="Double-click to swap colors"
 							/>
 						</div>
 					</TooltipTrigger>
@@ -441,9 +487,15 @@ export const ToolSidebar: React.FC = () => {
 								</kbd>
 							</div>
 							<p className="text-xs text-muted-foreground leading-relaxed">
-								Foreground and background colors. Press X to swap, D to reset to
-								defaults.
+								Click swatches to change colors. Double-click to swap, or press X
+								to swap, D to reset to defaults.
 							</p>
+							<button
+								onClick={() => setShowColorsPanel(true)}
+								className="text-xs text-primary hover:underline mt-2"
+							>
+								Open Color Panel →
+							</button>
 						</div>
 					</TooltipContent>
 				</Tooltip>
