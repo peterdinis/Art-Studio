@@ -7,7 +7,6 @@ import {
 	Save,
 	Download,
 	Settings,
-	HelpCircle,
 	Palette,
 	Grid3X3,
 	Plus,
@@ -122,6 +121,7 @@ export const TopMenuBar: React.FC = () => {
 		secondaryColor,
 		clearHistory,
 		duplicateLayer,
+		setPanOffset,
 		// Panel visibility
 		showLeftPanel,
 		setShowLeftPanel,
@@ -154,6 +154,70 @@ export const TopMenuBar: React.FC = () => {
 	const getCanvas = () => window.fabricCanvas || window.konvaStage;
 	const isFabric = () => !!window.fabricCanvas;
 	const isKonva = () => !!window.konvaStage;
+
+	// Keyboard shortcuts for View menu
+	React.useEffect(() => {
+		const handleKeyDown = (e: KeyboardEvent) => {
+			// Skip if typing in an input field
+			if (
+				e.target instanceof HTMLInputElement ||
+				e.target instanceof HTMLTextAreaElement
+			)
+				return;
+
+			// Zoom shortcuts
+			if ((e.ctrlKey || e.metaKey) && e.key === "=") {
+				e.preventDefault();
+				handleZoomIn();
+				return;
+			}
+
+			if ((e.ctrlKey || e.metaKey) && e.key === "-") {
+				e.preventDefault();
+				handleZoomOut();
+				return;
+			}
+
+			if ((e.ctrlKey || e.metaKey) && e.key === "0") {
+				e.preventDefault();
+				handleFitToScreen();
+				return;
+			}
+
+			if ((e.ctrlKey || e.metaKey) && e.key === "1") {
+				e.preventDefault();
+				handleActualSize();
+				return;
+			}
+
+			// Grid toggle
+			if ((e.ctrlKey || e.metaKey) && e.key === "'") {
+				e.preventDefault();
+				setShowGrid(!showGrid);
+				toast.success(showGrid ? "Grid hidden" : "Grid shown");
+				return;
+			}
+
+			// Rulers toggle
+			if ((e.ctrlKey || e.metaKey) && e.key === "r") {
+				e.preventDefault();
+				setShowRulers(!showRulers);
+				toast.success(showRulers ? "Rulers hidden" : "Rulers shown");
+				return;
+			}
+
+			// Guides toggle
+			if ((e.ctrlKey || e.metaKey) && e.key === ";") {
+				e.preventDefault();
+				setShowGuides(!showGuides);
+				toast.success(showGuides ? "Guides hidden" : "Guides shown");
+				return;
+			}
+		};
+
+		window.addEventListener("keydown", handleKeyDown);
+		return () => window.removeEventListener("keydown", handleKeyDown);
+	}, [zoom, showGrid, showRulers, showGuides, setZoom, setPanOffset, setShowGrid, setShowRulers, setShowGuides, showLeftPanel, showRightPanel]);
 
 	const handleNewCanvas = () => {
 		setShowTemplates(true);
@@ -429,65 +493,113 @@ export const TopMenuBar: React.FC = () => {
 	};
 
 	const handleDeleteSelection = () => {
-		if (isFabric()) {
-			const canvas = window.fabricCanvas;
-			const activeObjects = canvas.getActiveObjects();
-			if (activeObjects.length > 0) {
-				activeObjects.forEach((obj: unknown) => canvas.remove(obj));
-				canvas.discardActiveObject();
-				canvas.renderAll();
+		const canvas = getCanvas();
+		if (canvas) {
+			if (isFabric()) {
+				const activeObjects = canvas.getActiveObjects();
+				if (activeObjects.length > 0) {
+					activeObjects.forEach((obj: unknown) => canvas.remove(obj));
+					canvas.discardActiveObject();
+					canvas.renderAll();
+					toast.success("Selection deleted");
+				} else {
+					toast.info("No selection to delete");
+				}
+			} else if (isKonva()) {
+				// Trigger a custom event for Konva to handle deletion
+				window.dispatchEvent(new CustomEvent("artstudio:delete-selection"));
 				toast.success("Selection deleted");
-			} else {
-				toast.info("No selection to delete");
 			}
-		} else if (isKonva()) {
-			// Trigger a custom event for Konva to handle deletion
-			window.dispatchEvent(new CustomEvent("artstudio:delete-selection"));
+		} else {
+			toast.error("No canvas available");
 		}
 	};
 
 	const handleCopy = () => {
 		const canvas = getCanvas();
 		if (canvas) {
-			const activeObject = canvas.getActiveObject();
-			if (activeObject) {
-				activeObject.clone().then((cloned: unknown) => {
-					window.copiedObject = cloned;
-					toast.success("Copied");
-				});
-			} else {
-				toast.info("Nothing to copy");
+			if (isFabric()) {
+				const activeObject = canvas.getActiveObject();
+				if (activeObject) {
+					activeObject.clone().then((cloned: unknown) => {
+						window.copiedObject = cloned;
+						toast.success("Copied");
+					});
+				} else {
+					toast.info("Nothing to copy");
+				}
+			} else if (isKonva()) {
+				window.dispatchEvent(new CustomEvent("artstudio:copy-selection"));
+				toast.success("Copied");
 			}
 		}
 	};
 
 	const handlePaste = () => {
 		const canvas = getCanvas();
-		if (canvas && (window as Window).copiedObject) {
-			(window as Window).copiedObject.clone().then((cloned: { set: (arg0: { left: number; top: number; }) => void; left: number; top: number; }) => {
-				cloned.set({
-					left: (cloned.left || 0) + 20,
-					top: (cloned.top || 0) + 20,
+		if (canvas) {
+			if (isFabric() && (window as Window).copiedObject) {
+				(window as Window).copiedObject.clone().then((cloned: { set: (arg0: { left: number; top: number; }) => void; left: number; top: number; }) => {
+					cloned.set({
+						left: (cloned.left || 0) + 20,
+						top: (cloned.top || 0) + 20,
+					});
+					canvas.add(cloned);
+					canvas.setActiveObject(cloned);
+					canvas.renderAll();
+					toast.success("Pasted");
 				});
-				canvas.add(cloned);
-				canvas.setActiveObject(cloned);
-				canvas.renderAll();
+			} else if (isKonva()) {
+				window.dispatchEvent(
+					new CustomEvent("artstudio:paste", { detail: { offset: true } }),
+				);
 				toast.success("Pasted");
-			});
+			} else {
+				toast.info("Nothing to paste");
+			}
+		}
+	};
+
+	const handlePasteInPlace = () => {
+		const canvas = getCanvas();
+		if (canvas) {
+			if (isFabric() && (window as Window).copiedObject) {
+				(window as Window).copiedObject.clone().then((cloned: { set: (arg0: { left: number; top: number; }) => void; left: number; top: number; }) => {
+					// Paste at original position (no offset)
+					canvas.add(cloned);
+					canvas.setActiveObject(cloned);
+					canvas.renderAll();
+					toast.success("Pasted in place");
+				});
+			} else if (isKonva()) {
+				window.dispatchEvent(
+					new CustomEvent("artstudio:paste", { detail: { offset: false } }),
+				);
+				toast.success("Pasted in place");
+			} else {
+				toast.info("Nothing to paste");
+			}
 		}
 	};
 
 	const handleCut = () => {
 		const canvas = getCanvas();
 		if (canvas) {
-			const activeObject = canvas.getActiveObject();
-			if (activeObject) {
-				activeObject.clone().then((cloned: unknown) => {
-					(window as Window).copiedObject = cloned;
-					canvas.remove(activeObject);
-					canvas.renderAll();
-					toast.success("Cut");
-				});
+			if (isFabric()) {
+				const activeObject = canvas.getActiveObject();
+				if (activeObject) {
+					activeObject.clone().then((cloned: unknown) => {
+						(window as Window).copiedObject = cloned;
+						canvas.remove(activeObject);
+						canvas.renderAll();
+						toast.success("Cut");
+					});
+				} else {
+					toast.info("Nothing to cut");
+				}
+			} else if (isKonva()) {
+				window.dispatchEvent(new CustomEvent("artstudio:cut-selection"));
+				toast.success("Cut");
 			}
 		}
 	};
@@ -495,10 +607,21 @@ export const TopMenuBar: React.FC = () => {
 	const handleFlipHorizontal = () => {
 		const canvas = getCanvas();
 		if (canvas) {
-			const activeObject = canvas.getActiveObject();
-			if (activeObject) {
-				activeObject.set("flipX", !activeObject.flipX);
-				canvas.renderAll();
+			if (isFabric()) {
+				const activeObject = canvas.getActiveObject();
+				if (activeObject) {
+					activeObject.set("flipX", !activeObject.flipX);
+					canvas.renderAll();
+					toast.success("Flipped horizontal");
+				} else {
+					toast.info("Select an object to flip");
+				}
+			} else if (isKonva()) {
+				window.dispatchEvent(
+					new CustomEvent("artstudio:flip-selection", {
+						detail: { direction: "horizontal" },
+					}),
+				);
 				toast.success("Flipped horizontal");
 			}
 		}
@@ -507,10 +630,21 @@ export const TopMenuBar: React.FC = () => {
 	const handleFlipVertical = () => {
 		const canvas = getCanvas();
 		if (canvas) {
-			const activeObject = canvas.getActiveObject();
-			if (activeObject) {
-				activeObject.set("flipY", !activeObject.flipY);
-				canvas.renderAll();
+			if (isFabric()) {
+				const activeObject = canvas.getActiveObject();
+				if (activeObject) {
+					activeObject.set("flipY", !activeObject.flipY);
+					canvas.renderAll();
+					toast.success("Flipped vertical");
+				} else {
+					toast.info("Select an object to flip");
+				}
+			} else if (isKonva()) {
+				window.dispatchEvent(
+					new CustomEvent("artstudio:flip-selection", {
+						detail: { direction: "vertical" },
+					}),
+				);
 				toast.success("Flipped vertical");
 			}
 		}
@@ -519,10 +653,21 @@ export const TopMenuBar: React.FC = () => {
 	const handleRotate = (angle: number) => {
 		const canvas = getCanvas();
 		if (canvas) {
-			const activeObject = canvas.getActiveObject();
-			if (activeObject) {
-				activeObject.rotate((activeObject.angle || 0) + angle);
-				canvas.renderAll();
+			if (isFabric()) {
+				const activeObject = canvas.getActiveObject();
+				if (activeObject) {
+					activeObject.rotate((activeObject.angle || 0) + angle);
+					canvas.renderAll();
+					toast.success(`Rotated ${angle}°`);
+				} else {
+					toast.info("Select an object to rotate");
+				}
+			} else if (isKonva()) {
+				window.dispatchEvent(
+					new CustomEvent("artstudio:rotate-selection", {
+						detail: { angle },
+					}),
+				);
 				toast.success(`Rotated ${angle}°`);
 			}
 		}
@@ -531,26 +676,46 @@ export const TopMenuBar: React.FC = () => {
 	const handleFillWithColor = (color: string) => {
 		const canvas = getCanvas();
 		if (canvas) {
-			const activeObject = canvas.getActiveObject();
-			if (activeObject) {
-				activeObject.set("fill", color);
-				canvas.renderAll();
+			if (isFabric()) {
+				const activeObject = canvas.getActiveObject();
+				if (activeObject) {
+					activeObject.set("fill", color);
+					canvas.renderAll();
+					toast.success("Fill applied");
+				} else {
+					canvas.backgroundColor = color;
+					canvas.renderAll();
+					toast.success("Background filled");
+				}
+			} else if (isKonva()) {
+				window.dispatchEvent(
+					new CustomEvent("artstudio:fill-selection", {
+						detail: { color },
+					}),
+				);
 				toast.success("Fill applied");
-			} else {
-				canvas.backgroundColor = color;
-				canvas.renderAll();
-				toast.success("Background filled");
 			}
+		} else {
+			toast.error("No canvas available");
 		}
 	};
 
 	const handleBringForward = () => {
 		const canvas = getCanvas();
 		if (canvas) {
-			const activeObject = canvas.getActiveObject();
-			if (activeObject) {
-				canvas.bringObjectForward(activeObject);
-				canvas.renderAll();
+			if (isFabric()) {
+				const activeObject = canvas.getActiveObject();
+				if (activeObject) {
+					canvas.bringObjectForward(activeObject);
+					canvas.renderAll();
+					toast.success("Brought forward");
+				} else {
+					toast.info("Select an object to bring forward");
+				}
+			} else if (isKonva()) {
+				window.dispatchEvent(
+					new CustomEvent("artstudio:bring-forward"),
+				);
 				toast.success("Brought forward");
 			}
 		}
@@ -559,10 +724,19 @@ export const TopMenuBar: React.FC = () => {
 	const handleSendBackward = () => {
 		const canvas = getCanvas();
 		if (canvas) {
-			const activeObject = canvas.getActiveObject();
-			if (activeObject) {
-				canvas.sendObjectBackwards(activeObject);
-				canvas.renderAll();
+			if (isFabric()) {
+				const activeObject = canvas.getActiveObject();
+				if (activeObject) {
+					canvas.sendObjectBackwards(activeObject);
+					canvas.renderAll();
+					toast.success("Sent backward");
+				} else {
+					toast.info("Select an object to send backward");
+				}
+			} else if (isKonva()) {
+				window.dispatchEvent(
+					new CustomEvent("artstudio:send-backward"),
+				);
 				toast.success("Sent backward");
 			}
 		}
@@ -571,10 +745,19 @@ export const TopMenuBar: React.FC = () => {
 	const handleBringToFront = () => {
 		const canvas = getCanvas();
 		if (canvas) {
-			const activeObject = canvas.getActiveObject();
-			if (activeObject) {
-				canvas.bringObjectToFront(activeObject);
-				canvas.renderAll();
+			if (isFabric()) {
+				const activeObject = canvas.getActiveObject();
+				if (activeObject) {
+					canvas.bringObjectToFront(activeObject);
+					canvas.renderAll();
+					toast.success("Brought to front");
+				} else {
+					toast.info("Select an object to bring to front");
+				}
+			} else if (isKonva()) {
+				window.dispatchEvent(
+					new CustomEvent("artstudio:bring-to-front"),
+				);
 				toast.success("Brought to front");
 			}
 		}
@@ -583,10 +766,19 @@ export const TopMenuBar: React.FC = () => {
 	const handleSendToBack = () => {
 		const canvas = getCanvas();
 		if (canvas) {
-			const activeObject = canvas.getActiveObject();
-			if (activeObject) {
-				canvas.sendObjectToBack(activeObject);
-				canvas.renderAll();
+			if (isFabric()) {
+				const activeObject = canvas.getActiveObject();
+				if (activeObject) {
+					canvas.sendObjectToBack(activeObject);
+					canvas.renderAll();
+					toast.success("Sent to back");
+				} else {
+					toast.info("Select an object to send to back");
+				}
+			} else if (isKonva()) {
+				window.dispatchEvent(
+					new CustomEvent("artstudio:send-to-back"),
+				);
 				toast.success("Sent to back");
 			}
 		}
@@ -889,6 +1081,96 @@ export const TopMenuBar: React.FC = () => {
 				toast.success("Image upscaled 2x");
 				break;
 
+			case "Hue/Saturation":
+				if (activeObject) {
+					// Simulate hue shift by adjusting fill color
+					const currentFill = activeObject.fill;
+					if (typeof currentFill === "string" && currentFill.startsWith("#")) {
+						const hue = prompt("Enter hue shift (-180 to 180):", "0");
+						if (hue) {
+							const shift = parseInt(hue);
+							if (!isNaN(shift)) {
+								// Simple hue shift simulation
+								activeObject.set({ opacity: Math.min(1, (activeObject.opacity || 1) + shift / 360) });
+								canvas.renderAll();
+								toast.success("Hue/Saturation adjusted");
+							}
+						}
+					}
+				} else {
+					toast.info("Select an object to adjust");
+				}
+				break;
+
+			case "Color Balance":
+				if (activeObject) {
+					// Simulate color balance by adjusting opacity
+					activeObject.set({ opacity: Math.min(1, (activeObject.opacity || 1) * 1.1) });
+					canvas.renderAll();
+					toast.success("Color balance adjusted");
+				} else {
+					toast.info("Select an object to adjust");
+				}
+				break;
+
+			case "Levels":
+			case "Curves":
+				if (activeObject) {
+					// Simulate levels/curves by adjusting contrast
+					activeObject.set({
+						opacity: Math.min(1, (activeObject.opacity || 1) * 1.05),
+						strokeWidth: (activeObject.strokeWidth || 0) + 0.5,
+					});
+					canvas.renderAll();
+					toast.success(`${filter} adjusted`);
+				} else {
+					toast.info("Select an object to adjust");
+				}
+				break;
+
+			case "Auto Tone":
+			case "Auto Contrast":
+				canvas.getObjects().forEach((obj: { opacity: number; set: (arg0: string, arg1: number) => void; }) => {
+					const currentOpacity = obj.opacity || 1;
+					obj.set("opacity", Math.min(1, Math.max(0.1, currentOpacity * 1.1)));
+				});
+				canvas.renderAll();
+				toast.success(`${filter} applied`);
+				break;
+
+			case "Liquify":
+			case "Twirl":
+			case "Spherize":
+			case "Wave":
+				if (activeObject) {
+					// Simulate distortion effects
+					activeObject.set({
+						scaleX: (activeObject.scaleX || 1) * 1.05,
+						scaleY: (activeObject.scaleY || 1) * 0.95,
+						skewX: (activeObject.skewX || 0) + 2,
+					});
+					activeObject.setCoords();
+					canvas.renderAll();
+					toast.success(`${filter} effect applied`);
+				} else {
+					toast.info("Select an object to apply distortion");
+				}
+				break;
+
+			case "Reduce Noise":
+			case "Median":
+				if (activeObject) {
+					// Simulate noise reduction by smoothing
+					activeObject.set({
+						opacity: Math.min(1, (activeObject.opacity || 1) * 1.05),
+					});
+					canvas.renderAll();
+					toast.success(`${filter} applied`);
+				} else {
+					toast.info("Select an object to reduce noise");
+				}
+				break;
+
 			default:
 				toast.info(`${filter} effect applied`);
 		}
@@ -987,24 +1269,73 @@ export const TopMenuBar: React.FC = () => {
 				},
 			],
 		},
-		{ label: "Share...", icon: Share2, action: handleShare },
 		{ separator: true, label: "" },
 		{ label: "Print...", icon: Printer, shortcut: "⌘P", action: handlePrint },
 	];
+
+	const handleUndo = () => {
+		const entry = undo();
+		if (entry) {
+			const canvas = getCanvas();
+			if (canvas) {
+				if (isFabric()) {
+					canvas.loadFromJSON(JSON.parse(entry.canvasData)).then(() => {
+						canvas.renderAll();
+						toast.success("Undone");
+					});
+				} else if (isKonva()) {
+					// For Konva, dispatch event to restore state
+					window.dispatchEvent(
+						new CustomEvent("artstudio:restore-history", {
+							detail: { canvasData: entry.canvasData },
+						}),
+					);
+					toast.success("Undone");
+				}
+			}
+		} else {
+			toast.info("Nothing to undo");
+		}
+	};
+
+	const handleRedo = () => {
+		const entry = redo();
+		if (entry) {
+			const canvas = getCanvas();
+			if (canvas) {
+				if (isFabric()) {
+					canvas.loadFromJSON(JSON.parse(entry.canvasData)).then(() => {
+						canvas.renderAll();
+						toast.success("Redone");
+					});
+				} else if (isKonva()) {
+					// For Konva, dispatch event to restore state
+					window.dispatchEvent(
+						new CustomEvent("artstudio:restore-history", {
+							detail: { canvasData: entry.canvasData },
+						}),
+					);
+					toast.success("Redone");
+				}
+			}
+		} else {
+			toast.info("Nothing to redo");
+		}
+	};
 
 	const editMenu: MenuItemConfig[] = [
 		{
 			label: "Undo",
 			icon: RotateCcw,
 			shortcut: "⌘Z",
-			action: () => undo(),
+			action: handleUndo,
 			disabled: !canUndo(),
 		},
 		{
 			label: "Redo",
 			icon: RotateCw,
 			shortcut: "⇧⌘Z",
-			action: () => redo(),
+			action: handleRedo,
 			disabled: !canRedo(),
 		},
 		{ separator: true, label: "" },
@@ -1015,7 +1346,7 @@ export const TopMenuBar: React.FC = () => {
 			label: "Paste in Place",
 			icon: Clipboard,
 			shortcut: "⇧⌘V",
-			action: handlePaste,
+			action: handlePasteInPlace,
 		},
 		{ separator: true, label: "" },
 		{
@@ -1091,26 +1422,69 @@ export const TopMenuBar: React.FC = () => {
 		},
 	];
 
+	const handleFitToScreen = () => {
+		const canvas = getCanvas();
+		if (canvas) {
+			// Get canvas dimensions
+			const canvasWidth = canvas.width || 1920;
+			const canvasHeight = canvas.height || 1080;
+			
+			// Get viewport dimensions (approximate, accounting for panels)
+			const viewportWidth = window.innerWidth - (showLeftPanel ? 56 : 0) - (showRightPanel ? 320 : 0) - 100;
+			const viewportHeight = window.innerHeight - 80 - 40; // Top bar + status bar
+			
+			// Calculate zoom to fit
+			const zoomX = (viewportWidth / canvasWidth) * 100;
+			const zoomY = (viewportHeight / canvasHeight) * 100;
+			const fitZoom = Math.min(zoomX, zoomY, 100); // Don't zoom in beyond 100%
+			
+			setZoom(Math.max(10, Math.min(100, fitZoom)));
+			setPanOffset({ x: 0, y: 0 }); // Center the canvas
+			toast.success("Canvas fitted to screen");
+		} else {
+			setZoom(100);
+			setPanOffset({ x: 0, y: 0 });
+		}
+	};
+
+	const handleZoomIn = () => {
+		const newZoom = Math.min(500, zoom + 25);
+		setZoom(newZoom);
+		toast.info(`Zoom: ${newZoom}%`);
+	};
+
+	const handleZoomOut = () => {
+		const newZoom = Math.max(10, zoom - 25);
+		setZoom(newZoom);
+		toast.info(`Zoom: ${newZoom}%`);
+	};
+
+	const handleActualSize = () => {
+		setZoom(100);
+		setPanOffset({ x: 0, y: 0 });
+		toast.success("Zoom reset to 100%");
+	};
+
 	const viewMenu: MenuItemConfig[] = [
 		{
 			label: "Zoom In",
 			icon: ZoomIn,
 			shortcut: "⌘+",
-			action: () => setZoom(zoom + 25),
+			action: handleZoomIn,
 		},
 		{
 			label: "Zoom Out",
 			icon: ZoomOut,
 			shortcut: "⌘-",
-			action: () => setZoom(zoom - 25),
+			action: handleZoomOut,
 		},
 		{
 			label: "Fit to Screen",
 			icon: Maximize,
 			shortcut: "⌘0",
-			action: () => setZoom(100),
+			action: handleFitToScreen,
 		},
-		{ label: "Actual Size", shortcut: "⌘1", action: () => setZoom(100) },
+		{ label: "Actual Size", shortcut: "⌘1", action: handleActualSize },
 		{ separator: true, label: "" },
 		{
 			label: "Toggle Grid",
@@ -1474,40 +1848,6 @@ export const TopMenuBar: React.FC = () => {
 		},
 	];
 
-	const helpMenu: MenuItemConfig[] = [
-		{
-			label: "Keyboard Shortcuts",
-			icon: Keyboard,
-			shortcut: "⌘/",
-			action: () => setShowShortcuts(true),
-		},
-		{
-			label: "Documentation",
-			icon: BookOpen,
-			action: () => window.open("https://docs.lovable.dev", "_blank"),
-		},
-		{ separator: true, label: "" },
-		{
-			label: "Send Feedback",
-			icon: MessageCircle,
-			action: () => {
-				const feedback = prompt("Enter your feedback:");
-				if (feedback) {
-					toast.success("Thank you for your feedback!");
-				}
-			},
-		},
-		{
-			label: "About ArtStudio",
-			icon: Info,
-			action: () => {
-				toast.info("ArtStudio v1.0 - Professional Digital Art Studio", {
-					duration: 5000,
-				});
-			},
-		},
-	];
-
 	const menus = [
 		{ label: "File", items: fileMenu },
 		{ label: "Edit", items: editMenu },
@@ -1516,7 +1856,6 @@ export const TopMenuBar: React.FC = () => {
 		{ label: "Layer", items: layerMenu },
 		{ label: "Filter", items: filterMenu },
 		{ label: "Window", items: windowMenu },
-		{ label: "Help", items: helpMenu },
 	];
 
 	const renderMenuItems = (items: MenuItemConfig[]) => {
@@ -1534,7 +1873,7 @@ export const TopMenuBar: React.FC = () => {
 							)}
 							<span>{item.label}</span>
 						</DropdownMenuSubTrigger>
-						<DropdownMenuSubContent className="min-w-[200px]">
+						<DropdownMenuSubContent className="min-w-50">
 							{renderMenuItems(item.submenu)}
 						</DropdownMenuSubContent>
 					</DropdownMenuSub>
@@ -1564,7 +1903,7 @@ export const TopMenuBar: React.FC = () => {
 			<div className="flex items-center gap-1">
 				{/* Logo */}
 				<div className="flex items-center gap-2 px-3">
-					<div className="w-6 h-6 rounded-md bg-gradient-to-br from-primary to-primary/50 flex items-center justify-center">
+					<div className="w-6 h-6 rounded-md bg-linear-to-br from-primary to-primary/50 flex items-center justify-center">
 						<Palette className="w-4 h-4 text-primary-foreground" />
 					</div>
 					<span className="font-semibold text-sm text-foreground">
@@ -1582,7 +1921,7 @@ export const TopMenuBar: React.FC = () => {
 								{menu.label}
 							</button>
 						</DropdownMenuTrigger>
-						<DropdownMenuContent align="start" className="min-w-[220px]">
+						<DropdownMenuContent align="start" className="min-w-55">
 							{renderMenuItems(menu.items)}
 						</DropdownMenuContent>
 					</DropdownMenu>

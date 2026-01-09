@@ -12,7 +12,18 @@ import { KonvaCanvas } from "@/components/canvas/KonvaCanvas";
 import { useArtStudioStore } from "@/stores/artStudioStore";
 
 const HomeWrapper = () => {
-	const { renderingEngine, showGrid, showRulers } = useArtStudioStore();
+	const {
+		renderingEngine,
+		showGrid,
+		showRulers,
+		showGuides,
+		showLeftPanel,
+		showRightPanel,
+		showBrushesPanel,
+		showColorsPanel,
+		showLayersPanel,
+		showHistoryPanel,
+	} = useArtStudioStore();
 
 	return (
 		<div className="h-screen w-full flex flex-col overflow-hidden bg-background">
@@ -22,7 +33,7 @@ const HomeWrapper = () => {
 			{/* Main Content Area */}
 			<div className="flex flex-1 overflow-hidden">
 				{/* Left Tool Sidebar */}
-				<ToolSidebar />
+				{showLeftPanel && <ToolSidebar />}
 
 				{/* Center Canvas Area */}
 				<div className="flex-1 flex flex-col overflow-hidden bg-[#2a2a2a] relative">
@@ -65,13 +76,29 @@ const HomeWrapper = () => {
 					{/* Grid Overlay */}
 					{showGrid && (
 						<div
-							className="absolute inset-0 pointer-events-none"
+							className="absolute inset-0 pointer-events-none z-10"
 							style={{
 								backgroundImage:
 									"linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)",
 								backgroundSize: "20px 20px",
 							}}
 						/>
+					)}
+
+					{/* Guides Overlay */}
+					{showGuides && (
+						<div className="absolute inset-0 pointer-events-none z-20">
+							{/* Horizontal guide at 50% */}
+							<div
+								className="absolute w-full border-t border-dashed border-blue-500 opacity-60"
+								style={{ top: "50%" }}
+							/>
+							{/* Vertical guide at 50% */}
+							<div
+								className="absolute h-full border-l border-dashed border-blue-500 opacity-60"
+								style={{ left: "50%" }}
+							/>
+						</div>
 					)}
 
 					{/* Canvas */}
@@ -81,12 +108,14 @@ const HomeWrapper = () => {
 				</div>
 
 				{/* Right Panel Group */}
-				<div className="w-80 bg-card border-l border-border flex flex-col overflow-hidden">
-					<BrushPanel />
-					<ColorPanel />
-					<LayersPanel />
-					<HistoryPanel />
-				</div>
+				{showRightPanel && (
+					<div className="w-80 bg-card border-l border-border flex flex-col overflow-hidden">
+						{showBrushesPanel && <BrushPanel />}
+						{showColorsPanel && <ColorPanel />}
+						{showLayersPanel && <LayersPanel />}
+						{showHistoryPanel && <HistoryPanel />}
+					</div>
+				)}
 			</div>
 
 			{/* Status Bar */}

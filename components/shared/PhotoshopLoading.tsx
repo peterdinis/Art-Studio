@@ -28,8 +28,8 @@ export const PhotoshopLoading: FC = () => {
 						{/* Ps letters */}
 						<div className="absolute inset-0 flex items-center justify-center">
 							<div className="relative">
-								<span className="text-4xl font-bold text-white/80">P</span>
-								<span className="text-4xl font-bold text-[#31a8ff]">s</span>
+								<span className="text-4xl font-bold text-white/80">A</span>
+								<span className="text-4xl font-bold text-[#31a8ff]">S</span>
 								<div className="absolute -right-2 -top-2 w-4 h-4 bg-[#31a8ff] rounded-full animate-ping" />
 							</div>
 						</div>

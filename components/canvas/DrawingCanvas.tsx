@@ -73,6 +73,18 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 	const penPoints = useRef<{ x: number; y: number }[]>([]);
 	const penPath = useRef<Path | null>(null);
 
+	// Gradient tool state
+	const gradientStartPoint = useRef<{ x: number; y: number } | null>(null);
+	const gradientEndPoint = useRef<{ x: number; y: number } | null>(null);
+	const isDrawingGradient = useRef(false);
+	const gradientTarget = useRef<FabricObject | null>(null);
+	const gradientLine = useRef<Line | null>(null);
+
+	// Polygon tool state
+	const polygonPoints = useRef<{ x: number; y: number }[]>([]);
+	const polygonShape = useRef<Polygon | null>(null);
+	const isDrawingPolygon = useRef(false);
+
 	const {
 		activeTool,
 		primaryColor,
@@ -201,6 +213,34 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 		addToHistory,
 	]);
 
+	// Update canvas viewport transform based on zoom and pan
+	useEffect(() => {
+		if (!fabricRef.current || !isReady) return;
+		const canvas = fabricRef.current;
+		
+		// Get container dimensions for centering
+		const container = containerRef.current;
+		if (!container) return;
+		
+		const containerWidth = container.clientWidth;
+		const containerHeight = container.clientHeight;
+		const canvasWidth = canvas.getWidth();
+		const canvasHeight = canvas.getHeight();
+		
+		// Calculate center offsets
+		const centerX = (containerWidth - canvasWidth) / 2;
+		const centerY = (containerHeight - canvasHeight) / 2;
+		
+		// Set viewport transform to handle zoom and pan
+		const zoomFactor = zoom / 100;
+		canvas.setViewportTransform([
+			zoomFactor, 0, 0, zoomFactor,
+			centerX + panOffset.x - (canvasWidth * (zoomFactor - 1)) / 2,
+			centerY + panOffset.y - (canvasHeight * (zoomFactor - 1)) / 2
+		]);
+		canvas.renderAll();
+	}, [zoom, panOffset, isReady]);
+
 	// Handle tool mode changes
 	useEffect(() => {
 		if (!fabricRef.current || !isReady) return;
@@ -249,9 +289,26 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 		) {
 			// Custom tool handling - disable default modes
 			canvas.selection = false;
+			canvas.isDrawingMode = false;
+			
+			// Set cursor based on tool
+			if (panTools.includes(activeTool)) {
+				canvas.defaultCursor = "grab";
+				canvas.hoverCursor = "grab";
+			} else {
+				canvas.defaultCursor = "default";
+				canvas.hoverCursor = "move";
+			}
+			
 			canvas.forEachObject((obj: { selectable: boolean; evented: boolean; }) => {
-				obj.selectable = false;
-				obj.evented = clickTools.includes(activeTool);
+				// For shape tools, allow objects to be selectable but disable default selection
+				if (shapeTools.includes(activeTool)) {
+					obj.selectable = true;
+					obj.evented = true;
+				} else {
+					obj.selectable = false;
+					obj.evented = clickTools.includes(activeTool);
+				}
 			});
 		}
 
@@ -303,7 +360,13 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 		const drawingTools = ["brush", "pencil", "eraser"];
 		const customSelectionTools = ["marquee", "lasso", "magicwand"];
 
-		const handleMouseDown = (e: { e: { altKey: string; detail: number; clientX: number; clientY: number; }; }) => {
+		const handleMouseDown = (e: { e: { altKey: string; detail: number; clientX: number; clientY: number; preventDefault?: () => void; stopPropagation?: () => void; }; }) => {
+			// Prevent default behavior for shape tools and hand tool
+			if (shapeTools.includes(activeTool) || activeTool === "hand") {
+				if (e.e.preventDefault) e.e.preventDefault();
+				if (e.e.stopPropagation) e.e.stopPropagation();
+			}
+
 			// Let Fabric.js handle native selection/move and drawing tools
 			if (
 				nativeSelectionTools.includes(activeTool) ||
@@ -500,8 +563,8 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 				return;
 			}
 
-			// Shape tools
-			if (shapeTools.includes(activeTool)) {
+			// Shape tools - rectangle, ellipse, line
+			if (shapeTools.includes(activeTool) && activeTool !== "polygon" && activeTool !== "pen") {
 				isDrawingShape.current = true;
 				shapeStartPoint.current = { x: pointer.x, y: pointer.y };
 
@@ -518,6 +581,8 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 						strokeWidth: 2,
 						selectable: false,
 						evented: false,
+						originX: "left",
+						originY: "top",
 					});
 				} else if (activeTool === "ellipse") {
 					shape = new Ellipse({
@@ -530,29 +595,43 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 						strokeWidth: 2,
 						selectable: false,
 						evented: false,
+						originX: "left",
+						originY: "top",
 					});
 				} else if (activeTool === "line") {
 					shape = new Line([pointer.x, pointer.y, pointer.x, pointer.y], {
 						stroke: primaryColor,
-						strokeWidth: brushSettings.size,
+						strokeWidth: brushSettings.size || 2,
 						selectable: false,
 						evented: false,
 					});
 				} else if (activeTool === "polygon") {
-					shape = new Polygon(
-						[
-							{ x: pointer.x, y: pointer.y },
-							{ x: pointer.x + 1, y: pointer.y },
-							{ x: pointer.x, y: pointer.y + 1 },
-						],
-						{
+					// Start new polygon or add point to existing
+					if (!isDrawingPolygon.current) {
+						polygonPoints.current = [{ x: pointer.x, y: pointer.y }];
+						isDrawingPolygon.current = true;
+					} else {
+						polygonPoints.current.push({ x: pointer.x, y: pointer.y });
+					}
+
+					// Need at least 3 points for a polygon
+					if (polygonPoints.current.length >= 3) {
+						if (polygonShape.current) {
+							canvas.remove(polygonShape.current);
+						}
+
+						shape = new Polygon(polygonPoints.current, {
 							fill: primaryColor,
 							stroke: secondaryColor,
 							strokeWidth: 2,
 							selectable: false,
 							evented: false,
-						},
-					);
+						});
+						polygonShape.current = shape;
+						canvas.add(shape);
+						canvas.renderAll();
+					}
+					return; // Don't add to currentShape, handle separately
 				}
 
 				if (shape) {
@@ -566,8 +645,12 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 			// Text tool
 			if (activeTool === "text") {
 				const existingText = canvas.getActiveObject();
-				if (existingText instanceof IText) return; // Don't add new text while editing
+				if (existingText instanceof IText) {
+					// If clicking on existing text, don't create new one
+					return;
+				}
 
+				// Create new text object
 				const text = new IText("Type here", {
 					left: pointer.x,
 					top: pointer.y,
@@ -575,14 +658,25 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 					fontSize: Math.max(16, brushSettings.size * 2),
 					fill: primaryColor,
 					editable: true,
+					selectable: true,
+					evented: true,
 				});
 
 				canvas.add(text);
 				canvas.setActiveObject(text);
-				(text as IText).enterEditing();
-				(text as IText).selectAll();
 				canvas.renderAll();
+				
+				// Enter editing mode after a short delay to ensure object is added
+				setTimeout(() => {
+					if (text && canvas.getActiveObject() === text) {
+						(text as IText).enterEditing();
+						(text as IText).selectAll();
+						canvas.renderAll();
+					}
+				}, 10);
+				
 				saveCanvasState("Text added");
+				toast.success("Text added - click to edit");
 				return;
 			}
 
@@ -601,26 +695,30 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 				return;
 			}
 
-			// Gradient tool
+			// Gradient tool - click and drag to define gradient direction
 			if (activeTool === "gradient") {
 				const target = canvas.findTarget(e.e, true);
 				if (target) {
-					const gradient = new Gradient({
-						type: "linear",
-						coords: {
-							x1: 0,
-							y1: 0,
-							x2: target.width || 100,
-							y2: target.height || 100,
+					gradientStartPoint.current = { x: pointer.x, y: pointer.y };
+					gradientTarget.current = target;
+					isDrawingGradient.current = true;
+
+					// Draw a preview line
+					const line = new Line(
+						[pointer.x, pointer.y, pointer.x, pointer.y],
+						{
+							stroke: primaryColor,
+							strokeWidth: 2,
+							strokeDashArray: [5, 5],
+							selectable: false,
+							evented: false,
 						},
-						colorStops: [
-							{ offset: 0, color: primaryColor },
-							{ offset: 1, color: secondaryColor },
-						],
-					});
-					target.set({ fill: gradient });
+					);
+					gradientLine.current = line;
+					canvas.add(line);
 					canvas.renderAll();
-					saveCanvasState("Gradient applied");
+				} else {
+					toast.info("Click on an object to apply gradient");
 				}
 				return;
 			}
@@ -655,7 +753,9 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 			if (activeTool === "hand") {
 				isPanning.current = true;
 				lastPanPos.current = { x: e.e.clientX, y: e.e.clientY };
+				canvas.defaultCursor = "grabbing";
 				canvas.setCursor("grabbing");
+				e.e.preventDefault?.();
 				return;
 			}
 		};
@@ -792,6 +892,36 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 				return;
 			}
 
+			// Gradient tool preview line
+			if (
+				isDrawingGradient.current &&
+				gradientStartPoint.current &&
+				gradientLine.current
+			) {
+				gradientLine.current.set({
+					x2: pointer.x,
+					y2: pointer.y,
+				});
+				canvas.renderAll();
+				return;
+			}
+
+			// Polygon tool - update preview with new point
+			if (
+				isDrawingPolygon.current &&
+				polygonPoints.current.length >= 2 &&
+				polygonShape.current
+			) {
+				// Update last point to current pointer position for preview
+				const previewPoints = [
+					...polygonPoints.current,
+					{ x: pointer.x, y: pointer.y },
+				];
+				polygonShape.current.set({ points: previewPoints });
+				canvas.renderAll();
+				return;
+			}
+
 			// Shape drawing
 			if (
 				isDrawingShape.current &&
@@ -814,46 +944,42 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 					});
 				} else if (activeTool === "ellipse") {
 					const ellipse = currentShape.current as Ellipse;
-					const rx = Math.abs(pointer.x - startX) / 2;
-					const ry = Math.abs(pointer.y - startY) / 2;
+					const width = Math.abs(pointer.x - startX);
+					const height = Math.abs(pointer.y - startY);
+					const rx = width / 2;
+					const ry = height / 2;
 
 					ellipse.set({
 						rx: rx || 1,
 						ry: ry || 1,
 						left: Math.min(startX, pointer.x),
 						top: Math.min(startY, pointer.y),
+						originX: "left",
+						originY: "top",
 					});
+					ellipse.setCoords();
 				} else if (activeTool === "line") {
 					const line = currentShape.current as Line;
 					line.set({ x2: pointer.x, y2: pointer.y });
-				} else if (activeTool === "polygon") {
-					const polygon = currentShape.current as Polygon;
-					const dx = pointer.x - startX;
-					const dy = pointer.y - startY;
-					const size = Math.sqrt(dx * dx + dy * dy);
-
-					if (size > 5) {
-						const points = [
-							{ x: startX, y: startY - size },
-							{ x: startX - size * 0.866, y: startY + size * 0.5 },
-							{ x: startX + size * 0.866, y: startY + size * 0.5 },
-						];
-						polygon.set({ points });
-					}
+					line.setCoords();
 				}
 
 				canvas.renderAll();
 				return;
 			}
 
-			// Panning
+			// Panning with hand tool
 			if (isPanning.current && activeTool === "hand") {
 				const deltaX = e.e.clientX - lastPanPos.current.x;
 				const deltaY = e.e.clientY - lastPanPos.current.y;
 
+				// Update pan offset (in canvas coordinates)
+				const newPanX = panOffset.x + deltaX;
+				const newPanY = panOffset.y + deltaY;
+				
 				setPanOffset({
-					x: panOffset.x + deltaX,
-					y: panOffset.y + deltaY,
+					x: newPanX,
+					y: newPanY,
 				});
 
 				lastPanPos.current = { x: e.e.clientX, y: e.e.clientY };
@@ -861,7 +987,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 			}
 		};
 
-		const handleMouseUp = () => {
+		const handleMouseUp = (e: { e: { clientX: number; clientY: number; }; }) => {
 			// Let Fabric.js handle native selection/move and drawing tools
 			if (
 				nativeSelectionTools.includes(activeTool) ||
@@ -869,6 +995,8 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 			) {
 				return;
 			}
+
+			const pointer = canvas.getPointer(e.e);
 
 			// Finish marquee selection
 			if (
@@ -960,22 +1088,89 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 				return;
 			}
 
+			// Finish gradient tool
+			if (
+				isDrawingGradient.current &&
+				gradientStartPoint.current &&
+				gradientTarget.current &&
+				gradientLine.current
+			) {
+				const target = gradientTarget.current;
+				const bounds = target.getBoundingRect();
+				// Calculate relative positions within the object bounds
+				const startX = gradientStartPoint.current.x - bounds.left;
+				const startY = gradientStartPoint.current.y - bounds.top;
+				const endX = pointer.x - bounds.left;
+				const endY = pointer.y - bounds.top;
+
+				const gradient = new Gradient({
+					type: "linear",
+					coords: {
+						x1: startX,
+						y1: startY,
+						x2: endX,
+						y2: endY,
+					},
+					colorStops: [
+						{ offset: 0, color: primaryColor },
+						{ offset: 1, color: secondaryColor },
+					],
+				});
+
+				target.set({ fill: gradient });
+				canvas.remove(gradientLine.current);
+				canvas.renderAll();
+				saveCanvasState("Gradient applied");
+
+				isDrawingGradient.current = false;
+				gradientStartPoint.current = null;
+				gradientEndPoint.current = null;
+				gradientTarget.current = null;
+				gradientLine.current = null;
+			}
+
+			// Finish polygon tool - double click or right click to finish
+			if (isDrawingPolygon.current && polygonShape.current) {
+				// Keep polygon as is, allow more points on next click
+				// User can double-click or press Enter to finalize
+				// For now, we'll finalize on mouse up if they have at least 3 points
+				if (polygonPoints.current.length >= 3) {
+					polygonShape.current.set({
+						selectable: true,
+						evented: true,
+					});
+					polygonShape.current.setCoords();
+					saveCanvasState("Polygon created");
+					isDrawingPolygon.current = false;
+					polygonPoints.current = [];
+					polygonShape.current = null;
+				}
+			}
+
 			// Finish shape drawing
 			if (isDrawingShape.current && currentShape.current) {
-				currentShape.current.set({
-					selectable: true,
-					evented: true,
-				});
-				currentShape.current.setCoords();
-				saveCanvasState(`${activeTool} created`);
+				// Only finalize if it's a shape tool (not polygon which is handled separately)
+				if (shapeTools.includes(activeTool) && activeTool !== "polygon") {
+					currentShape.current.set({
+						selectable: true,
+						evented: true,
+					});
+					currentShape.current.setCoords();
+					saveCanvasState(`${activeTool} created`);
+					toast.success(`${activeTool} created`);
+				}
 			}
-			isDrawingShape.current = false;
-			shapeStartPoint.current = null;
-			currentShape.current = null;
+			// Only reset if not polygon (polygon handles its own state)
+			if (activeTool !== "polygon") {
+				isDrawingShape.current = false;
+				shapeStartPoint.current = null;
+				currentShape.current = null;
+			}
 
 			// Finish panning
-			if (isPanning.current) {
+			if (isPanning.current && activeTool === "hand") {
 				isPanning.current = false;
+				canvas.defaultCursor = "grab";
 				canvas.setCursor("grab");
 			}
 
@@ -991,7 +1186,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 			canvas.off("mouse:move", handleMouseMove);
 			canvas.off("mouse:up", handleMouseUp);
 		};
-	}, [
+		}, [
 		activeTool,
 		primaryColor,
 		secondaryColor,
@@ -1004,6 +1199,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 		setPanOffset,
 		setPrimaryColor,
 		activeLayerId,
+		actualBackground,
 	]);
 
 	// Restore canvas when history index changes
@@ -1092,6 +1288,39 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 						toast.success(`${activeObjects.length} objects deleted`);
 					}
 				}
+				return;
+			}
+
+			// Finalize polygon tool with Enter key
+			if (e.key === "Enter" && isDrawingPolygon.current && polygonShape.current) {
+				if (polygonPoints.current.length >= 3) {
+					polygonShape.current.set({
+						selectable: true,
+						evented: true,
+					});
+					polygonShape.current.setCoords();
+					saveCanvasState("Polygon created");
+					isDrawingPolygon.current = false;
+					polygonPoints.current = [];
+					polygonShape.current = null;
+					if (fabricRef.current) {
+						fabricRef.current.renderAll();
+					}
+					toast.success("Polygon finalized");
+				}
+				return;
+			}
+
+			// Cancel polygon tool with Escape key
+			if (e.key === "Escape" && isDrawingPolygon.current) {
+				if (polygonShape.current && fabricRef.current) {
+					fabricRef.current.remove(polygonShape.current);
+					fabricRef.current.renderAll();
+				}
+				isDrawingPolygon.current = false;
+				polygonPoints.current = [];
+				polygonShape.current = null;
+				toast.info("Polygon cancelled");
 				return;
 			}
 
@@ -1234,11 +1463,6 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 
 			<div
 				className="relative shadow-2xl rounded-sm overflow-hidden"
-				style={{
-					transform: `scale(${zoom / 100}) translate(${panOffset.x}px, ${panOffset.y}px)`,
-					transformOrigin: "center center",
-					transition: "transform 0.1s ease-out",
-				}}
 			>
 				<canvas ref={canvasRef} className="block" />
 			</div>
