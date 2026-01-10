@@ -63,6 +63,11 @@ interface ImageObject {
 	layerId?: string;
 }
 
+interface FloodFillPoint {
+	x: number;
+	y: number;
+}
+
 export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 	width = 1920,
 	height = 1080,
@@ -78,6 +83,8 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 	const [images, setImages] = useState<ImageObject[]>([]);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const [isDrawing, setIsDrawing] = useState(false);
+	const [isFilling, setIsFilling] = useState(false);
+	const [fillQueue, setFillQueue] = useState<FloodFillPoint[]>([]);
 
 	// Shape drawing state
 	const [currentShape, setCurrentShape] = useState<ShapeObject | null>(null);
@@ -89,6 +96,11 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 
 	// Clone tool state
 	const cloneSourcePoint = useRef<{ x: number; y: number } | null>(null);
+
+	// Flood fill state
+	const floodFillImageData = useRef<ImageData | null>(null);
+	const floodFillCanvas = useRef<HTMLCanvasElement | null>(null);
+	const floodFillContext = useRef<CanvasRenderingContext2D | null>(null);
 
 	const {
 		activeTool,
@@ -120,6 +132,35 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			delete (window as any).konvaStage;
 		};
 	}, []);
+
+	// Initialize flood fill canvas
+	useEffect(() => {
+		const canvas = document.createElement("canvas");
+		canvas.width = actualWidth;
+		canvas.height = actualHeight;
+		floodFillCanvas.current = canvas;
+		floodFillContext.current = canvas.getContext("2d");
+	}, [actualWidth, actualHeight]);
+
+	// Update flood fill image data when canvas changes
+	const updateFloodFillData = useCallback(() => {
+		if (!stageRef.current || !floodFillContext.current) return;
+
+		const stage = stageRef.current;
+		const tempCanvas = stage.toCanvas();
+		const ctx = floodFillContext.current;
+		ctx.clearRect(0, 0, actualWidth, actualHeight);
+		
+		// Fill with background first
+		ctx.fillStyle = actualBackground;
+		ctx.fillRect(0, 0, actualWidth, actualHeight);
+		
+		// Draw the stage
+		ctx.drawImage(tempCanvas, 0, 0, actualWidth, actualHeight);
+		
+		// Get image data for flood fill
+		floodFillImageData.current = ctx.getImageData(0, 0, actualWidth, actualHeight);
+	}, [actualWidth, actualHeight, actualBackground]);
 
 	// Save canvas state
 	const saveCanvasState = useCallback(
@@ -164,6 +205,179 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			setSelectedId(null);
 		}
 	};
+
+	// Flood fill function (queue-based algorithm)
+	const floodFill = useCallback((
+		startX: number,
+		startY: number,
+		targetColor: string,
+		replacementColor: string,
+		tolerance: number = brushSettings.tolerance
+	) => {
+		if (!floodFillImageData.current || !floodFillContext.current) {
+			console.error("Flood fill data not initialized");
+			return false;
+		}
+
+		const imageData = floodFillImageData.current;
+		const width = imageData.width;
+		const height = imageData.height;
+
+		// Convert hex color to RGB
+		const hexToRgb = (hex: string) => {
+			const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+			return result ? {
+				r: parseInt(result[1], 16),
+				g: parseInt(result[2], 16),
+				b: parseInt(result[3], 16)
+			} : null;
+		};
+
+		const targetRgb = hexToRgb(targetColor);
+		const replacementRgb = hexToRgb(replacementColor);
+
+		if (!targetRgb || !replacementRgb) {
+			console.error("Invalid color format");
+			return false;
+		}
+
+		// Clamp coordinates
+		const x = Math.floor(Math.max(0, Math.min(width - 1, startX)));
+		const y = Math.floor(Math.max(0, Math.min(height - 1, startY)));
+
+		// Get starting pixel index
+		const startIndex = (y * width + x) * 4;
+		
+		// Get starting color
+		const startR = imageData.data[startIndex];
+		const startG = imageData.data[startIndex + 1];
+		const startB = imageData.data[startIndex + 2];
+		const startA = imageData.data[startIndex + 3];
+
+		// Check if we're trying to fill with the same color
+		if (
+			Math.abs(startR - replacementRgb.r) < tolerance &&
+			Math.abs(startG - replacementRgb.g) < tolerance &&
+			Math.abs(startB - replacementRgb.b) < tolerance
+		) {
+			return false;
+		}
+
+		// Create visited array
+		const visited = new Uint8Array(width * height);
+		
+		// Initialize queue
+		const queue: FloodFillPoint[] = [];
+		queue.push({ x, y });
+		visited[y * width + x] = 1;
+
+		// Process queue
+		const processedPixels: FloodFillPoint[] = [];
+		
+		while (queue.length > 0) {
+			const point = queue.shift()!;
+			const px = point.x;
+			const py = point.y;
+			
+			// Add to processed pixels
+			processedPixels.push({ x: px, y: py });
+
+			// Check 4 directions
+			const directions = [
+				{ dx: 1, dy: 0 },  // right
+				{ dx: -1, dy: 0 }, // left
+				{ dx: 0, dy: 1 },  // down
+				{ dx: 0, dy: -1 }, // up
+			];
+
+			for (const dir of directions) {
+				const nx = px + dir.dx;
+				const ny = py + dir.dy;
+
+				// Check bounds
+				if (nx < 0 || nx >= width || ny < 0 || ny >= height) {
+					continue;
+				}
+
+				// Check if visited
+				if (visited[ny * width + nx]) {
+					continue;
+				}
+
+				// Get pixel color
+				const index = (ny * width + nx) * 4;
+				const r = imageData.data[index];
+				const g = imageData.data[index + 1];
+				const b = imageData.data[index + 2];
+				const a = imageData.data[index + 3];
+
+				// Check if pixel matches target color within tolerance
+				const colorDistance = Math.sqrt(
+					Math.pow(r - startR, 2) +
+					Math.pow(g - startG, 2) +
+					Math.pow(b - startB, 2)
+				);
+
+				if (colorDistance <= tolerance && a > 0) {
+					visited[ny * width + nx] = 1;
+					queue.push({ x: nx, y: ny });
+				}
+			}
+		}
+
+		// Apply fill to image data
+		for (const pixel of processedPixels) {
+			const index = (pixel.y * width + pixel.x) * 4;
+			imageData.data[index] = replacementRgb.r;
+			imageData.data[index + 1] = replacementRgb.g;
+			imageData.data[index + 2] = replacementRgb.b;
+			// Keep alpha as is
+		}
+
+		// Update canvas
+		if (floodFillContext.current) {
+			floodFillContext.current.putImageData(imageData, 0, 0);
+			
+			// Create a new Konva image from the filled area
+			const tempCanvas = floodFillCanvas.current;
+			if (tempCanvas) {
+				const img = new window.Image();
+				img.src = tempCanvas.toDataURL();
+				
+				img.onload = () => {
+					// Create a rect for the filled area
+					if (processedPixels.length > 0) {
+						// Calculate bounds of filled area
+						let minX = width, maxX = 0, minY = height, maxY = 0;
+						for (const pixel of processedPixels) {
+							if (pixel.x < minX) minX = pixel.x;
+							if (pixel.x > maxX) maxX = pixel.x;
+							if (pixel.y < minY) minY = pixel.y;
+							if (pixel.y > maxY) maxY = pixel.y;
+						}
+
+						// Add a rectangle shape for the filled area
+						const fillShape: ShapeObject = {
+							id: `fill-${Date.now()}`,
+							type: "rect",
+							x: minX,
+							y: minY,
+							width: maxX - minX + 1,
+							height: maxY - minY + 1,
+							fill: replacementColor,
+							layerId: activeLayerId || undefined,
+						};
+
+						setShapes(prev => [...prev, fillShape]);
+						saveCanvasState("Fill applied");
+						toast.success(`Area filled with ${replacementColor}`);
+					}
+				};
+			}
+		}
+
+		return true;
+	}, [brushSettings.tolerance, activeLayerId, saveCanvasState]);
 
 	// Handle mouse down
 	const handleMouseDown = (e: Konva.KonvaEventObject<MouseEvent>) => {
@@ -258,12 +472,33 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 
 		// Fill tool
 		if (activeTool === "fill") {
-			const target = e.target;
-			if (target && target !== stage && target.name() !== "background") {
-				if ("fill" in target && typeof (target as any).fill === "function") {
-					(target as any).fill(primaryColor);
-					target.getLayer()?.batchDraw();
-					saveCanvasState("Fill applied");
+			setIsFilling(true);
+			
+			// First, update the flood fill data from current canvas
+			updateFloodFillData();
+			
+			// Get color at clicked position
+			if (floodFillContext.current) {
+				const pixel = floodFillContext.current.getImageData(
+					Math.floor(transformedPos.x),
+					Math.floor(transformedPos.y),
+					1,
+					1
+				).data;
+
+				const targetColor = `rgb(${pixel[0]}, ${pixel[1]}, ${pixel[2]})`;
+				
+				// Perform flood fill
+				const success = floodFill(
+					transformedPos.x,
+					transformedPos.y,
+					targetColor,
+					primaryColor,
+					brushSettings.tolerance
+				);
+
+				if (!success) {
+					toast.error("Failed to fill area");
 				}
 			}
 			return;
@@ -412,6 +647,11 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			return;
 		}
 
+		if (isFilling) {
+			setIsFilling(false);
+			// Flood fill already saved in the floodFill function
+		}
+
 		if (isPanning.current) {
 			isPanning.current = false;
 		}
@@ -529,6 +769,13 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		activeLayerId,
 	]);
 
+	// Update flood fill data when canvas changes
+	useEffect(() => {
+		if (activeTool === "fill") {
+			updateFloodFillData();
+		}
+	}, [activeTool, updateFloodFillData]);
+
 	// Get cursor based on active tool
 	const getCursor = () => {
 		switch (activeTool) {
@@ -546,8 +793,9 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			case "zoom":
 				return "zoom-in";
 			case "fill":
-			case "gradient":
 				return "cell";
+			case "gradient":
+				return "crosshair";
 			case "text":
 				return "text";
 			case "rectangle":
@@ -922,6 +1170,16 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 					</Layer>
 				</Stage>
 			</div>
+
+			{/* Hidden canvas for flood fill operations */}
+			<canvas
+				ref={(el) => {
+					if (el) floodFillCanvas.current = el;
+				}}
+				width={actualWidth}
+				height={actualHeight}
+				style={{ display: "none" }}
+			/>
 		</div>
 	);
 };

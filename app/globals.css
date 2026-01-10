@@ -2,8 +2,6 @@
 @import 'tailwindcss';
 
 @theme {
-  --font-sans: 'Inter', sans-serif;
-
   --color-background: hsl(220 15% 10%);
   --color-foreground: hsl(220 10% 92%);
 
