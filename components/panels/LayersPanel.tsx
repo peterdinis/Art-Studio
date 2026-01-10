@@ -44,6 +44,7 @@ export const LayersPanel: React.FC = () => {
 		renameLayer,
 		duplicateLayer,
 		reorderLayers,
+		clearLayers,
 	} = useArtStudioStore();
 
 	const [editingId, setEditingId] = useState<string | null>(null);
@@ -64,12 +65,19 @@ export const LayersPanel: React.FC = () => {
 
 	const handleDeleteLayer = (id: string, e?: React.MouseEvent) => {
 		e?.stopPropagation();
-		if (layers.length <= 1) {
-			toast.error("Cannot delete the last layer");
-			return;
-		}
 		removeLayer(id);
-		toast.success("Layer deleted");
+		if (layers.length > 1) {
+			toast.success("Layer deleted");
+		}
+	};
+
+	const handleClearAllLayers = () => {
+		if (layers.length === 0) return;
+		
+		if (window.confirm('Are you sure you want to delete all layers? This cannot be undone.')) {
+			clearLayers();
+			toast.success("All layers cleared");
+		}
 	};
 
 	const handleDuplicateLayer = (id: string) => {
@@ -126,7 +134,7 @@ export const LayersPanel: React.FC = () => {
 									activeLayerId && handleDeleteLayer(activeLayerId)
 								}
 								className="tool-button w-7 h-7"
-								disabled={layers.length <= 1}
+								disabled={!activeLayerId}
 							>
 								<Trash2 className="w-4 h-4" />
 							</button>
@@ -140,6 +148,20 @@ export const LayersPanel: React.FC = () => {
 							</div>
 						</TooltipContent>
 					</Tooltip>
+
+					<DropdownMenu>
+						<DropdownMenuTrigger asChild>
+							<button className="tool-button w-7 h-7">
+								<MoreHorizontal className="w-4 h-4" />
+							</button>
+						</DropdownMenuTrigger>
+						<DropdownMenuContent align="end">
+							<DropdownMenuItem onClick={handleClearAllLayers} disabled={layers.length === 0} className="text-destructive focus:text-destructive">
+								<Trash2 className="w-4 h-4 mr-2" />
+								Clear All Layers
+							</DropdownMenuItem>
+						</DropdownMenuContent>
+					</DropdownMenu>
 				</div>
 			</div>
 
@@ -303,7 +325,6 @@ export const LayersPanel: React.FC = () => {
 									<DropdownMenuSeparator />
 									<DropdownMenuItem
 										onClick={() => handleDeleteLayer(layer.id)}
-										disabled={layers.length <= 1}
 										className="text-destructive focus:text-destructive"
 									>
 										<Trash2 className="w-4 h-4 mr-2" />
