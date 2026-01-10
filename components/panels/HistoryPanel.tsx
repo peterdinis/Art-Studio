@@ -58,7 +58,7 @@ export const HistoryPanel: React.FC = () => {
 			</div>
 
 			{/* History List */}
-			<ScrollArea className="flex-1 max-h-[400px]">
+			<ScrollArea className="flex-1 max-h-100">
 				<div className="space-y-2 pr-2">
 					{history.length === 0 ? (
 						<div className="text-center py-8 text-muted-foreground">

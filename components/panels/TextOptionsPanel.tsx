@@ -283,7 +283,7 @@ export const TextOptionsPanel: React.FC = () => {
 			{/* Text Preview */}
 			<div className="pt-3 border-t">
 				<Label className="text-xs text-muted-foreground mb-2 block">Preview</Label>
-				<div className="min-h-[80px] p-3 bg-muted/30 rounded-md border border-border/50">
+				<div className="min-h-20 p-3 bg-muted/30 rounded-md border border-border/50">
 					<div
 						className="text-foreground"
 						style={{
