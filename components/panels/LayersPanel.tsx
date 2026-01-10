@@ -317,23 +317,6 @@ export const LayersPanel: React.FC = () => {
 						max={100}
 						step={1}
 					/>
-
-					{/* Layer Blend Mode - placeholder */}
-					<div className="flex justify-between items-center pt-2">
-						<span className="text-xs text-muted-foreground">Blend Mode</span>
-						<select className="text-xs bg-muted border border-border rounded px-2 py-1 text-foreground">
-							<option>Normal</option>
-							<option>Multiply</option>
-							<option>Screen</option>
-							<option>Overlay</option>
-							<option>Soft Light</option>
-							<option>Hard Light</option>
-							<option>Color Dodge</option>
-							<option>Color Burn</option>
-							<option>Difference</option>
-							<option>Exclusion</option>
-						</select>
-					</div>
 				</div>
 			)}
 		</div>
