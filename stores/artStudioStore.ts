@@ -348,15 +348,10 @@ export const useArtStudioStore = create<ArtStudioState>((set, get) => ({
 		}
 	},
 	clearHistory: () => {
-		const { history, historyIndex } = get();
-		if (history.length > 0) {
-			// Keep only current state
-			const currentEntry = history[historyIndex];
-			set({
-				history: currentEntry ? [currentEntry] : [],
-				historyIndex: currentEntry ? 0 : -1,
-			});
-		}
+		set({
+			history: [],
+			historyIndex: -1,
+		});
 	},
 
 	// UI State
