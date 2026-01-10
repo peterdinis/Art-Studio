@@ -318,9 +318,7 @@ export const ToolSidebar: React.FC = () => {
 						>
 							<div className="space-y-1.5">
 								<div className="flex items-center justify-between gap-4">
-									<span className="font-semibold text-black">
-										{tool.label}
-									</span>
+									<span className="font-semibold text-black">{tool.label}</span>
 									<kbd className="px-1.5 py-0.5 text-xs text-blue-100 bg-muted rounded font-mono">
 										{tool.shortcut}
 									</kbd>
@@ -376,9 +374,11 @@ export const ToolSidebar: React.FC = () => {
 								const canvas = window.fabricCanvas || window.konvaStage;
 								if (canvas) {
 									if (window.fabricCanvas) {
-										canvas.loadFromJSON(JSON.parse(entry.canvasData)).then(() => {
-											canvas.renderAll();
-										});
+										canvas
+											.loadFromJSON(JSON.parse(entry.canvasData))
+											.then(() => {
+												canvas.renderAll();
+											});
 									} else if (window.konvaStage) {
 										window.dispatchEvent(
 											new CustomEvent("artstudio:restore-history", {
@@ -395,11 +395,7 @@ export const ToolSidebar: React.FC = () => {
 						<Undo2 className="w-5 h-5" />
 					</button>
 				</TooltipTrigger>
-				<TooltipContent
-					side="right"
-					className="max-w-70 p-3"
-					sideOffset={8}
-				>
+				<TooltipContent side="right" className="max-w-70 p-3" sideOffset={8}>
 					<div className="space-y-1.5">
 						<div className="flex items-center justify-between gap-4">
 							<span className="font-semibold text-foreground">Undo</span>
@@ -423,9 +419,11 @@ export const ToolSidebar: React.FC = () => {
 								const canvas = window.fabricCanvas || window.konvaStage;
 								if (canvas) {
 									if (window.fabricCanvas) {
-										canvas.loadFromJSON(JSON.parse(entry.canvasData)).then(() => {
-											canvas.renderAll();
-										});
+										canvas
+											.loadFromJSON(JSON.parse(entry.canvasData))
+											.then(() => {
+												canvas.renderAll();
+											});
 									} else if (window.konvaStage) {
 										window.dispatchEvent(
 											new CustomEvent("artstudio:restore-history", {
@@ -442,11 +440,7 @@ export const ToolSidebar: React.FC = () => {
 						<Redo2 className="w-5 h-5" />
 					</button>
 				</TooltipTrigger>
-				<TooltipContent
-					side="right"
-					className="max-w-70 p-3"
-					sideOffset={8}
-				>
+				<TooltipContent side="right" className="max-w-70 p-3" sideOffset={8}>
 					<div className="space-y-1.5">
 						<div className="flex items-center justify-between gap-4">
 							<span className="font-semibold text-foreground">Redo</span>
@@ -510,11 +504,7 @@ export const ToolSidebar: React.FC = () => {
 							/>
 						</div>
 					</TooltipTrigger>
-					<TooltipContent
-						side="right"
-						className="max-w-70 p-3"
-						sideOffset={8}
-					>
+					<TooltipContent side="right" className="max-w-70 p-3" sideOffset={8}>
 						<div className="space-y-1.5">
 							<div className="flex items-center justify-between gap-4">
 								<span className="font-semibold text-foreground">Colors</span>
@@ -523,8 +513,8 @@ export const ToolSidebar: React.FC = () => {
 								</kbd>
 							</div>
 							<p className="text-xs text-muted-foreground leading-relaxed">
-								Click swatches to change colors. Double-click to swap, or press X
-								to swap, D to reset to defaults.
+								Click swatches to change colors. Double-click to swap, or press
+								X to swap, D to reset to defaults.
 							</p>
 							<button
 								onClick={() => setShowColorsPanel(true)}

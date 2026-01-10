@@ -94,6 +94,7 @@ interface ArtStudioState {
 	renameLayer: (id: string, name: string) => void;
 	duplicateLayer: (id: string) => void;
 	reorderLayers: (fromIndex: number, toIndex: number) => void;
+	clearLayers: () => void;
 
 	// Images
 	loadedImages: { id: string; src: string; name: string }[];
@@ -241,11 +242,12 @@ export const useArtStudioStore = create<ArtStudioState>((set, get) => ({
 	},
 	removeLayer: (id) => {
 		const { layers, activeLayerId } = get();
-		if (layers.length <= 1) return;
+		// Allow removing if more than 0 layers (changed from 1)
+		if (layers.length === 0) return;
 		const newLayers = layers.filter((l) => l.id !== id);
 		set({
 			layers: newLayers,
-			activeLayerId: activeLayerId === id ? newLayers[0].id : activeLayerId,
+			activeLayerId: activeLayerId === id ? (newLayers[0]?.id || null) : activeLayerId,
 		});
 	},
 	setActiveLayer: (id) => set({ activeLayerId: id }),
@@ -293,6 +295,12 @@ export const useArtStudioStore = create<ArtStudioState>((set, get) => ({
 		const [removed] = newLayers.splice(fromIndex, 1);
 		newLayers.splice(toIndex, 0, removed);
 		set({ layers: newLayers });
+	},
+	clearLayers: () => {
+		set({
+			layers: [],
+			activeLayerId: null,
+		});
 	},
 
 	// Images
@@ -348,15 +356,10 @@ export const useArtStudioStore = create<ArtStudioState>((set, get) => ({
 		}
 	},
 	clearHistory: () => {
-		const { history, historyIndex } = get();
-		if (history.length > 0) {
-			// Keep only current state
-			const currentEntry = history[historyIndex];
-			set({
-				history: currentEntry ? [currentEntry] : [],
-				historyIndex: currentEntry ? 0 : -1,
-			});
-		}
+		set({
+			history: [],
+			historyIndex: -1,
+		});
 	},
 
 	// UI State

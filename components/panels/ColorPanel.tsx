@@ -22,6 +22,7 @@ export const ColorPanel: React.FC = () => {
 	const [secondaryHex, setSecondaryHex] = useState(
 		secondaryColor.toUpperCase(),
 	);
+	const colorWheelRef = useRef<HTMLDivElement>(null);
 
 	// Sync local state with store changes (e.g. from eyedropper)
 	React.useEffect(() => {
@@ -31,6 +32,80 @@ export const ColorPanel: React.FC = () => {
 	React.useEffect(() => {
 		setSecondaryHex(secondaryColor.toUpperCase());
 	}, [secondaryColor]);
+
+	const handleColorWheelClick = (e: React.MouseEvent<HTMLDivElement>) => {
+		const rect = e.currentTarget.getBoundingClientRect();
+		const x = e.clientX - rect.left;
+		const y = e.clientY - rect.top;
+		const centerX = rect.width / 2;
+		const centerY = rect.height / 2;
+
+		// Calculate angle and distance from center
+		const dx = x - centerX;
+		const dy = y - centerY;
+		const angle = Math.atan2(dy, dx) * (180 / Math.PI);
+		const hue = (angle + 90 + 360) % 360;
+
+		// Calculate distance for saturation
+		const distance = Math.sqrt(dx * dx + dy * dy);
+		const maxDistance = Math.min(centerX, centerY);
+		const saturation = Math.min((distance / maxDistance) * 100, 100);
+
+		// Convert HSL to HEX
+		const hslToHex = (h: number, s: number, l: number) => {
+			l /= 100;
+			const a = (s * Math.min(l, 1 - l)) / 100;
+			const f = (n: number) => {
+				const k = (n + h / 30) % 12;
+				const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+				return Math.round(255 * color)
+					.toString(16)
+					.padStart(2, "0");
+			};
+			return `#${f(0)}${f(8)}${f(4)}`;
+		};
+
+		const hexColor = hslToHex(hue, saturation, 50);
+
+		// Left click = primary, right click = secondary
+		if (e.button === 0) {
+			setPrimaryColor(hexColor);
+		}
+	};
+
+	const handleColorWheelRightClick = (e: React.MouseEvent<HTMLDivElement>) => {
+		e.preventDefault();
+		const rect = e.currentTarget.getBoundingClientRect();
+		const x = e.clientX - rect.left;
+		const y = e.clientY - rect.top;
+		const centerX = rect.width / 2;
+		const centerY = rect.height / 2;
+
+		const dx = x - centerX;
+		const dy = y - centerY;
+		const angle = Math.atan2(dy, dx) * (180 / Math.PI);
+		const hue = (angle + 90 + 360) % 360;
+
+		const distance = Math.sqrt(dx * dx + dy * dy);
+		const maxDistance = Math.min(centerX, centerY);
+		const saturation = Math.min((distance / maxDistance) * 100, 100);
+
+		const hslToHex = (h: number, s: number, l: number) => {
+			l /= 100;
+			const a = (s * Math.min(l, 1 - l)) / 100;
+			const f = (n: number) => {
+				const k = (n + h / 30) % 12;
+				const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+				return Math.round(255 * color)
+					.toString(16)
+					.padStart(2, "0");
+			};
+			return `#${f(0)}${f(8)}${f(4)}`;
+		};
+
+		const hexColor = hslToHex(hue, saturation, 50);
+		setSecondaryColor(hexColor);
+	};
 
 	return (
 		<div className="panel-glass p-4 w-full space-y-4 animate-fade-in">
@@ -147,10 +222,15 @@ export const ColorPanel: React.FC = () => {
 
 			{/* Color Wheel Preview */}
 			<div className="pt-2">
+				<h4 className="text-xs text-muted-foreground mb-2">Color Picker</h4>
 				<div
-					className="h-24 rounded-lg overflow-hidden"
+					ref={colorWheelRef}
+					onClick={handleColorWheelClick}
+					onContextMenu={handleColorWheelRightClick}
+					className="h-24 rounded-lg overflow-hidden cursor-crosshair relative"
 					style={{
 						background: `
+              radial-gradient(circle, white 0%, transparent 50%),
               conic-gradient(
                 from 0deg,
                 hsl(0, 100%, 50%),
@@ -163,6 +243,7 @@ export const ColorPanel: React.FC = () => {
               )
             `,
 					}}
+					title="Left click for primary, right click for secondary"
 				/>
 			</div>
 		</div>
