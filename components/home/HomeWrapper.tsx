@@ -109,11 +109,13 @@ const HomeWrapper = () => {
 
 				{/* Right Panel Group */}
 				{showRightPanel && (
-					<div className="w-80 bg-card border-l border-border flex flex-col overflow-hidden">
-						{showBrushesPanel && <BrushPanel />}
-						{showColorsPanel && <ColorPanel />}
-						{showLayersPanel && <LayersPanel />}
-						{showHistoryPanel && <HistoryPanel />}
+					<div className="w-80 bg-card border-l border-border overflow-y-auto overflow-x-hidden">
+						<div className="flex flex-col gap-4 p-4">
+							{showBrushesPanel && <BrushPanel />}
+							{showColorsPanel && <ColorPanel />}
+							{showLayersPanel && <LayersPanel />}
+							{showHistoryPanel && <HistoryPanel />}
+						</div>
 					</div>
 				)}
 			</div>
