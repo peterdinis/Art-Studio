@@ -494,12 +494,12 @@ export const ToolSidebar: React.FC = () => {
             <TooltipContent side="right" className="max-w-70 p-3" sideOffset={8}>
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between gap-4">
-                  <span className="font-semibold text-foreground">Clear Canvas</span>
+                  <span className="font-semibold text-black">Clear Canvas</span>
                   <kbd className="px-1.5 py-0.5 text-xs bg-muted rounded font-mono">
                     ⌘⇧D
                   </kbd>
                 </div>
-                <p className="text-xs text-muted-foreground leading-relaxed">
+                <p className="text-xs text-black leading-relaxed">
                   Remove all drawings, shapes, and images from the canvas.
                 </p>
               </div>
