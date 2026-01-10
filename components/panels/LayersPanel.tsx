@@ -13,7 +13,6 @@ import {
 	Layers,
 	MoreHorizontal,
 	Copy,
-	Merge,
 	ArrowUp,
 	ArrowDown,
 } from "lucide-react";
@@ -144,162 +143,178 @@ export const LayersPanel: React.FC = () => {
 				</div>
 			</div>
 
-			{/* Layer List */}
-			<div className="flex-1 space-y-1 max-h-75 overflow-y-auto scrollbar-thin">
-				{layers.map((layer, index) => (
-					<div
-						key={layer.id}
-						onClick={() => setActiveLayer(layer.id)}
-						className={`layer-item group ${activeLayerId === layer.id ? "selected" : ""}`}
-					>
-						{/* Drag Handle */}
-						<GripVertical className="w-4 h-4 text-muted-foreground/50 cursor-grab opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
-
-						{/* Visibility Toggle */}
-						<Tooltip>
-							<TooltipTrigger asChild>
-								<button
-									onClick={(e) => {
-										e.stopPropagation();
-										toggleLayerVisibility(layer.id);
-									}}
-									className={`shrink-0 transition-colors ${layer.visible ? "text-foreground" : "text-muted-foreground/50"}`}
-								>
-									{layer.visible ? (
-										<Eye className="w-4 h-4" />
-									) : (
-										<EyeOff className="w-4 h-4" />
-									)}
-								</button>
-							</TooltipTrigger>
-							<TooltipContent side="top">
-								{layer.visible ? "Hide Layer" : "Show Layer"}
-							</TooltipContent>
-						</Tooltip>
-
-						{/* Lock Toggle */}
-						<Tooltip>
-							<TooltipTrigger asChild>
-								<button
-									onClick={(e) => {
-										e.stopPropagation();
-										toggleLayerLock(layer.id);
-									}}
-									className={`shrink-0 transition-colors ${layer.locked ? "text-yellow-500" : "text-muted-foreground/50 opacity-0 group-hover:opacity-100"}`}
-								>
-									{layer.locked ? (
-										<Lock className="w-3.5 h-3.5" />
-									) : (
-										<Unlock className="w-3.5 h-3.5" />
-									)}
-								</button>
-							</TooltipTrigger>
-							<TooltipContent side="top">
-								{layer.locked ? "Unlock Layer" : "Lock Layer"}
-							</TooltipContent>
-						</Tooltip>
-
-						{/* Layer Name */}
-						<div className="flex-1 min-w-0">
-							{editingId === layer.id ? (
-								<input
-									type="text"
-									value={editName}
-									onChange={(e) => setEditName(e.target.value)}
-									onBlur={handleFinishRename}
-									onKeyDown={(e) => {
-										if (e.key === "Enter") handleFinishRename();
-										if (e.key === "Escape") setEditingId(null);
-									}}
-									onClick={(e) => e.stopPropagation()}
-									className="w-full bg-background px-1 rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary"
-									autoFocus
-								/>
-							) : (
-								<span
-									onDoubleClick={(e) => {
-										e.stopPropagation();
-										handleStartRename(layer.id, layer.name);
-									}}
-									className={`text-sm truncate block cursor-text ${!layer.visible ? "text-muted-foreground/50 italic" : ""}`}
-								>
-									{layer.name}
-								</span>
-							)}
-						</div>
-
-						{/* Opacity Badge */}
-						<span className="text-xs font-mono text-muted-foreground shrink-0">
-							{layer.opacity}%
-						</span>
-
-						{/* Layer Menu */}
-						<DropdownMenu>
-							<DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-								<button className="text-muted-foreground hover:text-foreground transition-colors opacity-0 group-hover:opacity-100 shrink-0">
-									<MoreHorizontal className="w-4 h-4" />
-								</button>
-							</DropdownMenuTrigger>
-							<DropdownMenuContent align="end" className="w-48">
-								<DropdownMenuItem
-									onClick={() => handleDuplicateLayer(layer.id)}
-								>
-									<Copy className="w-4 h-4 mr-2" />
-									Duplicate Layer
-								</DropdownMenuItem>
-								<DropdownMenuItem
-									onClick={() => handleStartRename(layer.id, layer.name)}
-								>
-									Rename Layer
-								</DropdownMenuItem>
-								<DropdownMenuSeparator />
-								<DropdownMenuItem
-									onClick={() => handleMoveUp(index)}
-									disabled={index === 0}
-								>
-									<ArrowUp className="w-4 h-4 mr-2" />
-									Move Up
-								</DropdownMenuItem>
-								<DropdownMenuItem
-									onClick={() => handleMoveDown(index)}
-									disabled={index === layers.length - 1}
-								>
-									<ArrowDown className="w-4 h-4 mr-2" />
-									Move Down
-								</DropdownMenuItem>
-								<DropdownMenuSeparator />
-								<DropdownMenuItem
-									onClick={() => toggleLayerVisibility(layer.id)}
-								>
-									{layer.visible ? (
-										<EyeOff className="w-4 h-4 mr-2" />
-									) : (
-										<Eye className="w-4 h-4 mr-2" />
-									)}
-									{layer.visible ? "Hide Layer" : "Show Layer"}
-								</DropdownMenuItem>
-								<DropdownMenuItem onClick={() => toggleLayerLock(layer.id)}>
-									{layer.locked ? (
-										<Unlock className="w-4 h-4 mr-2" />
-									) : (
-										<Lock className="w-4 h-4 mr-2" />
-									)}
-									{layer.locked ? "Unlock Layer" : "Lock Layer"}
-								</DropdownMenuItem>
-								<DropdownMenuSeparator />
-								<DropdownMenuItem
-									onClick={() => handleDeleteLayer(layer.id)}
-									disabled={layers.length <= 1}
-									className="text-destructive focus:text-destructive"
-								>
-									<Trash2 className="w-4 h-4 mr-2" />
-									Delete Layer
-								</DropdownMenuItem>
-							</DropdownMenuContent>
-						</DropdownMenu>
+			{/* Layer List or Empty State */}
+			{layers.length === 0 ? (
+				<div className="flex-1 flex items-center justify-center py-12">
+					<div className="text-center text-muted-foreground">
+						<Layers className="w-12 h-12 mx-auto mb-3 opacity-30" />
+						<p className="text-sm mb-1">No layers yet</p>
+						<p className="text-xs mb-4">Click the + button to create a layer</p>
+						<button
+							onClick={addLayer}
+							className="text-xs px-3 py-1.5 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
+						>
+							Create First Layer
+						</button>
 					</div>
-				))}
-			</div>
+				</div>
+			) : (
+				<div className="flex-1 space-y-1 max-h-75 overflow-y-auto scrollbar-thin">
+					{layers.map((layer, index) => (
+						<div
+							key={layer.id}
+							onClick={() => setActiveLayer(layer.id)}
+							className={`layer-item group ${activeLayerId === layer.id ? "selected" : ""}`}
+						>
+							{/* Drag Handle */}
+							<GripVertical className="w-4 h-4 text-muted-foreground/50 cursor-grab opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+
+							{/* Visibility Toggle */}
+							<Tooltip>
+								<TooltipTrigger asChild>
+									<button
+										onClick={(e) => {
+											e.stopPropagation();
+											toggleLayerVisibility(layer.id);
+										}}
+										className={`shrink-0 transition-colors ${layer.visible ? "text-foreground" : "text-muted-foreground/50"}`}
+									>
+										{layer.visible ? (
+											<Eye className="w-4 h-4" />
+										) : (
+											<EyeOff className="w-4 h-4" />
+										)}
+									</button>
+								</TooltipTrigger>
+								<TooltipContent side="top">
+									{layer.visible ? "Hide Layer" : "Show Layer"}
+								</TooltipContent>
+							</Tooltip>
+
+							{/* Lock Toggle */}
+							<Tooltip>
+								<TooltipTrigger asChild>
+									<button
+										onClick={(e) => {
+											e.stopPropagation();
+											toggleLayerLock(layer.id);
+										}}
+										className={`shrink-0 transition-colors ${layer.locked ? "text-yellow-500" : "text-muted-foreground/50 opacity-0 group-hover:opacity-100"}`}
+									>
+										{layer.locked ? (
+											<Lock className="w-3.5 h-3.5" />
+										) : (
+											<Unlock className="w-3.5 h-3.5" />
+										)}
+									</button>
+								</TooltipTrigger>
+								<TooltipContent side="top">
+									{layer.locked ? "Unlock Layer" : "Lock Layer"}
+								</TooltipContent>
+							</Tooltip>
+
+							{/* Layer Name */}
+							<div className="flex-1 min-w-0">
+								{editingId === layer.id ? (
+									<input
+										type="text"
+										value={editName}
+										onChange={(e) => setEditName(e.target.value)}
+										onBlur={handleFinishRename}
+										onKeyDown={(e) => {
+											if (e.key === "Enter") handleFinishRename();
+											if (e.key === "Escape") setEditingId(null);
+										}}
+										onClick={(e) => e.stopPropagation()}
+										className="w-full bg-background px-1 rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+										autoFocus
+									/>
+								) : (
+									<span
+										onDoubleClick={(e) => {
+											e.stopPropagation();
+											handleStartRename(layer.id, layer.name);
+										}}
+										className={`text-sm truncate block cursor-text ${!layer.visible ? "text-muted-foreground/50 italic" : ""}`}
+									>
+										{layer.name}
+									</span>
+								)}
+							</div>
+
+							{/* Opacity Badge */}
+							<span className="text-xs font-mono text-muted-foreground shrink-0">
+								{layer.opacity}%
+							</span>
+
+							{/* Layer Menu */}
+							<DropdownMenu>
+								<DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+									<button className="text-muted-foreground hover:text-foreground transition-colors opacity-0 group-hover:opacity-100 shrink-0">
+										<MoreHorizontal className="w-4 h-4" />
+									</button>
+								</DropdownMenuTrigger>
+								<DropdownMenuContent align="end" className="w-48">
+									<DropdownMenuItem
+										onClick={() => handleDuplicateLayer(layer.id)}
+									>
+										<Copy className="w-4 h-4 mr-2" />
+										Duplicate Layer
+									</DropdownMenuItem>
+									<DropdownMenuItem
+										onClick={() => handleStartRename(layer.id, layer.name)}
+									>
+										Rename Layer
+									</DropdownMenuItem>
+									<DropdownMenuSeparator />
+									<DropdownMenuItem
+										onClick={() => handleMoveUp(index)}
+										disabled={index === 0}
+									>
+										<ArrowUp className="w-4 h-4 mr-2" />
+										Move Up
+									</DropdownMenuItem>
+									<DropdownMenuItem
+										onClick={() => handleMoveDown(index)}
+										disabled={index === layers.length - 1}
+									>
+										<ArrowDown className="w-4 h-4 mr-2" />
+										Move Down
+									</DropdownMenuItem>
+									<DropdownMenuSeparator />
+									<DropdownMenuItem
+										onClick={() => toggleLayerVisibility(layer.id)}
+									>
+										{layer.visible ? (
+											<EyeOff className="w-4 h-4 mr-2" />
+										) : (
+											<Eye className="w-4 h-4 mr-2" />
+										)}
+										{layer.visible ? "Hide Layer" : "Show Layer"}
+									</DropdownMenuItem>
+									<DropdownMenuItem onClick={() => toggleLayerLock(layer.id)}>
+										{layer.locked ? (
+											<Unlock className="w-4 h-4 mr-2" />
+										) : (
+											<Lock className="w-4 h-4 mr-2" />
+										)}
+										{layer.locked ? "Unlock Layer" : "Lock Layer"}
+									</DropdownMenuItem>
+									<DropdownMenuSeparator />
+									<DropdownMenuItem
+										onClick={() => handleDeleteLayer(layer.id)}
+										disabled={layers.length <= 1}
+										className="text-destructive focus:text-destructive"
+									>
+										<Trash2 className="w-4 h-4 mr-2" />
+										Delete Layer
+									</DropdownMenuItem>
+								</DropdownMenuContent>
+							</DropdownMenu>
+						</div>
+					))}
+				</div>
+			)}
 
 			{/* Layer Opacity Slider */}
 			{activeLayer && (
