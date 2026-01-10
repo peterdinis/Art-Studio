@@ -7,13 +7,11 @@ import { BrushPanel } from "@/components/panels/BrushPanel";
 import { ColorPanel } from "@/components/panels/ColorPanel";
 import { LayersPanel } from "@/components/panels/LayersPanel";
 import { HistoryPanel } from "@/components/panels/HistoryPanel";
-import { DrawingCanvas } from "@/components/canvas/DrawingCanvas";
 import { KonvaCanvas } from "@/components/canvas/KonvaCanvas";
 import { useArtStudioStore } from "@/stores/artStudioStore";
 
 const HomeWrapper = () => {
 	const {
-		renderingEngine,
 		showGrid,
 		showRulers,
 		showGuides,
@@ -103,7 +101,7 @@ const HomeWrapper = () => {
 
 					{/* Canvas */}
 					<div className="flex-1 overflow-auto p-4">
-						{renderingEngine === "fabric" ? <DrawingCanvas /> : <KonvaCanvas />}
+						<KonvaCanvas />
 					</div>
 				</div>
 
