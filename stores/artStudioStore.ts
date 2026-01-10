@@ -72,6 +72,17 @@ export interface BrushSettings {
 	cloneOpacity: number;
 }
 
+export interface GradientObject {
+	id: string;
+	type: "linear" | "radial";
+	x0: number;
+	y0: number;
+	x1: number;
+	y1: number;
+	colorStops: { offset: number; color: string }[];
+	layerId?: string;
+}
+
 export interface HistoryEntry {
 	canvasData: string;
 	thumbnail: string | null;
@@ -132,6 +143,13 @@ interface ArtStudioState {
 	removeLoadedImage: (id: string) => void;
 	clearLoadedImages: () => void;
 
+	// Gradients
+	gradients: GradientObject[];
+	addGradient: (gradient: GradientObject) => void;
+	updateGradient: (id: string, updates: Partial<GradientObject>) => void;
+	removeGradient: (id: string) => void;
+	clearGradients: () => void;
+
 	// Canvas
 	zoom: number;
 	setZoom: (zoom: number) => void;
@@ -184,6 +202,8 @@ interface ArtStudioState {
 	setShowInfoPanel: (show: boolean) => void;
 	showFillPanel: boolean;
 	setShowFillPanel: (show: boolean) => void;
+	showGradientPanel: boolean;
+	setShowGradientPanel: (show: boolean) => void;
 
 	// Canvas overlays
 	showGrid: boolean;
@@ -332,6 +352,15 @@ export const useArtStudioStore = create<ArtStudioState>((set, get) => ({
 					fillOpacity: 100,
 				};
 				break;
+			case "gradient":
+				newSettings = {
+					gradientType: "linear",
+					gradientStops: [
+						{ color: get().primaryColor, position: 0 },
+						{ color: get().secondaryColor, position: 1 },
+					],
+				};
+				break;
 			case "text":
 				newSettings = {
 					fontSize: 24,
@@ -477,6 +506,20 @@ export const useArtStudioStore = create<ArtStudioState>((set, get) => ({
 	clearLoadedImages: () =>
 		set({ loadedImages: [] }),
 
+	// Gradients
+	gradients: [],
+	addGradient: (gradient) => 
+		set((state) => ({ gradients: [...state.gradients, gradient] })),
+	updateGradient: (id, updates) =>
+		set((state) => ({
+			gradients: state.gradients.map(g => g.id === id ? { ...g, ...updates } : g)
+		})),
+	removeGradient: (id) =>
+		set((state) => ({
+			gradients: state.gradients.filter(g => g.id !== id)
+		})),
+	clearGradients: () => set({ gradients: [] }),
+
 	// Canvas
 	zoom: 100,
 	setZoom: (zoom) => set({ zoom: Math.max(10, Math.min(500, zoom)) }),
@@ -559,6 +602,8 @@ export const useArtStudioStore = create<ArtStudioState>((set, get) => ({
 	setShowInfoPanel: (show) => set({ showInfoPanel: show }),
 	showFillPanel: false,
 	setShowFillPanel: (show) => set({ showFillPanel: show }),
+	showGradientPanel: false,
+	setShowGradientPanel: (show) => set({ showGradientPanel: show }),
 
 	// Canvas overlays
 	showGrid: false,
@@ -580,6 +625,7 @@ export const useArtStudioStore = create<ArtStudioState>((set, get) => ({
 			showNavigator: false,
 			showInfoPanel: false,
 			showFillPanel: false,
+			showGradientPanel: false,
 			showGrid: false,
 			showRulers: false,
 			showGuides: false,

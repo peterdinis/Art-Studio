@@ -63,6 +63,17 @@ interface ImageObject {
 	layerId?: string;
 }
 
+interface GradientObject {
+	id: string;
+	type: "linear" | "radial";
+	x0: number;
+	y0: number;
+	x1: number;
+	y1: number;
+	colorStops: { offset: number; color: string }[];
+	layerId?: string;
+}
+
 interface FloodFillPoint {
 	x: number;
 	y: number;
@@ -84,6 +95,9 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const [isDrawing, setIsDrawing] = useState(false);
 	const [isFilling, setIsFilling] = useState(false);
+	const [isDrawingGradient, setIsDrawingGradient] = useState(false);
+	const [currentGradient, setCurrentGradient] = useState<GradientObject | null>(null);
+	const gradientStartPoint = useRef<{ x: number; y: number } | null>(null);
 
 	// Shape drawing state
 	const [currentShape, setCurrentShape] = useState<ShapeObject | null>(null);
@@ -116,6 +130,9 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		setPrimaryColor,
 		layers,
 		activeLayerId,
+		gradients,
+		addGradient,
+		updateGradient,
 	} = useArtStudioStore();
 
 	const actualWidth = canvasSize?.width || width;
@@ -173,6 +190,7 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 					lines,
 					shapes,
 					images: images.map((img) => ({ ...img })),
+					gradients,
 				});
 				const dataURL = stageRef.current.toDataURL({ pixelRatio: 0.2 });
 				addToHistory(state, dataURL, action);
@@ -180,7 +198,7 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				console.error("Failed to save canvas state:", err);
 			}
 		},
-		[lines, shapes, images, addToHistory],
+		[lines, shapes, images, gradients, addToHistory],
 	);
 
 	// Handle transformer updates
@@ -549,6 +567,29 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			return;
 		}
 
+		// Gradient tool
+		if (activeTool === "gradient") {
+			setIsDrawingGradient(true);
+			gradientStartPoint.current = transformedPos;
+
+			const newGradient: GradientObject = {
+				id: `gradient-${Date.now()}`,
+				type: brushSettings.gradientType,
+				x0: transformedPos.x,
+				y0: transformedPos.y,
+				x1: transformedPos.x + 100,
+				y1: transformedPos.y,
+				colorStops: brushSettings.gradientStops.map(stop => ({
+					offset: stop.position,
+					color: stop.color
+				})),
+				layerId: activeLayerId || undefined,
+			};
+			
+			setCurrentGradient(newGradient);
+			return;
+		}
+
 		// Eyedropper tool
 		if (activeTool === "eyedropper") {
 			const target = e.target;
@@ -662,6 +703,16 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			return;
 		}
 
+		// Gradient drawing
+		if (isDrawingGradient && currentGradient && gradientStartPoint.current) {
+			setCurrentGradient({
+				...currentGradient,
+				x1: transformedPos.x,
+				y1: transformedPos.y,
+			});
+			return;
+		}
+
 		// Panning
 		if (isPanning.current && activeTool === "hand") {
 			const deltaX = e.evt.clientX - lastPanPos.current.x;
@@ -689,6 +740,16 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			setCurrentShape(null);
 			shapeStartPoint.current = null;
 			saveCanvasState(`${currentShape.type} created`);
+			return;
+		}
+
+		if (isDrawingGradient && currentGradient) {
+			addGradient(currentGradient);
+			setCurrentGradient(null);
+			setIsDrawingGradient(false);
+			gradientStartPoint.current = null;
+			saveCanvasState("Gradient added");
+			toast.success("Gradient created");
 			return;
 		}
 
@@ -830,6 +891,7 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			case "clone":
 			case "healing":
 			case "blur":
+			case "gradient":
 				return "crosshair";
 			case "hand":
 				return isPanning.current ? "grabbing" : "grab";
@@ -839,8 +901,6 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				return "zoom-in";
 			case "fill":
 				return "cell";
-			case "gradient":
-				return "crosshair";
 			case "text":
 				return "text";
 			case "rectangle":
@@ -1006,6 +1066,51 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 								<ImageNode key={image.id} image={image} />
 							))}
 
+						{/* Gradients */}
+						{gradients
+							.filter((gradient) => isLayerVisible(gradient.layerId))
+							.map((gradient) => {
+								const x = Math.min(gradient.x0, gradient.x1);
+								const y = Math.min(gradient.y0, gradient.y1);
+								const width = Math.abs(gradient.x1 - gradient.x0);
+								const height = Math.abs(gradient.y1 - gradient.y0);
+
+								return (
+									<Rect
+										key={gradient.id}
+										id={gradient.id}
+										x={x}
+										y={y}
+										width={width}
+										height={height}
+										draggable={activeTool === "select" || activeTool === "move"}
+										onClick={() => setSelectedId(gradient.id)}
+										onTap={() => setSelectedId(gradient.id)}
+										onDragEnd={(e) => {
+											const deltaX = e.target.x() - x;
+											const deltaY = e.target.y() - y;
+											
+											updateGradient(gradient.id, {
+												x0: gradient.x0 + deltaX,
+												y0: gradient.y0 + deltaY,
+												x1: gradient.x1 + deltaX,
+												y1: gradient.y1 + deltaY,
+											});
+											saveCanvasState("Gradient moved");
+										}}
+										fillLinearGradientStartPoint={{ 
+											x: gradient.x0 - x, 
+											y: gradient.y0 - y 
+										}}
+										fillLinearGradientEndPoint={{ 
+											x: gradient.x1 - x, 
+											y: gradient.y1 - y 
+										}}
+										fillLinearGradientColorStops={gradient.colorStops.flatMap(stop => [stop.offset, stop.color])}
+									/>
+								);
+							})}
+
 						{/* Shapes */}
 						{shapes
 							.filter((shape) => isLayerVisible(shape.layerId))
@@ -1167,6 +1272,28 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 
 								return null;
 							})}
+
+						{/* Current gradient being drawn */}
+						{currentGradient && activeTool === "gradient" && (
+							<Rect
+								x={Math.min(currentGradient.x0, currentGradient.x1)}
+								y={Math.min(currentGradient.y0, currentGradient.y1)}
+								width={Math.abs(currentGradient.x1 - currentGradient.x0)}
+								height={Math.abs(currentGradient.y1 - currentGradient.y0)}
+								fillLinearGradientStartPoint={{ 
+									x: currentGradient.x0 - Math.min(currentGradient.x0, currentGradient.x1), 
+									y: currentGradient.y0 - Math.min(currentGradient.y0, currentGradient.y1) 
+								}}
+								fillLinearGradientEndPoint={{ 
+									x: currentGradient.x1 - Math.min(currentGradient.x0, currentGradient.x1), 
+									y: currentGradient.y1 - Math.min(currentGradient.y0, currentGradient.y1) 
+								}}
+								fillLinearGradientColorStops={currentGradient.colorStops.flatMap(stop => [stop.offset, stop.color])}
+								stroke="#666"
+								strokeWidth={1}
+								dash={[5, 5]}
+							/>
+						)}
 
 						{/* Current shape being drawn */}
 						{currentShape && currentShape.type === "rect" && (
