@@ -564,7 +564,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 			}
 
 			// Shape tools - rectangle, ellipse, line
-			if (shapeTools.includes(activeTool) && activeTool !== "polygon" && activeTool !== "pen") {
+			if (shapeTools.includes(activeTool) && activeTool !== "polygon") {
 				isDrawingShape.current = true;
 				shapeStartPoint.current = { x: pointer.x, y: pointer.y };
 
@@ -605,34 +605,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 						selectable: false,
 						evented: false,
 					});
-				} else if (activeTool === "polygon") {
-					// Start new polygon or add point to existing
-					if (!isDrawingPolygon.current) {
-						polygonPoints.current = [{ x: pointer.x, y: pointer.y }];
-						isDrawingPolygon.current = true;
-					} else {
-						polygonPoints.current.push({ x: pointer.x, y: pointer.y });
-					}
-
-					// Need at least 3 points for a polygon
-					if (polygonPoints.current.length >= 3) {
-						if (polygonShape.current) {
-							canvas.remove(polygonShape.current);
-						}
-
-						shape = new Polygon(polygonPoints.current, {
-							fill: primaryColor,
-							stroke: secondaryColor,
-							strokeWidth: 2,
-							selectable: false,
-							evented: false,
-						});
-						polygonShape.current = shape;
-						canvas.add(shape);
-						canvas.renderAll();
-					}
-					return; // Don't add to currentShape, handle separately
-				}
+				} 
 
 				if (shape) {
 					currentShape.current = shape;
