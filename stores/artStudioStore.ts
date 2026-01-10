@@ -43,14 +43,14 @@ export interface BrushSettings {
 	cornerRadius: number;
 	fillType: "solid" | "gradient" | "none";
 	sides: number;
-	
+
 	// Nové speciální nastavení pro Paint Bucket
 	fillTolerance: number;
 	fillContiguous: boolean;
 	fillOpacity: number;
 	fillBlendMode: "normal" | "multiply" | "screen" | "overlay";
 	fillAntiAlias: boolean;
-	
+
 	// Přidáno pro text
 	fontFamily: string;
 	fontSize: number;
@@ -60,11 +60,11 @@ export interface BrushSettings {
 	fontStyle: "normal" | "italic";
 	lineHeight: number;
 	letterSpacing: number;
-	
+
 	// Gradient settings
 	gradientType: "linear" | "radial";
 	gradientStops: { color: string; position: number }[];
-	
+
 	// Clone settings
 	cloneSourceX: number;
 	cloneSourceY: number;
@@ -175,8 +175,15 @@ interface ArtStudioState {
 	clearHistory: () => void;
 
 	// Selection
-	selectionBounds: { x: number; y: number; width: number; height: number } | null;
-	setSelectionBounds: (bounds: { x: number; y: number; width: number; height: number } | null) => void;
+	selectionBounds: {
+		x: number;
+		y: number;
+		width: number;
+		height: number;
+	} | null;
+	setSelectionBounds: (
+		bounds: { x: number; y: number; width: number; height: number } | null,
+	) => void;
 	clearSelection: () => void;
 
 	// UI State
@@ -218,7 +225,9 @@ interface ArtStudioState {
 
 	// Fill tool preview
 	fillPreview: { x: number; y: number; color: string } | null;
-	setFillPreview: (preview: { x: number; y: number; color: string } | null) => void;
+	setFillPreview: (
+		preview: { x: number; y: number; color: string } | null,
+	) => void;
 }
 
 const generateLayerId = () =>
@@ -235,14 +244,14 @@ const defaultBrushSettings: BrushSettings = {
 	cornerRadius: 0,
 	fillType: "solid",
 	sides: 5,
-	
+
 	// Paint Bucket specific
 	fillTolerance: 32,
 	fillContiguous: true,
 	fillOpacity: 100,
 	fillBlendMode: "normal",
 	fillAntiAlias: true,
-	
+
 	// Text
 	fontFamily: "Arial",
 	fontSize: 16,
@@ -252,14 +261,14 @@ const defaultBrushSettings: BrushSettings = {
 	fontStyle: "normal",
 	lineHeight: 1.2,
 	letterSpacing: 0,
-	
+
 	// Gradient
 	gradientType: "linear",
 	gradientStops: [
 		{ color: "#ffffff", position: 0 },
 		{ color: "#000000", position: 1 },
 	],
-	
+
 	// Clone
 	cloneSourceX: 0,
 	cloneSourceY: 0,
@@ -315,12 +324,11 @@ export const useArtStudioStore = create<ArtStudioState>((set, get) => ({
 		set((state) => ({
 			brushSettings: { ...state.brushSettings, ...settings },
 		})),
-	resetBrushSettings: () =>
-		set({ brushSettings: defaultBrushSettings }),
+	resetBrushSettings: () => set({ brushSettings: defaultBrushSettings }),
 	setToolDefaults: (tool) => {
 		const currentSettings = get().brushSettings;
 		let newSettings: Partial<BrushSettings> = {};
-		
+
 		switch (tool) {
 			case "brush":
 				newSettings = {
@@ -392,7 +400,7 @@ export const useArtStudioStore = create<ArtStudioState>((set, get) => ({
 				};
 				break;
 		}
-		
+
 		if (Object.keys(newSettings).length > 0) {
 			set((state) => ({
 				brushSettings: { ...state.brushSettings, ...newSettings },
@@ -503,20 +511,21 @@ export const useArtStudioStore = create<ArtStudioState>((set, get) => ({
 		set((state) => ({
 			loadedImages: state.loadedImages.filter((img) => img.id !== id),
 		})),
-	clearLoadedImages: () =>
-		set({ loadedImages: [] }),
+	clearLoadedImages: () => set({ loadedImages: [] }),
 
 	// Gradients
 	gradients: [],
-	addGradient: (gradient) => 
+	addGradient: (gradient) =>
 		set((state) => ({ gradients: [...state.gradients, gradient] })),
 	updateGradient: (id, updates) =>
 		set((state) => ({
-			gradients: state.gradients.map(g => g.id === id ? { ...g, ...updates } : g)
+			gradients: state.gradients.map((g) =>
+				g.id === id ? { ...g, ...updates } : g,
+			),
 		})),
 	removeGradient: (id) =>
 		set((state) => ({
-			gradients: state.gradients.filter(g => g.id !== id)
+			gradients: state.gradients.filter((g) => g.id !== id),
 		})),
 	clearGradients: () => set({ gradients: [] }),
 
@@ -528,8 +537,7 @@ export const useArtStudioStore = create<ArtStudioState>((set, get) => ({
 	canvasSize: null,
 	setCanvasSize: (size) =>
 		set({ canvasSize: size, history: [], historyIndex: -1 }),
-	resetCanvasView: () =>
-		set({ zoom: 100, panOffset: { x: 0, y: 0 } }),
+	resetCanvasView: () => set({ zoom: 100, panOffset: { x: 0, y: 0 } }),
 
 	// History
 	history: [],

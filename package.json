@@ -11,7 +11,7 @@
 		"biome:check-fix": "biome check --apply .",
 		"biome:check-unsafe": "biome check --apply-unsafe .",
 		"biome:format": "biome format .",
-		"biome:format-fix": "biome format --write .",
+		"format-fix": "biome format --write .",
 		"biome:ci": "biome ci .",
 		"biome:lint": "biome lint .",
 		"biome:lint-fix": "biome lint --apply .",

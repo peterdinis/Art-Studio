@@ -283,7 +283,7 @@ export const ToolSidebar: React.FC = () => {
 				return;
 
 			const key = e.key.toUpperCase();
-			
+
 			// Handle special shortcuts
 			if (key === "G" && e.shiftKey) {
 				e.preventDefault();
