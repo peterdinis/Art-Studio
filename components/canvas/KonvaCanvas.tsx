@@ -114,10 +114,10 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 	// Expose stage to window for menu bar access
 	useEffect(() => {
 		if (stageRef.current) {
-			(window as Window).konvaStage = stageRef.current;
+			(window as any).konvaStage = stageRef.current;
 		}
 		return () => {
-			delete (window as Window).konvaStage;
+			delete (window as any).konvaStage;
 		};
 	}, []);
 
@@ -239,18 +239,20 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 
 		// Text tool
 		if (activeTool === "text") {
-			const newText: ShapeObject = {
+			const newTextShape: ShapeObject = {
 				id: `text-${Date.now()}`,
 				type: "text",
 				x: transformedPos.x,
 				y: transformedPos.y,
 				text: "Type here",
-				fontSize: Math.max(16, brushSettings.size * 2),
+				fontSize: brushSettings.size || 20,
 				fill: primaryColor,
+				layerId: activeLayerId || undefined,
 			};
-			setShapes([...shapes, newText]);
-			setSelectedId(newText.id);
+			setShapes([...shapes, newTextShape]);
+			setSelectedId(newTextShape.id);
 			saveCanvasState("Text added");
+			toast.success("Text added - double click to edit");
 			return;
 		}
 
@@ -258,8 +260,8 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		if (activeTool === "fill") {
 			const target = e.target;
 			if (target && target !== stage && target.name() !== "background") {
-				if ("fill" in target && typeof target.fill === "function") {
-					target.fill(primaryColor);
+				if ("fill" in target && typeof (target as any).fill === "function") {
+					(target as any).fill(primaryColor);
 					target.getLayer()?.batchDraw();
 					saveCanvasState("Fill applied");
 				}
@@ -271,8 +273,8 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		if (activeTool === "eyedropper") {
 			const target = e.target;
 			if (target && target !== stage) {
-				if ("fill" in target && typeof target.fill === "function") {
-					const color = target.fill() as string;
+				if ("fill" in target && typeof (target as any).fill === "function") {
+					const color = (target as any).fill() as string;
 					if (color) {
 						setPrimaryColor(color);
 						toast.success(`Color sampled: ${color}`);
@@ -440,6 +442,16 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		return () => container.removeEventListener("wheel", handleWheel);
 	}, [handleWheel]);
 
+	// Funkce pro vymazání všeho na plátně
+	const clearAll = useCallback(() => {
+		setShapes([]);
+		setLines([]);
+		setImages([]);
+		setSelectedId(null);
+		saveCanvasState("Canvas cleared");
+		toast.success("Canvas cleared");
+	}, [saveCanvasState]);
+
 	// Handle keyboard shortcuts and global actions
 	useEffect(() => {
 		const handleKeyDown = (e: KeyboardEvent) => {
@@ -466,15 +478,6 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			}
 		};
 
-		const clearAll = () => {
-			setShapes([]);
-			setLines([]);
-			setImages([]);
-			setSelectedId(null);
-			saveCanvasState("Canvas cleared");
-			toast.success("Canvas cleared");
-		};
-
 		window.addEventListener("keydown", handleKeyDown);
 		window.addEventListener("artstudio:delete-selection", deleteSelected);
 		window.addEventListener("artstudio:clear-canvas", clearAll);
@@ -483,7 +486,7 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			window.removeEventListener("artstudio:delete-selection", deleteSelected);
 			window.removeEventListener("artstudio:clear-canvas", clearAll);
 		};
-	}, [selectedId, shapes, lines, images, saveCanvasState]);
+	}, [selectedId, shapes, lines, images, saveCanvasState, clearAll]);
 
 	// Load images when added
 	useEffect(() => {
@@ -517,7 +520,14 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			toast.success(`Image loaded: ${latestImage.name}`);
 			saveCanvasState("Image added");
 		};
-	}, [loadedImages, images, actualWidth, actualHeight, saveCanvasState]);
+	}, [
+		loadedImages,
+		images,
+		actualWidth,
+		actualHeight,
+		saveCanvasState,
+		activeLayerId,
+	]);
 
 	// Get cursor based on active tool
 	const getCursor = () => {

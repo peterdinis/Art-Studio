@@ -24,8 +24,13 @@ export const HistoryPanel: React.FC = () => {
 
 	const handleClearHistory = () => {
 		if (history.length === 0) return;
-		
-		if (window.confirm('Are you sure you want to clear all history? This cannot be undone.')) {
+
+		// Ukáž potvrdenie pred vymazaním
+		if (
+			window.confirm(
+				"Are you sure you want to clear all history? This cannot be undone.",
+			)
+		) {
 			clearHistory();
 			toast.success("History cleared");
 		}
@@ -57,13 +62,15 @@ export const HistoryPanel: React.FC = () => {
 			</div>
 
 			{/* History List */}
-			<ScrollArea className="flex-1 max-h-62.5">
+			<ScrollArea className="flex-1 max-h-100">
 				<div className="space-y-2 pr-2">
 					{history.length === 0 ? (
 						<div className="text-center py-8 text-muted-foreground">
 							<History className="w-12 h-12 mx-auto mb-2 opacity-30" />
 							<p className="text-sm">No history yet</p>
-							<p className="text-xs mt-1">Start drawing to create history states</p>
+							<p className="text-xs mt-1">
+								Start drawing to create history states
+							</p>
 						</div>
 					) : (
 						history.map((entry, index) => (
@@ -115,7 +122,9 @@ export const HistoryPanel: React.FC = () => {
 											State {index + 1}
 										</span>
 										<span className="text-[10px] text-muted-foreground">
-											{formatDistanceToNow(entry.timestamp, { addSuffix: true })}
+											{formatDistanceToNow(entry.timestamp, {
+												addSuffix: true,
+											})}
 										</span>
 									</div>
 									{entry.action && (
@@ -129,6 +138,15 @@ export const HistoryPanel: React.FC = () => {
 					)}
 				</div>
 			</ScrollArea>
+
+			{/* Footer info */}
+			{history.length > 0 && (
+				<div className="pt-3 mt-3 border-t border-border">
+					<p className="text-xs text-muted-foreground text-center">
+						Click any state to restore. Max 50 states stored.
+					</p>
+				</div>
+			)}
 		</div>
 	);
 };

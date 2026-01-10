@@ -10,6 +10,7 @@ import {
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { HelpCircle, Blend, Circle, Square, Sparkles } from "lucide-react";
+import { TextOptionsPanel } from "@/components/panels/TextOptionsPanel";
 
 interface ToolOption {
 	name: string;
@@ -38,6 +39,7 @@ export const BrushPanel: React.FC = () => {
 	const isDrawingTool = drawingTools.includes(activeTool);
 	const isSelectionTool = selectionTools.includes(activeTool);
 	const isShapeTool = shapeTools.includes(activeTool);
+	const isTextTool = activeTool === "text";
 
 	const getToolTitle = () => {
 		const titles: Record<string, string> = {
@@ -65,6 +67,11 @@ export const BrushPanel: React.FC = () => {
 		};
 		return titles[activeTool] || "Tool";
 	};
+
+	// Pokud je aktivní text tool, zobrazte TextOptionsPanel
+	if (isTextTool) {
+		return <TextOptionsPanel />;
+	}
 
 	const renderSliderWithTooltip = (option: ToolOption) => (
 		<div className="space-y-2" key={option.name}>
@@ -323,6 +330,7 @@ export const BrushPanel: React.FC = () => {
 			{!isDrawingTool &&
 				!isSelectionTool &&
 				!isShapeTool &&
+				!isTextTool &&
 				renderGenericOptions()}
 
 			{isDrawingTool && (
