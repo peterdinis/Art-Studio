@@ -42,7 +42,9 @@ const FONT_FAMILIES = [
 	{ value: "Palatino", label: "Palatino" },
 ];
 
-const FONT_SIZES = [8, 9, 10, 11, 12, 14, 16, 18, 20, 22, 24, 26, 28, 36, 48, 72];
+const FONT_SIZES = [
+	8, 9, 10, 11, 12, 14, 16, 18, 20, 22, 24, 26, 28, 36, 48, 72,
+];
 
 export const TextOptionsPanel: React.FC = () => {
 	const { brushSettings, setBrushSettings } = useArtStudioStore();
@@ -57,7 +59,7 @@ export const TextOptionsPanel: React.FC = () => {
 			if (file) {
 				const fontName = file.name.replace(/\.[^/.]+$/, "");
 				const fontUrl = URL.createObjectURL(file);
-				
+
 				const fontFace = new FontFace(fontName, `url(${fontUrl})`);
 				try {
 					await fontFace.load();
@@ -93,7 +95,11 @@ export const TextOptionsPanel: React.FC = () => {
 					</SelectTrigger>
 					<SelectContent>
 						{FONT_FAMILIES.map((font) => (
-							<SelectItem key={font.value} value={font.value} className="text-xs">
+							<SelectItem
+								key={font.value}
+								value={font.value}
+								className="text-xs"
+							>
 								<span style={{ fontFamily: font.value }}>{font.label}</span>
 							</SelectItem>
 						))}
@@ -102,8 +108,8 @@ export const TextOptionsPanel: React.FC = () => {
 								<span style={{ fontFamily: font }}>{font} (Custom)</span>
 							</SelectItem>
 						))}
-						<SelectItem 
-							value="load-custom" 
+						<SelectItem
+							value="load-custom"
 							onSelect={loadCustomFont}
 							className="text-xs text-primary flex items-center gap-1"
 						>
@@ -120,14 +126,20 @@ export const TextOptionsPanel: React.FC = () => {
 				<div className="flex items-center gap-2">
 					<Select
 						value={brushSettings.fontSize.toString()}
-						onValueChange={(value) => setBrushSettings({ fontSize: parseInt(value) })}
+						onValueChange={(value) =>
+							setBrushSettings({ fontSize: parseInt(value) })
+						}
 					>
 						<SelectTrigger className="flex-1 h-8 text-xs">
 							<SelectValue placeholder="Select size" />
 						</SelectTrigger>
 						<SelectContent>
 							{FONT_SIZES.map((size) => (
-								<SelectItem key={size} value={size.toString()} className="text-xs">
+								<SelectItem
+									key={size}
+									value={size.toString()}
+									className="text-xs"
+								>
 									{size} px
 								</SelectItem>
 							))}
@@ -136,7 +148,9 @@ export const TextOptionsPanel: React.FC = () => {
 					<div className="flex gap-1">
 						<button
 							onClick={() =>
-								setBrushSettings({ fontSize: Math.max(1, brushSettings.fontSize - 1) })
+								setBrushSettings({
+									fontSize: Math.max(1, brushSettings.fontSize - 1),
+								})
 							}
 							className="w-7 h-7 flex items-center justify-center rounded border border-input hover:bg-accent transition-colors"
 							title="Decrease font size"
@@ -145,7 +159,9 @@ export const TextOptionsPanel: React.FC = () => {
 						</button>
 						<button
 							onClick={() =>
-								setBrushSettings({ fontSize: Math.min(200, brushSettings.fontSize + 1) })
+								setBrushSettings({
+									fontSize: Math.min(200, brushSettings.fontSize + 1),
+								})
 							}
 							className="w-7 h-7 flex items-center justify-center rounded border border-input hover:bg-accent transition-colors"
 							title="Increase font size"
@@ -185,7 +201,9 @@ export const TextOptionsPanel: React.FC = () => {
 					<Toggle
 						pressed={brushSettings.textDecoration === "underline"}
 						onPressedChange={(pressed) =>
-							setBrushSettings({ textDecoration: pressed ? "underline" : "none" })
+							setBrushSettings({
+								textDecoration: pressed ? "underline" : "none",
+							})
 						}
 						className="h-8 px-3"
 						aria-label="Underline"
@@ -252,7 +270,9 @@ export const TextOptionsPanel: React.FC = () => {
 				<div className="space-y-2">
 					<div className="flex justify-between items-center">
 						<Label className="text-xs text-muted-foreground">Line Height</Label>
-						<span className="text-xs font-mono">{brushSettings.lineHeight.toFixed(1)}</span>
+						<span className="text-xs font-mono">
+							{brushSettings.lineHeight.toFixed(1)}
+						</span>
 					</div>
 					<Slider
 						value={[brushSettings.lineHeight]}
@@ -266,12 +286,18 @@ export const TextOptionsPanel: React.FC = () => {
 
 				<div className="space-y-2">
 					<div className="flex justify-between items-center">
-						<Label className="text-xs text-muted-foreground">Letter Spacing</Label>
-						<span className="text-xs font-mono">{brushSettings.letterSpacing}px</span>
+						<Label className="text-xs text-muted-foreground">
+							Letter Spacing
+						</Label>
+						<span className="text-xs font-mono">
+							{brushSettings.letterSpacing}px
+						</span>
 					</div>
 					<Slider
 						value={[brushSettings.letterSpacing]}
-						onValueChange={([value]) => setBrushSettings({ letterSpacing: value })}
+						onValueChange={([value]) =>
+							setBrushSettings({ letterSpacing: value })
+						}
 						min={-5}
 						max={20}
 						step={0.5}
@@ -282,7 +308,9 @@ export const TextOptionsPanel: React.FC = () => {
 
 			{/* Text Preview */}
 			<div className="pt-3 border-t">
-				<Label className="text-xs text-muted-foreground mb-2 block">Preview</Label>
+				<Label className="text-xs text-muted-foreground mb-2 block">
+					Preview
+				</Label>
 				<div className="min-h-20 p-3 bg-muted/30 rounded-md border border-border/50">
 					<div
 						className="text-foreground"
@@ -300,7 +328,8 @@ export const TextOptionsPanel: React.FC = () => {
 						The quick brown fox jumps over the lazy dog
 						<br />
 						<span className="opacity-70 text-xs">
-							Font: {brushSettings.fontFamily} | Size: {brushSettings.fontSize}px
+							Font: {brushSettings.fontFamily} | Size: {brushSettings.fontSize}
+							px
 						</span>
 					</div>
 				</div>

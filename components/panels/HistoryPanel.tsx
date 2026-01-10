@@ -24,9 +24,13 @@ export const HistoryPanel: React.FC = () => {
 
 	const handleClearHistory = () => {
 		if (history.length === 0) return;
-		
+
 		// Ukáž potvrdenie pred vymazaním
-		if (window.confirm('Are you sure you want to clear all history? This cannot be undone.')) {
+		if (
+			window.confirm(
+				"Are you sure you want to clear all history? This cannot be undone.",
+			)
+		) {
 			clearHistory();
 			toast.success("History cleared");
 		}
@@ -64,7 +68,9 @@ export const HistoryPanel: React.FC = () => {
 						<div className="text-center py-8 text-muted-foreground">
 							<History className="w-12 h-12 mx-auto mb-2 opacity-30" />
 							<p className="text-sm">No history yet</p>
-							<p className="text-xs mt-1">Start drawing to create history states</p>
+							<p className="text-xs mt-1">
+								Start drawing to create history states
+							</p>
 						</div>
 					) : (
 						history.map((entry, index) => (
@@ -116,7 +122,9 @@ export const HistoryPanel: React.FC = () => {
 											State {index + 1}
 										</span>
 										<span className="text-[10px] text-muted-foreground">
-											{formatDistanceToNow(entry.timestamp, { addSuffix: true })}
+											{formatDistanceToNow(entry.timestamp, {
+												addSuffix: true,
+											})}
 										</span>
 									</div>
 									{entry.action && (

@@ -264,7 +264,8 @@ export const useArtStudioStore = create<ArtStudioState>((set, get) => ({
 		const newLayers = layers.filter((l) => l.id !== id);
 		set({
 			layers: newLayers,
-			activeLayerId: activeLayerId === id ? (newLayers[0]?.id || null) : activeLayerId,
+			activeLayerId:
+				activeLayerId === id ? newLayers[0]?.id || null : activeLayerId,
 		});
 	},
 	setActiveLayer: (id) => set({ activeLayerId: id }),

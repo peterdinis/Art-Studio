@@ -73,8 +73,12 @@ export const LayersPanel: React.FC = () => {
 
 	const handleClearAllLayers = () => {
 		if (layers.length === 0) return;
-		
-		if (window.confirm('Are you sure you want to delete all layers? This cannot be undone.')) {
+
+		if (
+			window.confirm(
+				"Are you sure you want to delete all layers? This cannot be undone.",
+			)
+		) {
 			clearLayers();
 			toast.success("All layers cleared");
 		}
@@ -156,7 +160,11 @@ export const LayersPanel: React.FC = () => {
 							</button>
 						</DropdownMenuTrigger>
 						<DropdownMenuContent align="end">
-							<DropdownMenuItem onClick={handleClearAllLayers} disabled={layers.length === 0} className="text-destructive focus:text-destructive">
+							<DropdownMenuItem
+								onClick={handleClearAllLayers}
+								disabled={layers.length === 0}
+								className="text-destructive focus:text-destructive"
+							>
 								<Trash2 className="w-4 h-4 mr-2" />
 								Clear All Layers
 							</DropdownMenuItem>
@@ -271,7 +279,10 @@ export const LayersPanel: React.FC = () => {
 
 							{/* Layer Menu */}
 							<DropdownMenu>
-								<DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+								<DropdownMenuTrigger
+									asChild
+									onClick={(e) => e.stopPropagation()}
+								>
 									<button className="text-muted-foreground hover:text-foreground transition-colors opacity-0 group-hover:opacity-100 shrink-0">
 										<MoreHorizontal className="w-4 h-4" />
 									</button>
