@@ -114,10 +114,10 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 	// Expose stage to window for menu bar access
 	useEffect(() => {
 		if (stageRef.current) {
-			(window as Window).konvaStage = stageRef.current;
+			(window as any).konvaStage = stageRef.current;
 		}
 		return () => {
-			delete (window as Window).konvaStage;
+			delete (window as any).konvaStage;
 		};
 	}, []);
 
@@ -226,11 +226,11 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				points:
 					activeTool === "line"
 						? [
-								transformedPos.x,
-								transformedPos.y,
-								transformedPos.x,
-								transformedPos.y,
-							]
+							transformedPos.x,
+							transformedPos.y,
+							transformedPos.x,
+							transformedPos.y,
+						]
 						: undefined,
 			};
 			setCurrentShape(newShape);
@@ -239,18 +239,20 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 
 		// Text tool
 		if (activeTool === "text") {
-			const newText: ShapeObject = {
+			const newTextShape: ShapeObject = {
 				id: `text-${Date.now()}`,
 				type: "text",
 				x: transformedPos.x,
 				y: transformedPos.y,
 				text: "Type here",
-				fontSize: Math.max(16, brushSettings.size * 2),
+				fontSize: brushSettings.size || 20,
 				fill: primaryColor,
+				layerId: activeLayerId || undefined,
 			};
-			setShapes([...shapes, newText]);
-			setSelectedId(newText.id);
+			setShapes([...shapes, newTextShape]);
+			setSelectedId(newTextShape.id);
 			saveCanvasState("Text added");
+			toast.success("Text added - double click to edit");
 			return;
 		}
 
@@ -258,8 +260,8 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		if (activeTool === "fill") {
 			const target = e.target;
 			if (target && target !== stage && target.name() !== "background") {
-				if ("fill" in target && typeof target.fill === "function") {
-					target.fill(primaryColor);
+				if ("fill" in target && typeof (target as any).fill === "function") {
+					(target as any).fill(primaryColor);
 					target.getLayer()?.batchDraw();
 					saveCanvasState("Fill applied");
 				}
@@ -271,8 +273,8 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		if (activeTool === "eyedropper") {
 			const target = e.target;
 			if (target && target !== stage) {
-				if ("fill" in target && typeof target.fill === "function") {
-					const color = target.fill() as string;
+				if ("fill" in target && typeof (target as any).fill === "function") {
+					const color = (target as any).fill() as string;
 					if (color) {
 						setPrimaryColor(color);
 						toast.success(`Color sampled: ${color}`);
@@ -517,7 +519,7 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			toast.success(`Image loaded: ${latestImage.name}`);
 			saveCanvasState("Image added");
 		};
-	}, [loadedImages, images, actualWidth, actualHeight, saveCanvasState]);
+	}, [loadedImages, images, actualWidth, actualHeight, saveCanvasState, activeLayerId]);
 
 	// Get cursor based on active tool
 	const getCursor = () => {
@@ -590,13 +592,13 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 						images.map((i) =>
 							i.id === image.id
 								? {
-										...i,
-										x: node.x(),
-										y: node.y(),
-										width: node.width() * node.scaleX(),
-										height: node.height() * node.scaleY(),
-										rotation: node.rotation(),
-									}
+									...i,
+									x: node.x(),
+									y: node.y(),
+									width: node.width() * node.scaleX(),
+									height: node.height() * node.scaleY(),
+									rotation: node.rotation(),
+								}
 								: i,
 						),
 					);
