@@ -43,6 +43,15 @@ export interface BrushSettings {
 	cornerRadius: number;
 	fillType: "solid" | "gradient" | "none";
 	sides: number;
+	// Přidáno pro text
+	fontFamily: string;
+	fontSize: number;
+	fontWeight: string;
+	textAlign: "left" | "center" | "right" | "justify";
+	textDecoration: "none" | "underline" | "line-through";
+	fontStyle: "normal" | "italic";
+	lineHeight: number;
+	letterSpacing: number;
 }
 
 export interface HistoryEntry {
@@ -210,6 +219,15 @@ export const useArtStudioStore = create<ArtStudioState>((set, get) => ({
 		cornerRadius: 0,
 		fillType: "solid",
 		sides: 5,
+		// Nové text settings
+		fontFamily: "Arial",
+		fontSize: 16,
+		fontWeight: "normal",
+		textAlign: "left",
+		textDecoration: "none",
+		fontStyle: "normal",
+		lineHeight: 1.2,
+		letterSpacing: 0,
 	},
 	setBrushSettings: (settings) =>
 		set((state) => ({
@@ -242,7 +260,6 @@ export const useArtStudioStore = create<ArtStudioState>((set, get) => ({
 	},
 	removeLayer: (id) => {
 		const { layers, activeLayerId } = get();
-		// Allow removing if more than 0 layers (changed from 1)
 		if (layers.length === 0) return;
 		const newLayers = layers.filter((l) => l.id !== id);
 		set({
