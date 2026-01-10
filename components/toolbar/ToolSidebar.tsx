@@ -25,6 +25,7 @@ import {
   RectangleHorizontal,
   Hexagon,
   Spline,
+  Trash2,
 } from "lucide-react";
 import { useArtStudioStore, Tool } from "@/stores/artStudioStore";
 import {
@@ -34,6 +35,17 @@ import {
 } from "@/components/ui/tooltip";
 import { Separator } from "@/components/ui/separator";
 import { TextOptionsPanel } from "@/components/panels/TextOptionsPanel";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface ToolConfig {
   id: Tool;
@@ -246,8 +258,17 @@ export const ToolSidebar: React.FC = () => {
     setShowColorsPanel,
   } = useArtStudioStore();
 
+  const [showClearAlert, setShowClearAlert] = React.useState(false);
+
   // Pokud je aktivní text tool, zobrazte text options v sidebaru
   const shouldShowTextOptions = activeTool === "text";
+
+  // Funkce pro vymazání plátna
+  const handleClearCanvas = () => {
+    // Odeslání custom eventu pro vymazání plátna
+    window.dispatchEvent(new CustomEvent("artstudio:clear-canvas"));
+    setShowClearAlert(false);
+  };
 
   // Keyboard shortcuts - using capture phase for priority
   React.useEffect(() => {
@@ -283,6 +304,12 @@ export const ToolSidebar: React.FC = () => {
         const store = useArtStudioStore.getState();
         store.setPrimaryColor("#ffffff");
         store.setSecondaryColor("#000000");
+      }
+
+      // Shortcut pro vymazání plátna (Ctrl+Shift+D)
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && key === "D") {
+        e.preventDefault();
+        setShowClearAlert(true);
       }
     };
 
@@ -451,6 +478,52 @@ export const ToolSidebar: React.FC = () => {
             </div>
           </TooltipContent>
         </Tooltip>
+
+        {/* Clear Canvas Button */}
+        <Separator className="my-1.5 w-8" />
+        
+        <AlertDialog open={showClearAlert} onOpenChange={setShowClearAlert}>
+          <Tooltip delayDuration={400}>
+            <TooltipTrigger asChild>
+              <AlertDialogTrigger asChild>
+                <button className="tool-button text-red-500 hover:text-red-600 hover:bg-red-50">
+                  <Trash2 className="w-5 h-5" />
+                </button>
+              </AlertDialogTrigger>
+            </TooltipTrigger>
+            <TooltipContent side="right" className="max-w-70 p-3" sideOffset={8}>
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between gap-4">
+                  <span className="font-semibold text-foreground">Clear Canvas</span>
+                  <kbd className="px-1.5 py-0.5 text-xs bg-muted rounded font-mono">
+                    ⌘⇧D
+                  </kbd>
+                </div>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Remove all drawings, shapes, and images from the canvas.
+                </p>
+              </div>
+            </TooltipContent>
+          </Tooltip>
+          
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="text-red-600">Clear Canvas</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to clear the entire canvas? This will remove all drawings, shapes, and images. This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleClearCanvas}
+                className="bg-red-600 hover:bg-red-700 text-white"
+              >
+                Clear Canvas
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
         {/* Foreground/Background Color */}
         <div className="mt-auto pt-2">
