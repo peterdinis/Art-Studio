@@ -2,11 +2,7 @@
 
 import React from "react";
 import { useArtStudioStore } from "@/stores/artStudioStore";
-import {
-	ZoomIn,
-	ZoomOut,
-	MousePointer2,
-} from "lucide-react";
+import { ZoomIn, ZoomOut, MousePointer2 } from "lucide-react";
 import {
 	Tooltip,
 	TooltipContent,

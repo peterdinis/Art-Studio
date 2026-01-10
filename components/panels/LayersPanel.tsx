@@ -113,7 +113,9 @@ export const LayersPanel: React.FC = () => {
 						<TooltipContent side="bottom">
 							<div className="flex items-center gap-2">
 								<span>New Layer</span>
-								<kbd className="px-1 py-0.5 text-xs bg-white text-black rounded">⇧⌘N</kbd>
+								<kbd className="px-1 py-0.5 text-xs bg-white text-black rounded">
+									⇧⌘N
+								</kbd>
 							</div>
 						</TooltipContent>
 					</Tooltip>
@@ -133,7 +135,9 @@ export const LayersPanel: React.FC = () => {
 						<TooltipContent side="bottom">
 							<div className="flex items-center gap-2">
 								<span>Delete Layer</span>
-								<kbd className="px-1 py-0.5 text-xs bg-white text-black rounded">Del</kbd>
+								<kbd className="px-1 py-0.5 text-xs bg-white text-black rounded">
+									Del
+								</kbd>
 							</div>
 						</TooltipContent>
 					</Tooltip>

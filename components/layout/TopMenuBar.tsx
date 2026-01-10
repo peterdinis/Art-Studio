@@ -217,7 +217,19 @@ export const TopMenuBar: React.FC = () => {
 
 		window.addEventListener("keydown", handleKeyDown);
 		return () => window.removeEventListener("keydown", handleKeyDown);
-	}, [zoom, showGrid, showRulers, showGuides, setZoom, setPanOffset, setShowGrid, setShowRulers, setShowGuides, showLeftPanel, showRightPanel]);
+	}, [
+		zoom,
+		showGrid,
+		showRulers,
+		showGuides,
+		setZoom,
+		setPanOffset,
+		setShowGrid,
+		setShowRulers,
+		setShowGuides,
+		showLeftPanel,
+		showRightPanel,
+	]);
 
 	const handleNewCanvas = () => {
 		setShowTemplates(true);
@@ -328,7 +340,7 @@ export const TopMenuBar: React.FC = () => {
 		if (canvas) {
 			if (format === "JSON") {
 				const json = JSON.stringify(
-					isFabric() ? (canvas).toJSON() : (canvas).toJSON(),
+					isFabric() ? canvas.toJSON() : canvas.toJSON(),
 					null,
 					2,
 				);
@@ -345,7 +357,7 @@ export const TopMenuBar: React.FC = () => {
 
 			if (format === "SVG") {
 				if (isFabric()) {
-					const svg = (canvas).toSVG();
+					const svg = canvas.toSVG();
 					const blob = new Blob([svg], { type: "image/svg+xml" });
 					const url = URL.createObjectURL(blob);
 					const a = document.createElement("a");
@@ -361,12 +373,12 @@ export const TopMenuBar: React.FC = () => {
 			}
 
 			const dataURL = isFabric()
-				? (canvas).toDataURL({
+				? canvas.toDataURL({
 						format: format.toLowerCase() === "jpeg" ? "jpeg" : "png",
 						quality: 0.9,
 						multiplier: 1,
 					})
-				: (canvas).toDataURL({ pixelRatio: 2 });
+				: canvas.toDataURL({ pixelRatio: 2 });
 
 			const a = document.createElement("a");
 			a.href = dataURL;
@@ -430,12 +442,12 @@ export const TopMenuBar: React.FC = () => {
 		const canvas = getCanvas();
 		if (canvas) {
 			const dataURL = isFabric()
-				? (canvas).toDataURL({
+				? canvas.toDataURL({
 						format: "png",
 						quality: 1,
 						multiplier: 2,
 					})
-				: (canvas).toDataURL({ pixelRatio: 2 });
+				: canvas.toDataURL({ pixelRatio: 2 });
 			const printWindow = window.open("", "_blank");
 			if (printWindow) {
 				printWindow.document.write(`
@@ -467,9 +479,9 @@ export const TopMenuBar: React.FC = () => {
 		const canvas = getCanvas();
 		if (canvas) {
 			if (isFabric()) {
-				(canvas).clear();
-				(canvas).backgroundColor = "#2d3748";
-				(canvas).renderAll();
+				canvas.clear();
+				canvas.backgroundColor = "#2d3748";
+				canvas.renderAll();
 			} else {
 				window.dispatchEvent(new CustomEvent("artstudio:clear-canvas"));
 			}
@@ -482,9 +494,9 @@ export const TopMenuBar: React.FC = () => {
 		const canvas = getCanvas();
 		if (canvas) {
 			if (isFabric()) {
-				(canvas).clear();
-				(canvas).backgroundColor = "#2d3748";
-				(canvas).renderAll();
+				canvas.clear();
+				canvas.backgroundColor = "#2d3748";
+				canvas.renderAll();
 			} else {
 				window.dispatchEvent(new CustomEvent("artstudio:clear-canvas"));
 			}
@@ -539,16 +551,24 @@ export const TopMenuBar: React.FC = () => {
 		const canvas = getCanvas();
 		if (canvas) {
 			if (isFabric() && (window as Window).copiedObject) {
-				(window as Window).copiedObject.clone().then((cloned: { set: (arg0: { left: number; top: number; }) => void; left: number; top: number; }) => {
-					cloned.set({
-						left: (cloned.left || 0) + 20,
-						top: (cloned.top || 0) + 20,
-					});
-					canvas.add(cloned);
-					canvas.setActiveObject(cloned);
-					canvas.renderAll();
-					toast.success("Pasted");
-				});
+				(window as Window).copiedObject
+					.clone()
+					.then(
+						(cloned: {
+							set: (arg0: { left: number; top: number }) => void;
+							left: number;
+							top: number;
+						}) => {
+							cloned.set({
+								left: (cloned.left || 0) + 20,
+								top: (cloned.top || 0) + 20,
+							});
+							canvas.add(cloned);
+							canvas.setActiveObject(cloned);
+							canvas.renderAll();
+							toast.success("Pasted");
+						},
+					);
 			} else if (isKonva()) {
 				window.dispatchEvent(
 					new CustomEvent("artstudio:paste", { detail: { offset: true } }),
@@ -564,13 +584,21 @@ export const TopMenuBar: React.FC = () => {
 		const canvas = getCanvas();
 		if (canvas) {
 			if (isFabric() && (window as Window).copiedObject) {
-				(window as Window).copiedObject.clone().then((cloned: { set: (arg0: { left: number; top: number; }) => void; left: number; top: number; }) => {
-					// Paste at original position (no offset)
-					canvas.add(cloned);
-					canvas.setActiveObject(cloned);
-					canvas.renderAll();
-					toast.success("Pasted in place");
-				});
+				(window as Window).copiedObject
+					.clone()
+					.then(
+						(cloned: {
+							set: (arg0: { left: number; top: number }) => void;
+							left: number;
+							top: number;
+						}) => {
+							// Paste at original position (no offset)
+							canvas.add(cloned);
+							canvas.setActiveObject(cloned);
+							canvas.renderAll();
+							toast.success("Pasted in place");
+						},
+					);
 			} else if (isKonva()) {
 				window.dispatchEvent(
 					new CustomEvent("artstudio:paste", { detail: { offset: false } }),
@@ -713,9 +741,7 @@ export const TopMenuBar: React.FC = () => {
 					toast.info("Select an object to bring forward");
 				}
 			} else if (isKonva()) {
-				window.dispatchEvent(
-					new CustomEvent("artstudio:bring-forward"),
-				);
+				window.dispatchEvent(new CustomEvent("artstudio:bring-forward"));
 				toast.success("Brought forward");
 			}
 		}
@@ -734,9 +760,7 @@ export const TopMenuBar: React.FC = () => {
 					toast.info("Select an object to send backward");
 				}
 			} else if (isKonva()) {
-				window.dispatchEvent(
-					new CustomEvent("artstudio:send-backward"),
-				);
+				window.dispatchEvent(new CustomEvent("artstudio:send-backward"));
 				toast.success("Sent backward");
 			}
 		}
@@ -755,9 +779,7 @@ export const TopMenuBar: React.FC = () => {
 					toast.info("Select an object to bring to front");
 				}
 			} else if (isKonva()) {
-				window.dispatchEvent(
-					new CustomEvent("artstudio:bring-to-front"),
-				);
+				window.dispatchEvent(new CustomEvent("artstudio:bring-to-front"));
 				toast.success("Brought to front");
 			}
 		}
@@ -776,9 +798,7 @@ export const TopMenuBar: React.FC = () => {
 					toast.info("Select an object to send to back");
 				}
 			} else if (isKonva()) {
-				window.dispatchEvent(
-					new CustomEvent("artstudio:send-to-back"),
-				);
+				window.dispatchEvent(new CustomEvent("artstudio:send-to-back"));
 				toast.success("Sent to back");
 			}
 		}
@@ -797,27 +817,39 @@ export const TopMenuBar: React.FC = () => {
 			const centerX = canvas.width! / 2;
 			const centerY = canvas.height! / 2;
 
-			objects.forEach((obj: { left: number; width: number; scaleX: number; top: number; height: number; scaleY: number; set: (arg0: { left: number; top: number; angle: number; }) => void; angle: number; setCoords: () => void; }) => {
-				const objCenterX = obj.left + (obj.width * obj.scaleX) / 2;
-				const objCenterY = obj.top + (obj.height * obj.scaleY) / 2;
+			objects.forEach(
+				(obj: {
+					left: number;
+					width: number;
+					scaleX: number;
+					top: number;
+					height: number;
+					scaleY: number;
+					set: (arg0: { left: number; top: number; angle: number }) => void;
+					angle: number;
+					setCoords: () => void;
+				}) => {
+					const objCenterX = obj.left + (obj.width * obj.scaleX) / 2;
+					const objCenterY = obj.top + (obj.height * obj.scaleY) / 2;
 
-				const radians = (angle * Math.PI) / 180;
-				const cos = Math.cos(radians);
-				const sin = Math.sin(radians);
+					const radians = (angle * Math.PI) / 180;
+					const cos = Math.cos(radians);
+					const sin = Math.sin(radians);
 
-				const dx = objCenterX - centerX;
-				const dy = objCenterY - centerY;
+					const dx = objCenterX - centerX;
+					const dy = objCenterY - centerY;
 
-				const newCenterX = centerX + dx * cos - dy * sin;
-				const newCenterY = centerY + dx * sin + dy * cos;
+					const newCenterX = centerX + dx * cos - dy * sin;
+					const newCenterY = centerY + dx * sin + dy * cos;
 
-				obj.set({
-					left: newCenterX - (obj.width * obj.scaleX) / 2,
-					top: newCenterY - (obj.height * obj.scaleY) / 2,
-					angle: (obj.angle || 0) + angle,
-				});
-				obj.setCoords();
-			});
+					obj.set({
+						left: newCenterX - (obj.width * obj.scaleX) / 2,
+						top: newCenterY - (obj.height * obj.scaleY) / 2,
+						angle: (obj.angle || 0) + angle,
+					});
+					obj.setCoords();
+				},
+			);
 
 			canvas.renderAll();
 			toast.success(`Canvas rotated ${angle}°`);
@@ -831,20 +863,38 @@ export const TopMenuBar: React.FC = () => {
 			const centerX = canvas.width! / 2;
 			const centerY = canvas.height! / 2;
 
-			objects.forEach((obj: { set: (arg0: { left?: number; flipX?: boolean; top?: number; flipY?: boolean; }) => void; left: number; width: number; scaleX: number; flipX: number; top: number; height: number; scaleY: number; flipY: number; setCoords: () => void; }) => {
-				if (direction === "horizontal") {
-					obj.set({
-						left: centerX - (obj.left - centerX) - obj.width * obj.scaleX,
-						flipX: !obj.flipX,
-					});
-				} else {
-					obj.set({
-						top: centerY - (obj.top - centerY) - obj.height * obj.scaleY,
-						flipY: !obj.flipY,
-					});
-				}
-				obj.setCoords();
-			});
+			objects.forEach(
+				(obj: {
+					set: (arg0: {
+						left?: number;
+						flipX?: boolean;
+						top?: number;
+						flipY?: boolean;
+					}) => void;
+					left: number;
+					width: number;
+					scaleX: number;
+					flipX: number;
+					top: number;
+					height: number;
+					scaleY: number;
+					flipY: number;
+					setCoords: () => void;
+				}) => {
+					if (direction === "horizontal") {
+						obj.set({
+							left: centerX - (obj.left - centerX) - obj.width * obj.scaleX,
+							flipX: !obj.flipX,
+						});
+					} else {
+						obj.set({
+							top: centerY - (obj.top - centerY) - obj.height * obj.scaleY,
+							flipY: !obj.flipY,
+						});
+					}
+					obj.setCoords();
+				},
+			);
 
 			canvas.renderAll();
 			toast.success(`Canvas flipped ${direction}`);
@@ -921,14 +971,21 @@ export const TopMenuBar: React.FC = () => {
 					const value = parseInt(brightnessValue);
 					if (!isNaN(value)) {
 						// Adjust all object opacities as a brightness simulation
-						canvas.getObjects().forEach((obj: { opacity: number; set: (arg0: string, arg1: number) => void; }) => {
-							const currentOpacity = obj.opacity || 1;
-							const newOpacity = Math.max(
-								0.1,
-								Math.min(1, currentOpacity + value / 200),
+						canvas
+							.getObjects()
+							.forEach(
+								(obj: {
+									opacity: number;
+									set: (arg0: string, arg1: number) => void;
+								}) => {
+									const currentOpacity = obj.opacity || 1;
+									const newOpacity = Math.max(
+										0.1,
+										Math.min(1, currentOpacity + value / 200),
+									);
+									obj.set("opacity", newOpacity);
+								},
 							);
-							obj.set("opacity", newOpacity);
-						});
 						canvas.renderAll();
 						toast.success("Brightness adjusted");
 					}
@@ -1043,14 +1100,27 @@ export const TopMenuBar: React.FC = () => {
 				break;
 
 			case "AI Enhance":
-				canvas.getObjects().forEach((obj: { set: (arg0: { opacity: number; scaleX: number; scaleY: number; }) => void; scaleX: number; scaleY: number; setCoords: () => void; }) => {
-					obj.set({
-						opacity: 1,
-						scaleX: (obj.scaleX || 1) * 1.05,
-						scaleY: (obj.scaleY || 1) * 1.05,
-					});
-					obj.setCoords();
-				});
+				canvas
+					.getObjects()
+					.forEach(
+						(obj: {
+							set: (arg0: {
+								opacity: number;
+								scaleX: number;
+								scaleY: number;
+							}) => void;
+							scaleX: number;
+							scaleY: number;
+							setCoords: () => void;
+						}) => {
+							obj.set({
+								opacity: 1,
+								scaleX: (obj.scaleX || 1) * 1.05,
+								scaleY: (obj.scaleY || 1) * 1.05,
+							});
+							obj.setCoords();
+						},
+					);
 				canvas.renderAll();
 				toast.success("AI Enhancement applied");
 				break;
@@ -1068,15 +1138,31 @@ export const TopMenuBar: React.FC = () => {
 					width: currentWidth * 2,
 					height: currentHeight * 2,
 				});
-				canvas.getObjects().forEach((obj: { set: (arg0: { left: number; top: number; scaleX: number; scaleY: number; }) => void; left: number; top: number; scaleX: number; scaleY: number; setCoords: () => void; }) => {
-					obj.set({
-						left: obj.left * 2,
-						top: obj.top * 2,
-						scaleX: (obj.scaleX || 1) * 2,
-						scaleY: (obj.scaleY || 1) * 2,
-					});
-					obj.setCoords();
-				});
+				canvas
+					.getObjects()
+					.forEach(
+						(obj: {
+							set: (arg0: {
+								left: number;
+								top: number;
+								scaleX: number;
+								scaleY: number;
+							}) => void;
+							left: number;
+							top: number;
+							scaleX: number;
+							scaleY: number;
+							setCoords: () => void;
+						}) => {
+							obj.set({
+								left: obj.left * 2,
+								top: obj.top * 2,
+								scaleX: (obj.scaleX || 1) * 2,
+								scaleY: (obj.scaleY || 1) * 2,
+							});
+							obj.setCoords();
+						},
+					);
 				canvas.renderAll();
 				toast.success("Image upscaled 2x");
 				break;
@@ -1091,7 +1177,12 @@ export const TopMenuBar: React.FC = () => {
 							const shift = parseInt(hue);
 							if (!isNaN(shift)) {
 								// Simple hue shift simulation
-								activeObject.set({ opacity: Math.min(1, (activeObject.opacity || 1) + shift / 360) });
+								activeObject.set({
+									opacity: Math.min(
+										1,
+										(activeObject.opacity || 1) + shift / 360,
+									),
+								});
 								canvas.renderAll();
 								toast.success("Hue/Saturation adjusted");
 							}
@@ -1105,7 +1196,9 @@ export const TopMenuBar: React.FC = () => {
 			case "Color Balance":
 				if (activeObject) {
 					// Simulate color balance by adjusting opacity
-					activeObject.set({ opacity: Math.min(1, (activeObject.opacity || 1) * 1.1) });
+					activeObject.set({
+						opacity: Math.min(1, (activeObject.opacity || 1) * 1.1),
+					});
 					canvas.renderAll();
 					toast.success("Color balance adjusted");
 				} else {
@@ -1130,10 +1223,20 @@ export const TopMenuBar: React.FC = () => {
 
 			case "Auto Tone":
 			case "Auto Contrast":
-				canvas.getObjects().forEach((obj: { opacity: number; set: (arg0: string, arg1: number) => void; }) => {
-					const currentOpacity = obj.opacity || 1;
-					obj.set("opacity", Math.min(1, Math.max(0.1, currentOpacity * 1.1)));
-				});
+				canvas
+					.getObjects()
+					.forEach(
+						(obj: {
+							opacity: number;
+							set: (arg0: string, arg1: number) => void;
+						}) => {
+							const currentOpacity = obj.opacity || 1;
+							obj.set(
+								"opacity",
+								Math.min(1, Math.max(0.1, currentOpacity * 1.1)),
+							);
+						},
+					);
 				canvas.renderAll();
 				toast.success(`${filter} applied`);
 				break;
@@ -1428,16 +1531,20 @@ export const TopMenuBar: React.FC = () => {
 			// Get canvas dimensions
 			const canvasWidth = canvas.width || 1920;
 			const canvasHeight = canvas.height || 1080;
-			
+
 			// Get viewport dimensions (approximate, accounting for panels)
-			const viewportWidth = window.innerWidth - (showLeftPanel ? 56 : 0) - (showRightPanel ? 320 : 0) - 100;
+			const viewportWidth =
+				window.innerWidth -
+				(showLeftPanel ? 56 : 0) -
+				(showRightPanel ? 320 : 0) -
+				100;
 			const viewportHeight = window.innerHeight - 80 - 40; // Top bar + status bar
-			
+
 			// Calculate zoom to fit
 			const zoomX = (viewportWidth / canvasWidth) * 100;
 			const zoomY = (viewportHeight / canvasHeight) * 100;
 			const fitZoom = Math.min(zoomX, zoomY, 100); // Don't zoom in beyond 100%
-			
+
 			setZoom(Math.max(10, Math.min(100, fitZoom)));
 			setPanOffset({ x: 0, y: 0 }); // Center the canvas
 			toast.success("Canvas fitted to screen");

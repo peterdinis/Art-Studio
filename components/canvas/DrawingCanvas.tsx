@@ -217,26 +217,29 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 	useEffect(() => {
 		if (!fabricRef.current || !isReady) return;
 		const canvas = fabricRef.current;
-		
+
 		// Get container dimensions for centering
 		const container = containerRef.current;
 		if (!container) return;
-		
+
 		const containerWidth = container.clientWidth;
 		const containerHeight = container.clientHeight;
 		const canvasWidth = canvas.getWidth();
 		const canvasHeight = canvas.getHeight();
-		
+
 		// Calculate center offsets
 		const centerX = (containerWidth - canvasWidth) / 2;
 		const centerY = (containerHeight - canvasHeight) / 2;
-		
+
 		// Set viewport transform to handle zoom and pan
 		const zoomFactor = zoom / 100;
 		canvas.setViewportTransform([
-			zoomFactor, 0, 0, zoomFactor,
+			zoomFactor,
+			0,
+			0,
+			zoomFactor,
 			centerX + panOffset.x - (canvasWidth * (zoomFactor - 1)) / 2,
-			centerY + panOffset.y - (canvasHeight * (zoomFactor - 1)) / 2
+			centerY + panOffset.y - (canvasHeight * (zoomFactor - 1)) / 2,
 		]);
 		canvas.renderAll();
 	}, [zoom, panOffset, isReady]);
@@ -269,16 +272,14 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 			canvas.freeDrawingBrush.width = brushSettings.size;
 
 			if (activeTool === "eraser") {
-				(canvas.freeDrawingBrush).globalCompositeOperation =
-					"destination-out";
+				canvas.freeDrawingBrush.globalCompositeOperation = "destination-out";
 			} else {
-				(canvas.freeDrawingBrush).globalCompositeOperation =
-					"source-over";
+				canvas.freeDrawingBrush.globalCompositeOperation = "source-over";
 			}
 		} else if (selectionTools.includes(activeTool)) {
 			// Selection mode
 			canvas.selection = true;
-			canvas.forEachObject((obj: { selectable: boolean; evented: boolean; }) => {
+			canvas.forEachObject((obj: { selectable: boolean; evented: boolean }) => {
 				obj.selectable = true;
 				obj.evented = true;
 			});
@@ -290,7 +291,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 			// Custom tool handling - disable default modes
 			canvas.selection = false;
 			canvas.isDrawingMode = false;
-			
+
 			// Set cursor based on tool
 			if (panTools.includes(activeTool)) {
 				canvas.defaultCursor = "grab";
@@ -299,8 +300,8 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 				canvas.defaultCursor = "default";
 				canvas.hoverCursor = "move";
 			}
-			
-			canvas.forEachObject((obj: { selectable: boolean; evented: boolean; }) => {
+
+			canvas.forEachObject((obj: { selectable: boolean; evented: boolean }) => {
 				// For shape tools, allow objects to be selectable but disable default selection
 				if (shapeTools.includes(activeTool)) {
 					obj.selectable = true;
@@ -360,7 +361,16 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 		const drawingTools = ["brush", "pencil", "eraser"];
 		const customSelectionTools = ["marquee", "lasso", "magicwand"];
 
-		const handleMouseDown = (e: { e: { altKey: string; detail: number; clientX: number; clientY: number; preventDefault?: () => void; stopPropagation?: () => void; }; }) => {
+		const handleMouseDown = (e: {
+			e: {
+				altKey: string;
+				detail: number;
+				clientX: number;
+				clientY: number;
+				preventDefault?: () => void;
+				stopPropagation?: () => void;
+			};
+		}) => {
 			// Prevent default behavior for shape tools and hand tool
 			if (shapeTools.includes(activeTool) || activeTool === "hand") {
 				if (e.e.preventDefault) e.e.preventDefault();
@@ -429,12 +439,14 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 					const targetColor =
 						typeof target.fill === "string" ? target.fill : null;
 					if (targetColor) {
-						const similarObjects = canvas.getObjects().filter((obj: unknown[]) => {
-							if (typeof obj.fill === "string") {
-								return obj.fill === targetColor;
-							}
-							return false;
-						});
+						const similarObjects = canvas
+							.getObjects()
+							.filter((obj: unknown[]) => {
+								if (typeof obj.fill === "string") {
+									return obj.fill === targetColor;
+								}
+								return false;
+							});
 
 						if (similarObjects.length > 0) {
 							canvas.discardActiveObject();
@@ -605,7 +617,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 						selectable: false,
 						evented: false,
 					});
-				} 
+				}
 
 				if (shape) {
 					currentShape.current = shape;
@@ -638,7 +650,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 				canvas.add(text);
 				canvas.setActiveObject(text);
 				canvas.renderAll();
-				
+
 				// Enter editing mode after a short delay to ensure object is added
 				setTimeout(() => {
 					if (text && canvas.getActiveObject() === text) {
@@ -647,7 +659,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 						canvas.renderAll();
 					}
 				}, 10);
-				
+
 				saveCanvasState("Text added");
 				toast.success("Text added - click to edit");
 				return;
@@ -677,16 +689,13 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 					isDrawingGradient.current = true;
 
 					// Draw a preview line
-					const line = new Line(
-						[pointer.x, pointer.y, pointer.x, pointer.y],
-						{
-							stroke: primaryColor,
-							strokeWidth: 2,
-							strokeDashArray: [5, 5],
-							selectable: false,
-							evented: false,
-						},
-					);
+					const line = new Line([pointer.x, pointer.y, pointer.x, pointer.y], {
+						stroke: primaryColor,
+						strokeWidth: 2,
+						strokeDashArray: [5, 5],
+						selectable: false,
+						evented: false,
+					});
 					gradientLine.current = line;
 					canvas.add(line);
 					canvas.renderAll();
@@ -733,7 +742,9 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 			}
 		};
 
-		const handleMouseMove = (e: { e: { clientX: number; clientY: number; }; }) => {
+		const handleMouseMove = (e: {
+			e: { clientX: number; clientY: number };
+		}) => {
 			// Let Fabric.js handle native selection/move and drawing tools
 			if (
 				nativeSelectionTools.includes(activeTool) ||
@@ -837,29 +848,27 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 							size,
 						);
 
-						FabricImageClass.fromURL(tempCanvas.toDataURL()).then(
-							(img) => {
+						FabricImageClass.fromURL(tempCanvas.toDataURL()).then((img) => {
+							img.set({
+								left: pointer.x - radius,
+								top: pointer.y - radius,
+								selectable: false,
+								evented: false,
+							});
+
+							// Add layerId to the image
+							(img as any).layerId = activeLayerId;
+
+							if (activeTool === "healing") {
 								img.set({
-									left: pointer.x - radius,
-									top: pointer.y - radius,
-									selectable: false,
-									evented: false,
+									opacity: 0.7,
+									blur: 5,
 								});
+							}
 
-								// Add layerId to the image
-								(img as any).layerId = activeLayerId;
-
-								if (activeTool === "healing") {
-									img.set({
-										opacity: 0.7,
-										blur: 5,
-									});
-								}
-
-								canvas.add(img);
-								canvas.renderAll();
-							},
-						);
+							canvas.add(img);
+							canvas.renderAll();
+						});
 					}
 				});
 				return;
@@ -949,7 +958,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 				// Update pan offset (in canvas coordinates)
 				const newPanX = panOffset.x + deltaX;
 				const newPanY = panOffset.y + deltaY;
-				
+
 				setPanOffset({
 					x: newPanX,
 					y: newPanY,
@@ -960,7 +969,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 			}
 		};
 
-		const handleMouseUp = (e: { e: { clientX: number; clientY: number; }; }) => {
+		const handleMouseUp = (e: { e: { clientX: number; clientY: number } }) => {
 			// Let Fabric.js handle native selection/move and drawing tools
 			if (
 				nativeSelectionTools.includes(activeTool) ||
@@ -981,16 +990,23 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 				const bounds = rect.getBoundingRect();
 
 				// Find objects within selection
-				const objectsInSelection = canvas.getObjects().filter((obj: Rect<Partial<RectProps>, SerializedRectProps, ObjectEvents>) => {
-					if (obj === rect) return false;
-					const objBounds = obj.getBoundingRect();
-					return (
-						objBounds.left >= bounds.left &&
-						objBounds.top >= bounds.top &&
-						objBounds.left + objBounds.width <= bounds.left + bounds.width &&
-						objBounds.top + objBounds.height <= bounds.top + bounds.height
+				const objectsInSelection = canvas
+					.getObjects()
+					.filter(
+						(
+							obj: Rect<Partial<RectProps>, SerializedRectProps, ObjectEvents>,
+						) => {
+							if (obj === rect) return false;
+							const objBounds = obj.getBoundingRect();
+							return (
+								objBounds.left >= bounds.left &&
+								objBounds.top >= bounds.top &&
+								objBounds.left + objBounds.width <=
+									bounds.left + bounds.width &&
+								objBounds.top + objBounds.height <= bounds.top + bounds.height
+							);
+						},
 					);
-				});
 
 				canvas.remove(rect);
 				selectionRect.current = null;
@@ -1018,19 +1034,25 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 				const bounds = path.getBoundingRect();
 
 				// Find objects within selection bounds
-				const objectsInSelection = canvas.getObjects().filter((obj: Path<Partial<PathProps>, SerializedPathProps, ObjectEvents>) => {
-					if (obj === path) return false;
-					const objBounds = obj.getBoundingRect();
-					const objCenterX = objBounds.left + objBounds.width / 2;
-					const objCenterY = objBounds.top + objBounds.height / 2;
+				const objectsInSelection = canvas
+					.getObjects()
+					.filter(
+						(
+							obj: Path<Partial<PathProps>, SerializedPathProps, ObjectEvents>,
+						) => {
+							if (obj === path) return false;
+							const objBounds = obj.getBoundingRect();
+							const objCenterX = objBounds.left + objBounds.width / 2;
+							const objCenterY = objBounds.top + objBounds.height / 2;
 
-					return (
-						objCenterX >= bounds.left &&
-						objCenterX <= bounds.left + bounds.width &&
-						objCenterY >= bounds.top &&
-						objCenterY <= bounds.top + bounds.height
+							return (
+								objCenterX >= bounds.left &&
+								objCenterX <= bounds.left + bounds.width &&
+								objCenterY >= bounds.top &&
+								objCenterY <= bounds.top + bounds.height
+							);
+						},
 					);
-				});
 
 				canvas.remove(path);
 				selectionPath.current = null;
@@ -1159,7 +1181,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 			canvas.off("mouse:move", handleMouseMove);
 			canvas.off("mouse:up", handleMouseUp);
 		};
-		}, [
+	}, [
 		activeTool,
 		primaryColor,
 		secondaryColor,
@@ -1254,7 +1276,9 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 				if (fabricRef.current) {
 					const activeObjects = fabricRef.current.getActiveObjects();
 					if (activeObjects.length > 0) {
-						activeObjects.forEach((obj: unknown) => fabricRef.current?.remove(obj));
+						activeObjects.forEach((obj: unknown) =>
+							fabricRef.current?.remove(obj),
+						);
 						fabricRef.current.discardActiveObject();
 						fabricRef.current.renderAll();
 						saveCanvasState("Object deleted");
@@ -1265,7 +1289,11 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 			}
 
 			// Finalize polygon tool with Enter key
-			if (e.key === "Enter" && isDrawingPolygon.current && polygonShape.current) {
+			if (
+				e.key === "Enter" &&
+				isDrawingPolygon.current &&
+				polygonShape.current
+			) {
 				if (polygonPoints.current.length >= 3) {
 					polygonShape.current.set({
 						selectable: true,
@@ -1346,7 +1374,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 				const canvasHeight = canvas.getHeight();
 				const imgWidth = img.width || 1;
 				const imgHeight = img.height || 1;
-				
+
 				const scale = Math.min(
 					(canvasWidth * 0.8) / imgWidth,
 					(canvasHeight * 0.8) / imgHeight,
@@ -1434,9 +1462,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 				}}
 			/>
 
-			<div
-				className="relative shadow-2xl rounded-sm overflow-hidden"
-			>
+			<div className="relative shadow-2xl rounded-sm overflow-hidden">
 				<canvas ref={canvasRef} className="block" />
 			</div>
 		</div>
