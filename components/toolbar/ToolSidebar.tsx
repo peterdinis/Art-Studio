@@ -10,7 +10,6 @@ import {
 	Circle,
 	Minus,
 	MousePointer,
-	Move,
 	Undo2,
 	Redo2,
 	Lasso,
@@ -226,14 +225,6 @@ const tools: ToolConfig[] = [
 		shortcut: "H",
 		description:
 			"Pan around the canvas. Hold Space with any tool for quick access.",
-		category: "navigation",
-	},
-	{
-		id: "zoom",
-		icon: ZoomIn,
-		label: "Zoom Tool",
-		shortcut: "Z",
-		description: "Zoom in and out. Click to zoom in, Alt+click to zoom out.",
 		category: "navigation",
 	},
 ];
