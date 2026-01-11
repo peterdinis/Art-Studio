@@ -117,6 +117,10 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 	const floodFillCanvas = useRef<HTMLCanvasElement | null>(null);
 	const floodFillContext = useRef<CanvasRenderingContext2D | null>(null);
 
+	// Eyedropper state
+	const eyedropperCanvas = useRef<HTMLCanvasElement | null>(null);
+	const eyedropperContext = useRef<CanvasRenderingContext2D | null>(null);
+
 	const {
 		activeTool,
 		primaryColor,
@@ -130,6 +134,7 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		canvasSize,
 		loadedImages,
 		setPrimaryColor,
+		setSecondaryColor,
 		layers,
 		activeLayerId,
 		gradients,
@@ -162,6 +167,35 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			floodFillContext.current = ctx;
 		}
 	}, [actualWidth, actualHeight]);
+
+	// Initialize eyedropper canvas
+	useEffect(() => {
+		const canvas = document.createElement("canvas");
+		canvas.width = actualWidth;
+		canvas.height = actualHeight;
+		eyedropperCanvas.current = canvas;
+		const ctx = canvas.getContext("2d", { willReadFrequently: true });
+		if (ctx) {
+			eyedropperContext.current = ctx;
+		}
+	}, [actualWidth, actualHeight]);
+
+	// Update canvas data for eyedropper
+	const updateEyedropperData = useCallback(() => {
+		if (!stageRef.current || !eyedropperContext.current) return;
+
+		const stage = stageRef.current;
+		const tempCanvas = stage.toCanvas();
+		const ctx = eyedropperContext.current;
+		ctx.clearRect(0, 0, actualWidth, actualHeight);
+
+		// Fill with background first
+		ctx.fillStyle = actualBackground;
+		ctx.fillRect(0, 0, actualWidth, actualHeight);
+
+		// Draw the stage
+		ctx.drawImage(tempCanvas, 0, 0, actualWidth, actualHeight);
+	}, [actualWidth, actualHeight, actualBackground]);
 
 	// Update flood fill image data when canvas changes
 	const updateFloodFillData = useCallback(() => {
@@ -281,6 +315,63 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		// Fallback - černá barva
 		return { r: 0, g: 0, b: 0 };
 	};
+
+	// Funkce pro získání barvy z pixelu na canvasu
+	const getColorFromCanvas = useCallback(
+		(x: number, y: number) => {
+			if (!eyedropperContext.current) return null;
+
+			const ctx = eyedropperContext.current;
+			const pixelData = ctx.getImageData(
+				Math.floor(x),
+				Math.floor(y),
+				1,
+				1,
+			).data;
+
+			if (pixelData[3] === 0) {
+				// Pokud je pixel transparentní, vrátíme background barvu
+				return actualBackground;
+			}
+
+			// Konvertuj RGB na HEX
+			const r = pixelData[0].toString(16).padStart(2, "0");
+			const g = pixelData[1].toString(16).padStart(2, "0");
+			const b = pixelData[2].toString(16).padStart(2, "0");
+			return `#${r}${g}${b}`;
+		},
+		[actualBackground],
+	);
+
+	// Eyedropper funkce
+	const handleEyedropper = useCallback(
+		(x: number, y: number, isCtrlPressed: boolean = false) => {
+			// Aktualizuj data pro eyedropper
+			updateEyedropperData();
+
+			const color = getColorFromCanvas(x, y);
+			if (color) {
+				if (isCtrlPressed || activeTool === "eyedropper") {
+					// Ctrl+click nebo kliknutí při aktivním eyedropper toolu nastaví secondary color
+					setSecondaryColor(color);
+					toast.success(`Secondary color set to ${color}`);
+				} else {
+					// Normální kliknutí při aktivním eyedropper toolu nastaví primary color
+					setPrimaryColor(color);
+					toast.success(`Primary color set to ${color}`);
+				}
+				return color;
+			}
+			return null;
+		},
+		[
+			updateEyedropperData,
+			getColorFromCanvas,
+			setPrimaryColor,
+			setSecondaryColor,
+			activeTool,
+		],
+	);
 
 	// Flood fill function (queue-based algorithm)
 	const floodFill = useCallback(
@@ -468,6 +559,15 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		const selectionTools = ["select", "move"];
 		const shapeTools = ["rectangle", "ellipse", "line"];
 
+		// Eyedropper tool - priorita
+		if (activeTool === "eyedropper" || e.evt.ctrlKey) {
+			const isCtrlPressed = e.evt.ctrlKey || e.evt.metaKey;
+			handleEyedropper(transformedPos.x, transformedPos.y, isCtrlPressed);
+			
+			// Pokud je aktivní eyedropper tool, nechceme dělat nic jiného
+			if (activeTool === "eyedropper") return;
+		}
+
 		// Drawing tools
 		if (drawingTools.includes(activeTool)) {
 			setIsDrawing(true);
@@ -602,21 +702,6 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			};
 
 			setCurrentGradient(newGradient);
-			return;
-		}
-
-		// Eyedropper tool
-		if (activeTool === "eyedropper") {
-			const target = e.target;
-			if (target && target !== stage) {
-				if ("fill" in target && typeof (target as any).fill === "function") {
-					const color = (target as any).fill() as string;
-					if (color) {
-						setPrimaryColor(color);
-						toast.success(`Color sampled: ${color}`);
-					}
-				}
-			}
 			return;
 		}
 
@@ -890,12 +975,15 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		activeLayerId,
 	]);
 
-	// Update flood fill data when canvas changes
+	// Update canvas data when needed
 	useEffect(() => {
 		if (activeTool === "fill") {
 			updateFloodFillData();
 		}
-	}, [activeTool, updateFloodFillData]);
+		if (activeTool === "eyedropper") {
+			updateEyedropperData();
+		}
+	}, [activeTool, updateFloodFillData, updateEyedropperData]);
 
 	// Get cursor based on active tool
 	const getCursor = () => {
@@ -1374,6 +1462,16 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			<canvas
 				ref={(el) => {
 					if (el) floodFillCanvas.current = el;
+				}}
+				width={actualWidth}
+				height={actualHeight}
+				style={{ display: "none" }}
+			/>
+			
+			{/* Hidden canvas for eyedropper operations */}
+			<canvas
+				ref={(el) => {
+					if (el) eyedropperCanvas.current = el;
 				}}
 				width={actualWidth}
 				height={actualHeight}
