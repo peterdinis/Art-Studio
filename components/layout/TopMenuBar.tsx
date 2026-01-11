@@ -1926,14 +1926,20 @@ export const TopMenuBar: React.FC = () => {
 		window.addEventListener("artstudio:print", handlePrintEvent);
 		window.addEventListener("artstudio:cut-selection", handleCutEvent);
 		window.addEventListener("artstudio:copy-selection", handleCopyEvent);
-		window.addEventListener("artstudio:paste", handlePasteEvent as EventListener);
+		window.addEventListener(
+			"artstudio:paste",
+			handlePasteEvent as EventListener,
+		);
 		window.addEventListener("artstudio:delete-selection", handleDeleteEvent);
 		window.addEventListener("artstudio:global-delete", handleGlobalDeleteEvent);
 		window.addEventListener("artstudio:merge-layers", handleMergeLayersEvent);
 		window.addEventListener("artstudio:merge-visible", handleMergeVisibleEvent);
 		window.addEventListener("artstudio:bring-forward", handleBringForwardEvent);
 		window.addEventListener("artstudio:send-backward", handleSendBackwardEvent);
-		window.addEventListener("artstudio:bring-to-front", handleBringToFrontEvent);
+		window.addEventListener(
+			"artstudio:bring-to-front",
+			handleBringToFrontEvent,
+		);
 		window.addEventListener("artstudio:send-to-back", handleSendToBackEvent);
 		window.addEventListener("artstudio:show-shortcuts", handleShowShortcuts);
 
@@ -1945,16 +1951,46 @@ export const TopMenuBar: React.FC = () => {
 			window.removeEventListener("artstudio:print", handlePrintEvent);
 			window.removeEventListener("artstudio:cut-selection", handleCutEvent);
 			window.removeEventListener("artstudio:copy-selection", handleCopyEvent);
-			window.removeEventListener("artstudio:paste", handlePasteEvent as EventListener);
-			window.removeEventListener("artstudio:delete-selection", handleDeleteEvent);
-			window.removeEventListener("artstudio:global-delete", handleGlobalDeleteEvent);
-			window.removeEventListener("artstudio:merge-layers", handleMergeLayersEvent);
-			window.removeEventListener("artstudio:merge-visible", handleMergeVisibleEvent);
-			window.removeEventListener("artstudio:bring-forward", handleBringForwardEvent);
-			window.removeEventListener("artstudio:send-backward", handleSendBackwardEvent);
-			window.removeEventListener("artstudio:bring-to-front", handleBringToFrontEvent);
-			window.removeEventListener("artstudio:send-to-back", handleSendToBackEvent);
-			window.removeEventListener("artstudio:show-shortcuts", handleShowShortcuts);
+			window.removeEventListener(
+				"artstudio:paste",
+				handlePasteEvent as EventListener,
+			);
+			window.removeEventListener(
+				"artstudio:delete-selection",
+				handleDeleteEvent,
+			);
+			window.removeEventListener(
+				"artstudio:global-delete",
+				handleGlobalDeleteEvent,
+			);
+			window.removeEventListener(
+				"artstudio:merge-layers",
+				handleMergeLayersEvent,
+			);
+			window.removeEventListener(
+				"artstudio:merge-visible",
+				handleMergeVisibleEvent,
+			);
+			window.removeEventListener(
+				"artstudio:bring-forward",
+				handleBringForwardEvent,
+			);
+			window.removeEventListener(
+				"artstudio:send-backward",
+				handleSendBackwardEvent,
+			);
+			window.removeEventListener(
+				"artstudio:bring-to-front",
+				handleBringToFrontEvent,
+			);
+			window.removeEventListener(
+				"artstudio:send-to-back",
+				handleSendToBackEvent,
+			);
+			window.removeEventListener(
+				"artstudio:show-shortcuts",
+				handleShowShortcuts,
+			);
 		};
 	}, []);
 

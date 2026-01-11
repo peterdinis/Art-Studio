@@ -563,7 +563,7 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		if (activeTool === "eyedropper" || e.evt.ctrlKey) {
 			const isCtrlPressed = e.evt.ctrlKey || e.evt.metaKey;
 			handleEyedropper(transformedPos.x, transformedPos.y, isCtrlPressed);
-			
+
 			// Pokud je aktivní eyedropper tool, nechceme dělat nic jiného
 			if (activeTool === "eyedropper") return;
 		}
@@ -944,12 +944,18 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		window.addEventListener("keydown", handleKeyDown);
 		window.addEventListener("artstudio:delete-selection", deleteSelected);
 		window.addEventListener("artstudio:clear-canvas", clearAll);
-		window.addEventListener("artstudio:restore-history", handleRestoreHistory as EventListener);
+		window.addEventListener(
+			"artstudio:restore-history",
+			handleRestoreHistory as EventListener,
+		);
 		return () => {
 			window.removeEventListener("keydown", handleKeyDown);
 			window.removeEventListener("artstudio:delete-selection", deleteSelected);
 			window.removeEventListener("artstudio:clear-canvas", clearAll);
-			window.removeEventListener("artstudio:restore-history", handleRestoreHistory as EventListener);
+			window.removeEventListener(
+				"artstudio:restore-history",
+				handleRestoreHistory as EventListener,
+			);
 		};
 	}, [selectedId, shapes, lines, images, saveCanvasState, clearAll]);
 
@@ -1486,7 +1492,7 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				height={actualHeight}
 				style={{ display: "none" }}
 			/>
-			
+
 			{/* Hidden canvas for eyedropper operations */}
 			<canvas
 				ref={(el) => {

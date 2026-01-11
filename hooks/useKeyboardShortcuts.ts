@@ -5,20 +5,17 @@ import { useArtStudioStore, Tool } from "@/stores/artStudioStore";
 import { toast } from "sonner";
 
 // Helper to check if key combination matches
-const matchesShortcut = (
-	e: KeyboardEvent,
-	shortcut: string,
-): boolean => {
+const matchesShortcut = (e: KeyboardEvent, shortcut: string): boolean => {
 	const isMac = navigator.platform.toUpperCase().indexOf("MAC") >= 0;
 	const cmdOrCtrl = isMac ? e.metaKey : e.ctrlKey;
-	
+
 	const hasCmd = shortcut.includes("⌘");
 	const hasShift = shortcut.includes("⇧");
 	const hasAlt = shortcut.includes("⌥");
-	
+
 	// Extract the key from shortcut (remove modifiers)
 	let key = shortcut.replace(/[⌘⇧⌥]/g, "").trim();
-	
+
 	// Special key mappings
 	const keyMap: Record<string, string> = {
 		"+": "=",
@@ -29,7 +26,7 @@ const matchesShortcut = (
 		";": ";",
 		"/": "/",
 		"⌫": "Backspace",
-		"DEL": "Delete",
+		DEL: "Delete",
 	};
 
 	const mappedKey = keyMap[key] || key;
@@ -47,18 +44,18 @@ export const useKeyboardShortcuts = () => {
 		// Tools
 		activeTool,
 		setActiveTool,
-		
+
 		// Edit actions
 		undo,
 		redo,
 		canUndo,
 		canRedo,
-		
+
 		// File actions
 		setZoom,
 		zoom,
 		setPanOffset,
-		
+
 		// Panel visibility
 		showLeftPanel,
 		setShowLeftPanel,
@@ -78,19 +75,19 @@ export const useKeyboardShortcuts = () => {
 		setShowRulers,
 		showGuides,
 		setShowGuides,
-		
+
 		// Colors
 		swapColors,
 		setPrimaryColor,
 		setSecondaryColor,
-		
+
 		// Layers
 		addLayer,
 		activeLayerId,
 		duplicateLayer,
 		removeLayer,
 		toggleLayerVisibility,
-		
+
 		// Canvas
 		clearHistory,
 	} = useArtStudioStore();
@@ -107,7 +104,13 @@ export const useKeyboardShortcuts = () => {
 			}
 
 			// Gradient tool shortcut (Shift+G) - check before single key tools
-			if (e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey && e.key.toUpperCase() === "G") {
+			if (
+				e.shiftKey &&
+				!e.ctrlKey &&
+				!e.metaKey &&
+				!e.altKey &&
+				e.key.toUpperCase() === "G"
+			) {
 				e.preventDefault();
 				setActiveTool("gradient");
 				return;
@@ -252,7 +255,12 @@ export const useKeyboardShortcuts = () => {
 			}
 
 			if (e.key === "Delete" || e.key === "Backspace") {
-				if (!(e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement)) {
+				if (
+					!(
+						e.target instanceof HTMLInputElement ||
+						e.target instanceof HTMLTextAreaElement
+					)
+				) {
 					e.preventDefault();
 					window.dispatchEvent(new CustomEvent("artstudio:delete-selection"));
 					return;
@@ -274,7 +282,10 @@ export const useKeyboardShortcuts = () => {
 			}
 
 			// View menu shortcuts
-			if (matchesShortcut(e, "⌘+") || (e.key === "=" && (e.ctrlKey || e.metaKey))) {
+			if (
+				matchesShortcut(e, "⌘+") ||
+				(e.key === "=" && (e.ctrlKey || e.metaKey))
+			) {
 				e.preventDefault();
 				const newZoom = Math.min(500, zoom + 25);
 				setZoom(newZoom);
@@ -282,7 +293,10 @@ export const useKeyboardShortcuts = () => {
 				return;
 			}
 
-			if (matchesShortcut(e, "⌘-") || (e.key === "-" && (e.ctrlKey || e.metaKey))) {
+			if (
+				matchesShortcut(e, "⌘-") ||
+				(e.key === "-" && (e.ctrlKey || e.metaKey))
+			) {
 				e.preventDefault();
 				const newZoom = Math.max(10, zoom - 25);
 				setZoom(newZoom);
