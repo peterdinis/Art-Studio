@@ -155,81 +155,9 @@ export const TopMenuBar: React.FC = () => {
 	const isFabric = () => !!window.fabricCanvas;
 	const isKonva = () => !!window.konvaStage;
 
-	// Keyboard shortcuts for View menu
-	React.useEffect(() => {
-		const handleKeyDown = (e: KeyboardEvent) => {
-			// Skip if typing in an input field
-			if (
-				e.target instanceof HTMLInputElement ||
-				e.target instanceof HTMLTextAreaElement
-			)
-				return;
-
-			// Zoom shortcuts
-			if ((e.ctrlKey || e.metaKey) && e.key === "=") {
-				e.preventDefault();
-				handleZoomIn();
-				return;
-			}
-
-			if ((e.ctrlKey || e.metaKey) && e.key === "-") {
-				e.preventDefault();
-				handleZoomOut();
-				return;
-			}
-
-			if ((e.ctrlKey || e.metaKey) && e.key === "0") {
-				e.preventDefault();
-				handleFitToScreen();
-				return;
-			}
-
-			if ((e.ctrlKey || e.metaKey) && e.key === "1") {
-				e.preventDefault();
-				handleActualSize();
-				return;
-			}
-
-			// Grid toggle
-			if ((e.ctrlKey || e.metaKey) && e.key === "'") {
-				e.preventDefault();
-				setShowGrid(!showGrid);
-				toast.success(showGrid ? "Grid hidden" : "Grid shown");
-				return;
-			}
-
-			// Rulers toggle
-			if ((e.ctrlKey || e.metaKey) && e.key === "r") {
-				e.preventDefault();
-				setShowRulers(!showRulers);
-				toast.success(showRulers ? "Rulers hidden" : "Rulers shown");
-				return;
-			}
-
-			// Guides toggle
-			if ((e.ctrlKey || e.metaKey) && e.key === ";") {
-				e.preventDefault();
-				setShowGuides(!showGuides);
-				toast.success(showGuides ? "Guides hidden" : "Guides shown");
-				return;
-			}
-		};
-
-		window.addEventListener("keydown", handleKeyDown);
-		return () => window.removeEventListener("keydown", handleKeyDown);
-	}, [
-		zoom,
-		showGrid,
-		showRulers,
-		showGuides,
-		setZoom,
-		setPanOffset,
-		setShowGrid,
-		setShowRulers,
-		setShowGuides,
-		showLeftPanel,
-		showRightPanel,
-	]);
+	// Listen for custom events from keyboard shortcuts hook
+	// Note: This effect is placed after all handler functions are defined
+	// We'll add it at the end of the component before the return statement
 
 	const handleNewCanvas = () => {
 		setShowTemplates(true);
@@ -1964,6 +1892,71 @@ export const TopMenuBar: React.FC = () => {
 		{ label: "Filter", items: filterMenu },
 		{ label: "Window", items: windowMenu },
 	];
+
+	// Listen for custom events from keyboard shortcuts hook
+	React.useEffect(() => {
+		const handleNewCanvasEvent = () => setShowTemplates(true);
+		const handleOpenFileEvent = () => handleOpenFile();
+		const handleSaveEvent = () => handleSave();
+		const handleSaveAsEvent = () => handleSaveAs();
+		const handlePrintEvent = () => handlePrint();
+		const handleCutEvent = () => handleCut();
+		const handleCopyEvent = () => handleCopy();
+		const handlePasteEvent = (e: CustomEvent) => {
+			if (e.detail?.offset === false) {
+				handlePasteInPlace();
+			} else {
+				handlePaste();
+			}
+		};
+		const handleDeleteEvent = () => handleDeleteSelection();
+		const handleGlobalDeleteEvent = () => handleGlobalDelete();
+		const handleMergeLayersEvent = () => handleMergeLayers();
+		const handleMergeVisibleEvent = () => handleMergeLayers();
+		const handleBringForwardEvent = () => handleBringForward();
+		const handleSendBackwardEvent = () => handleSendBackward();
+		const handleBringToFrontEvent = () => handleBringToFront();
+		const handleSendToBackEvent = () => handleSendToBack();
+		const handleShowShortcuts = () => setShowShortcuts(true);
+
+		window.addEventListener("artstudio:new-canvas", handleNewCanvasEvent);
+		window.addEventListener("artstudio:open-file", handleOpenFileEvent);
+		window.addEventListener("artstudio:save", handleSaveEvent);
+		window.addEventListener("artstudio:save-as", handleSaveAsEvent);
+		window.addEventListener("artstudio:print", handlePrintEvent);
+		window.addEventListener("artstudio:cut-selection", handleCutEvent);
+		window.addEventListener("artstudio:copy-selection", handleCopyEvent);
+		window.addEventListener("artstudio:paste", handlePasteEvent as EventListener);
+		window.addEventListener("artstudio:delete-selection", handleDeleteEvent);
+		window.addEventListener("artstudio:global-delete", handleGlobalDeleteEvent);
+		window.addEventListener("artstudio:merge-layers", handleMergeLayersEvent);
+		window.addEventListener("artstudio:merge-visible", handleMergeVisibleEvent);
+		window.addEventListener("artstudio:bring-forward", handleBringForwardEvent);
+		window.addEventListener("artstudio:send-backward", handleSendBackwardEvent);
+		window.addEventListener("artstudio:bring-to-front", handleBringToFrontEvent);
+		window.addEventListener("artstudio:send-to-back", handleSendToBackEvent);
+		window.addEventListener("artstudio:show-shortcuts", handleShowShortcuts);
+
+		return () => {
+			window.removeEventListener("artstudio:new-canvas", handleNewCanvasEvent);
+			window.removeEventListener("artstudio:open-file", handleOpenFileEvent);
+			window.removeEventListener("artstudio:save", handleSaveEvent);
+			window.removeEventListener("artstudio:save-as", handleSaveAsEvent);
+			window.removeEventListener("artstudio:print", handlePrintEvent);
+			window.removeEventListener("artstudio:cut-selection", handleCutEvent);
+			window.removeEventListener("artstudio:copy-selection", handleCopyEvent);
+			window.removeEventListener("artstudio:paste", handlePasteEvent as EventListener);
+			window.removeEventListener("artstudio:delete-selection", handleDeleteEvent);
+			window.removeEventListener("artstudio:global-delete", handleGlobalDeleteEvent);
+			window.removeEventListener("artstudio:merge-layers", handleMergeLayersEvent);
+			window.removeEventListener("artstudio:merge-visible", handleMergeVisibleEvent);
+			window.removeEventListener("artstudio:bring-forward", handleBringForwardEvent);
+			window.removeEventListener("artstudio:send-backward", handleSendBackwardEvent);
+			window.removeEventListener("artstudio:bring-to-front", handleBringToFrontEvent);
+			window.removeEventListener("artstudio:send-to-back", handleSendToBackEvent);
+			window.removeEventListener("artstudio:show-shortcuts", handleShowShortcuts);
+		};
+	}, []);
 
 	const renderMenuItems = (items: MenuItemConfig[]) => {
 		return items.map((item, index) => {

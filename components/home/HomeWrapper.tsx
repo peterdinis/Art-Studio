@@ -9,8 +9,11 @@ import { LayersPanel } from "@/components/panels/LayersPanel";
 import { HistoryPanel } from "@/components/panels/HistoryPanel";
 import { KonvaCanvas } from "@/components/canvas/KonvaCanvas";
 import { useArtStudioStore } from "@/stores/artStudioStore";
+import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 
 const HomeWrapper = () => {
+	// Initialize global keyboard shortcuts
+	useKeyboardShortcuts();
 	const {
 		showGrid,
 		showRulers,
