@@ -12,120 +12,120 @@ import { useArtStudioStore } from "@/stores/artStudioStore";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 
 const HomeWrapper = () => {
-  // Initialize global keyboard shortcuts
-  useKeyboardShortcuts();
-  
-  const {
-    showGrid,
-    showRulers,
-    showGuides,
-    showLeftPanel,
-    showRightPanel,
-    showBrushesPanel,
-    showColorsPanel,
-    showLayersPanel,
-    showHistoryPanel,
-  } = useArtStudioStore();
+	// Initialize global keyboard shortcuts
+	useKeyboardShortcuts();
 
-  return (
-    <div className="h-screen w-full flex flex-col overflow-hidden bg-background">
-      {/* Top Menu Bar */}
-      <TopMenuBar />
+	const {
+		showGrid,
+		showRulers,
+		showGuides,
+		showLeftPanel,
+		showRightPanel,
+		showBrushesPanel,
+		showColorsPanel,
+		showLayersPanel,
+		showHistoryPanel,
+	} = useArtStudioStore();
 
-      {/* Main Content Area */}
-      <div className="flex flex-1 overflow-hidden">
-        {/* Left Tool Sidebar */}
-        {showLeftPanel && <ToolSidebar />}
+	return (
+		<div className="h-screen w-full flex flex-col overflow-hidden bg-background">
+			{/* Top Menu Bar */}
+			<TopMenuBar />
 
-        {/* Center Canvas Area */}
-        <div className="flex-1 flex flex-col overflow-hidden bg-[#2a2a2a] relative">
-          {/* Rulers */}
-          {showRulers && (
-            <>
-              {/* Horizontal Ruler */}
-              <div className="h-6 bg-[#3a3a3a] border-b border-border flex items-center px-12">
-                {Array.from({ length: 50 }).map((_, i) => (
-                  <div
-                    key={i}
-                    className="flex-1 border-l border-border h-2 relative"
-                  >
-                    {i % 5 === 0 && (
-                      <span className="absolute -top-4 -left-2 text-[10px] text-muted-foreground">
-                        {i * 100}
-                      </span>
-                    )}
-                  </div>
-                ))}
-              </div>
-              {/* Vertical Ruler */}
-              <div className="absolute left-0 top-6 w-6 h-full bg-[#3a3a3a] border-r border-border">
-                {Array.from({ length: 50 }).map((_, i) => (
-                  <div
-                    key={i}
-                    className="h-8 border-t border-border w-2 relative"
-                  >
-                    {i % 5 === 0 && (
-                      <span className="absolute -left-8 -top-2 text-[10px] text-muted-foreground transform -rotate-90">
-                        {i * 100}
-                      </span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
+			{/* Main Content Area */}
+			<div className="flex flex-1 overflow-hidden">
+				{/* Left Tool Sidebar */}
+				{showLeftPanel && <ToolSidebar />}
 
-          {/* Grid Overlay */}
-          {showGrid && (
-            <div
-              className="absolute inset-0 pointer-events-none z-10"
-              style={{
-                backgroundImage:
-                  "linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)",
-                backgroundSize: "20px 20px",
-              }}
-            />
-          )}
+				{/* Center Canvas Area */}
+				<div className="flex-1 flex flex-col overflow-hidden bg-[#2a2a2a] relative">
+					{/* Rulers */}
+					{showRulers && (
+						<>
+							{/* Horizontal Ruler */}
+							<div className="h-6 bg-[#3a3a3a] border-b border-border flex items-center px-12">
+								{Array.from({ length: 50 }).map((_, i) => (
+									<div
+										key={i}
+										className="flex-1 border-l border-border h-2 relative"
+									>
+										{i % 5 === 0 && (
+											<span className="absolute -top-4 -left-2 text-[10px] text-muted-foreground">
+												{i * 100}
+											</span>
+										)}
+									</div>
+								))}
+							</div>
+							{/* Vertical Ruler */}
+							<div className="absolute left-0 top-6 w-6 h-full bg-[#3a3a3a] border-r border-border">
+								{Array.from({ length: 50 }).map((_, i) => (
+									<div
+										key={i}
+										className="h-8 border-t border-border w-2 relative"
+									>
+										{i % 5 === 0 && (
+											<span className="absolute -left-8 -top-2 text-[10px] text-muted-foreground transform -rotate-90">
+												{i * 100}
+											</span>
+										)}
+									</div>
+								))}
+							</div>
+						</>
+					)}
 
-          {/* Guides Overlay */}
-          {showGuides && (
-            <div className="absolute inset-0 pointer-events-none z-20">
-              {/* Horizontal guide at 50% */}
-              <div
-                className="absolute w-full border-t border-dashed border-blue-500 opacity-60"
-                style={{ top: "50%" }}
-              />
-              {/* Vertical guide at 50% */}
-              <div
-                className="absolute h-full border-l border-dashed border-blue-500 opacity-60"
-                style={{ left: "50%" }}
-              />
-            </div>
-          )}
+					{/* Grid Overlay */}
+					{showGrid && (
+						<div
+							className="absolute inset-0 pointer-events-none z-10"
+							style={{
+								backgroundImage:
+									"linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)",
+								backgroundSize: "20px 20px",
+							}}
+						/>
+					)}
 
-          {/* Canvas */}
-          <div className="flex-1 overflow-auto p-4">
-            <KonvaCanvas />
-          </div>
-        </div>
+					{/* Guides Overlay */}
+					{showGuides && (
+						<div className="absolute inset-0 pointer-events-none z-20">
+							{/* Horizontal guide at 50% */}
+							<div
+								className="absolute w-full border-t border-dashed border-blue-500 opacity-60"
+								style={{ top: "50%" }}
+							/>
+							{/* Vertical guide at 50% */}
+							<div
+								className="absolute h-full border-l border-dashed border-blue-500 opacity-60"
+								style={{ left: "50%" }}
+							/>
+						</div>
+					)}
 
-        {/* Right Panel Group */}
-        {showRightPanel && (
-          <div className="w-80 bg-card border-l border-border overflow-y-auto overflow-x-hidden">
-            <div className="flex flex-col gap-4 p-4">
-              {showBrushesPanel && <BrushPanel />}
-              {showColorsPanel && <ColorPanel />}
-              {showLayersPanel && <LayersPanel />}
-              {showHistoryPanel && <HistoryPanel />}
-            </div>
-          </div>
-        )}
-      </div>
+					{/* Canvas */}
+					<div className="flex-1 overflow-auto p-4">
+						<KonvaCanvas />
+					</div>
+				</div>
 
-      {/* Status Bar */}
-      <StatusBar />
-    </div>
-  );
+				{/* Right Panel Group */}
+				{showRightPanel && (
+					<div className="w-80 bg-card border-l border-border overflow-y-auto overflow-x-hidden">
+						<div className="flex flex-col gap-4 p-4">
+							{showBrushesPanel && <BrushPanel />}
+							{showColorsPanel && <ColorPanel />}
+							{showLayersPanel && <LayersPanel />}
+							{showHistoryPanel && <HistoryPanel />}
+						</div>
+					</div>
+				)}
+			</div>
+
+			{/* Status Bar */}
+			<StatusBar />
+		</div>
+	);
 };
 
 export default HomeWrapper;
