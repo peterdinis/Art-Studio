@@ -563,7 +563,7 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		if (activeTool === "eyedropper" || e.evt.ctrlKey) {
 			const isCtrlPressed = e.evt.ctrlKey || e.evt.metaKey;
 			handleEyedropper(transformedPos.x, transformedPos.y, isCtrlPressed);
-			
+
 			// Pokud je aktivní eyedropper tool, nechceme dělat nic jiného
 			if (activeTool === "eyedropper") return;
 		}
@@ -924,13 +924,38 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			}
 		};
 
+		// Restore history from undo/redo
+		const handleRestoreHistory = (e: CustomEvent) => {
+			if (e.detail?.canvasData) {
+				try {
+					const state = JSON.parse(e.detail.canvasData);
+					if (state.lines) setLines(state.lines);
+					if (state.shapes) setShapes(state.shapes);
+					if (state.images) setImages(state.images);
+					// Gradients are stored in currentGradient, not a separate array
+					toast.success("History restored");
+				} catch (error) {
+					console.error("Failed to restore history:", error);
+					toast.error("Failed to restore history");
+				}
+			}
+		};
+
 		window.addEventListener("keydown", handleKeyDown);
 		window.addEventListener("artstudio:delete-selection", deleteSelected);
 		window.addEventListener("artstudio:clear-canvas", clearAll);
+		window.addEventListener(
+			"artstudio:restore-history",
+			handleRestoreHistory as EventListener,
+		);
 		return () => {
 			window.removeEventListener("keydown", handleKeyDown);
 			window.removeEventListener("artstudio:delete-selection", deleteSelected);
 			window.removeEventListener("artstudio:clear-canvas", clearAll);
+			window.removeEventListener(
+				"artstudio:restore-history",
+				handleRestoreHistory as EventListener,
+			);
 		};
 	}, [selectedId, shapes, lines, images, saveCanvasState, clearAll]);
 
@@ -1467,7 +1492,7 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				height={actualHeight}
 				style={{ display: "none" }}
 			/>
-			
+
 			{/* Hidden canvas for eyedropper operations */}
 			<canvas
 				ref={(el) => {
