@@ -147,7 +147,7 @@ const tools: ToolConfig[] = [
 		label: "Eyedropper",
 		shortcut: "I",
 		description:
-			"Sample colors from the canvas. Alt+click with any tool for quick sampling.",
+			"Sample colors from the canvas. Click to set primary color, Ctrl/Cmd+click to set secondary color.",
 		category: "drawing",
 	},
 	{
@@ -239,6 +239,14 @@ const tools: ToolConfig[] = [
 		shortcut: "H",
 		description:
 			"Pan around the canvas. Hold Space with any tool for quick access.",
+		category: "navigation",
+	},
+	{
+		id: "zoom",
+		icon: ZoomIn,
+		label: "Zoom Tool",
+		shortcut: "Z",
+		description: "Zoom in and out of the canvas. Alt+click to zoom out.",
 		category: "navigation",
 	},
 ];
