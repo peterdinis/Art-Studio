@@ -76,6 +76,12 @@ export interface BrushSettings {
   healingOpacity: number;
   healingHardness: number;
   healingMode: "clone" | "texture" | "lighten" | "darken";
+
+  // Blur tool settings
+  blurIntensity: number;
+  blurSize: number;
+  blurMode: "gaussian" | "box" | "motion";
+  blurQuality: "low" | "medium" | "high";
 }
 
 export interface GradientObject {
@@ -290,6 +296,12 @@ const defaultBrushSettings: BrushSettings = {
   healingOpacity: 100,
   healingHardness: 50,
   healingMode: "clone",
+
+  // Blur tool
+  blurIntensity: 10,
+  blurSize: 20,
+  blurMode: "gaussian",
+  blurQuality: "medium",
 };
 
 export const useArtStudioStore = create<ArtStudioState>((set, get) => ({
@@ -415,6 +427,16 @@ export const useArtStudioStore = create<ArtStudioState>((set, get) => ({
           size: 20,
           opacity: 100,
           hardness: 50,
+        };
+        break;
+      case "blur":
+        newSettings = {
+          size: 20,
+          opacity: 100,
+          blurIntensity: 10,
+          blurSize: 20,
+          blurMode: "gaussian",
+          blurQuality: "medium",
         };
         break;
       case "magicwand":
