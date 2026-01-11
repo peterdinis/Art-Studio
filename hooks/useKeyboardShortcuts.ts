@@ -75,6 +75,10 @@ export const useKeyboardShortcuts = () => {
 		setShowRulers,
 		showGuides,
 		setShowGuides,
+		showNavigator,
+		setShowNavigator,
+		showInfoPanel,
+		setShowInfoPanel,
 
 		// Colors
 		swapColors,
@@ -90,6 +94,7 @@ export const useKeyboardShortcuts = () => {
 
 		// Canvas
 		clearHistory,
+		setRenderingEngine,
 	} = useArtStudioStore();
 
 	useEffect(() => {
@@ -100,6 +105,14 @@ export const useKeyboardShortcuts = () => {
 				e.target instanceof HTMLTextAreaElement ||
 				(e.target as HTMLElement)?.isContentEditable
 			) {
+				return;
+			}
+
+			// Special handling for Escape key
+			if (e.key === "Escape") {
+				e.preventDefault();
+				// Clear selection or exit current mode
+				window.dispatchEvent(new CustomEvent("artstudio:escape"));
 				return;
 			}
 
@@ -137,6 +150,9 @@ export const useKeyboardShortcuts = () => {
 					H: "hand",
 					Z: "zoom",
 					C: "select", // Crop tool uses select
+					A: "ellipse", // Added for ellipse
+					Y: "polygon", // Added for polygon
+					O: "line", // Added for line
 				};
 
 				if (toolMap[e.key.toUpperCase()]) {
@@ -162,7 +178,7 @@ export const useKeyboardShortcuts = () => {
 				}
 			}
 
-			// File menu shortcuts
+			// ===== FILE MENU SHORTCUTS =====
 			if (matchesShortcut(e, "⌘N")) {
 				e.preventDefault();
 				window.dispatchEvent(new CustomEvent("artstudio:new-canvas"));
@@ -193,7 +209,7 @@ export const useKeyboardShortcuts = () => {
 				return;
 			}
 
-			// Edit menu shortcuts
+			// ===== EDIT MENU SHORTCUTS =====
 			if (matchesShortcut(e, "⌘Z")) {
 				if (!e.shiftKey) {
 					e.preventDefault();
@@ -254,6 +270,14 @@ export const useKeyboardShortcuts = () => {
 				return;
 			}
 
+			if (matchesShortcut(e, "⇧⌘V")) {
+				e.preventDefault();
+				window.dispatchEvent(
+					new CustomEvent("artstudio:paste", { detail: { offset: false } }),
+				);
+				return;
+			}
+
 			if (e.key === "Delete" || e.key === "Backspace") {
 				if (
 					!(
@@ -273,6 +297,13 @@ export const useKeyboardShortcuts = () => {
 				return;
 			}
 
+			// Clear canvas
+			if (e.key === "C" && e.ctrlKey && e.shiftKey) {
+				e.preventDefault();
+				window.dispatchEvent(new CustomEvent("artstudio:clear-canvas"));
+				return;
+			}
+
 			// Transform shortcuts
 			if (matchesShortcut(e, "⌘T")) {
 				e.preventDefault();
@@ -281,7 +312,49 @@ export const useKeyboardShortcuts = () => {
 				return;
 			}
 
-			// View menu shortcuts
+			// Flip horizontal/vertical
+			if (e.key === "H" && e.ctrlKey && e.shiftKey) {
+				e.preventDefault();
+				window.dispatchEvent(
+					new CustomEvent("artstudio:flip-selection", {
+						detail: { direction: "horizontal" },
+					}),
+				);
+				return;
+			}
+
+			if (e.key === "V" && e.ctrlKey && e.shiftKey) {
+				e.preventDefault();
+				window.dispatchEvent(
+					new CustomEvent("artstudio:flip-selection", {
+						detail: { direction: "vertical" },
+					}),
+				);
+				return;
+			}
+
+			// Rotate shortcuts
+			if (e.key === "]" && e.ctrlKey && !e.shiftKey) {
+				e.preventDefault();
+				window.dispatchEvent(
+					new CustomEvent("artstudio:rotate-selection", {
+						detail: { angle: 90 },
+					}),
+				);
+				return;
+			}
+
+			if (e.key === "[" && e.ctrlKey && !e.shiftKey) {
+				e.preventDefault();
+				window.dispatchEvent(
+					new CustomEvent("artstudio:rotate-selection", {
+						detail: { angle: -90 },
+					}),
+				);
+				return;
+			}
+
+			// ===== VIEW MENU SHORTCUTS =====
 			if (
 				matchesShortcut(e, "⌘+") ||
 				(e.key === "=" && (e.ctrlKey || e.metaKey))
@@ -355,7 +428,140 @@ export const useKeyboardShortcuts = () => {
 				return;
 			}
 
-			// Layer shortcuts
+			// Panel visibility shortcuts
+			if (e.key === "F5") {
+				e.preventDefault();
+				setShowLeftPanel(!showLeftPanel);
+				toast.success(showLeftPanel ? "Left panel hidden" : "Left panel shown");
+				return;
+			}
+
+			if (e.key === "F6") {
+				e.preventDefault();
+				setShowRightPanel(!showRightPanel);
+				toast.success(
+					showRightPanel ? "Right panel hidden" : "Right panel shown",
+				);
+				return;
+			}
+
+			if (e.key === "F7") {
+				e.preventDefault();
+				setShowBrushesPanel(!showBrushesPanel);
+				toast.success(
+					showBrushesPanel ? "Brushes panel hidden" : "Brushes panel shown",
+				);
+				return;
+			}
+
+			if (e.key === "F8") {
+				e.preventDefault();
+				setShowColorsPanel(!showColorsPanel);
+				toast.success(
+					showColorsPanel ? "Colors panel hidden" : "Colors panel shown",
+				);
+				return;
+			}
+
+			if (e.key === "F9") {
+				e.preventDefault();
+				setShowLayersPanel(!showLayersPanel);
+				toast.success(
+					showLayersPanel ? "Layers panel hidden" : "Layers panel shown",
+				);
+				return;
+			}
+
+			if (e.key === "F10") {
+				e.preventDefault();
+				setShowHistoryPanel(!showHistoryPanel);
+				toast.success(
+					showHistoryPanel ? "History panel hidden" : "History panel shown",
+				);
+				return;
+			}
+
+			if (e.key === "F11") {
+				e.preventDefault();
+				setShowNavigator(!showNavigator);
+				toast.success(showNavigator ? "Navigator hidden" : "Navigator shown");
+				return;
+			}
+
+			if (e.key === "F12") {
+				e.preventDefault();
+				setShowInfoPanel(!showInfoPanel);
+				toast.success(showInfoPanel ? "Info panel hidden" : "Info panel shown");
+				return;
+			}
+
+			// Toggle all panels
+			if (e.key === "`" && e.ctrlKey) {
+				e.preventDefault();
+				const allPanelsHidden = !showLeftPanel && !showRightPanel;
+				setShowLeftPanel(!allPanelsHidden);
+				setShowRightPanel(!allPanelsHidden);
+				toast.success(
+					allPanelsHidden ? "All panels shown" : "All panels hidden",
+				);
+				return;
+			}
+
+			// ===== IMAGE MENU SHORTCUTS =====
+			if (e.key === "C" && !e.ctrlKey && !e.shiftKey && !e.altKey) {
+				e.preventDefault();
+				window.dispatchEvent(new CustomEvent("artstudio:crop"));
+				return;
+			}
+
+			// Resize canvas
+			if (e.key === "R" && e.ctrlKey && e.shiftKey) {
+				e.preventDefault();
+				window.dispatchEvent(new CustomEvent("artstudio:resize-canvas"));
+				return;
+			}
+
+			// Rotate canvas
+			if (e.key === "]" && e.ctrlKey && e.shiftKey) {
+				e.preventDefault();
+				window.dispatchEvent(
+					new CustomEvent("artstudio:rotate-canvas", { detail: { angle: 90 } }),
+				);
+				return;
+			}
+
+			if (e.key === "[" && e.ctrlKey && e.shiftKey) {
+				e.preventDefault();
+				window.dispatchEvent(
+					new CustomEvent("artstudio:rotate-canvas", {
+						detail: { angle: -90 },
+					}),
+				);
+				return;
+			}
+
+			// Flip canvas
+			if (e.key === "H" && e.ctrlKey && e.altKey) {
+				e.preventDefault();
+				window.dispatchEvent(
+					new CustomEvent("artstudio:flip-canvas", {
+						detail: { direction: "horizontal" },
+					}),
+				);
+				return;
+			}
+
+			if (e.key === "V" && e.ctrlKey && e.altKey) {
+				e.preventDefault();
+				window.dispatchEvent(
+					new CustomEvent("artstudio:flip-canvas", {
+						detail: { direction: "vertical" },
+					}),
+				);
+				return;
+			}
+
+			// ===== LAYER MENU SHORTCUTS =====
 			if (matchesShortcut(e, "⇧⌘N")) {
 				e.preventDefault();
 				addLayer();
@@ -408,10 +614,151 @@ export const useKeyboardShortcuts = () => {
 				return;
 			}
 
+			// Layer visibility toggle
+			if (e.key === "/" && !e.ctrlKey && !e.metaKey) {
+				e.preventDefault();
+				if (activeLayerId) {
+					toggleLayerVisibility(activeLayerId);
+					toast.success("Layer visibility toggled");
+				}
+				return;
+			}
+
+			// Lock/unlock layer
+			if (e.key === "L" && e.ctrlKey && !e.shiftKey) {
+				e.preventDefault();
+				window.dispatchEvent(new CustomEvent("artstudio:lock-layer"));
+				return;
+			}
+
+			// ===== FILTER MENU SHORTCUTS =====
+			// Invert colors
+			if (e.key === "I" && e.ctrlKey && e.shiftKey) {
+				e.preventDefault();
+				window.dispatchEvent(
+					new CustomEvent("artstudio:apply-filter", {
+						detail: { filter: "Invert" },
+					}),
+				);
+				return;
+			}
+
+			// Desaturate
+			if (e.key === "U" && e.ctrlKey && e.shiftKey) {
+				e.preventDefault();
+				window.dispatchEvent(
+					new CustomEvent("artstudio:apply-filter", {
+						detail: { filter: "Desaturate" },
+					}),
+				);
+				return;
+			}
+
+			// Auto tone
+			if (e.key === "T" && e.ctrlKey && e.shiftKey) {
+				e.preventDefault();
+				window.dispatchEvent(
+					new CustomEvent("artstudio:apply-filter", {
+						detail: { filter: "Auto Tone" },
+					}),
+				);
+				return;
+			}
+
+			// Auto contrast
+			if (e.key === "C" && e.ctrlKey && e.altKey) {
+				e.preventDefault();
+				window.dispatchEvent(
+					new CustomEvent("artstudio:apply-filter", {
+						detail: { filter: "Auto Contrast" },
+					}),
+				);
+				return;
+			}
+
+			// ===== WINDOW MENU SHORTCUTS =====
+			// Reset workspace
+			if (e.key === "R" && e.ctrlKey && e.altKey) {
+				e.preventDefault();
+				window.dispatchEvent(new CustomEvent("artstudio:reset-workspace"));
+				return;
+			}
+
+			// Switch rendering engine
+			if (e.key === "E" && e.ctrlKey && e.shiftKey) {
+				e.preventDefault();
+				setRenderingEngine("konva");
+				toast.success("Rendering engine switched");
+				return;
+			}
+
+			// ===== MISC SHORTCUTS =====
 			// Keyboard shortcuts dialog
 			if ((e.ctrlKey || e.metaKey) && e.key === "/") {
 				e.preventDefault();
 				window.dispatchEvent(new CustomEvent("artstudio:show-shortcuts"));
+				return;
+			}
+
+			// Help dialog
+			if (e.key === "F1") {
+				e.preventDefault();
+				window.dispatchEvent(new CustomEvent("artstudio:show-help"));
+				return;
+			}
+
+			// Fullscreen toggle
+			if (e.key === "F11") {
+				e.preventDefault();
+				if (!document.fullscreenElement) {
+					document.documentElement.requestFullscreen();
+				} else {
+					document.exitFullscreen();
+				}
+				return;
+			}
+
+			// Refresh/clear all
+			if (e.key === "F5" && e.ctrlKey) {
+				e.preventDefault();
+				clearHistory();
+				window.dispatchEvent(new CustomEvent("artstudio:clear-canvas"));
+				toast.success("Canvas and history cleared");
+				return;
+			}
+
+			// Select all
+			if (matchesShortcut(e, "⌘A")) {
+				e.preventDefault();
+				window.dispatchEvent(new CustomEvent("artstudio:select-all"));
+				return;
+			}
+
+			// Deselect all
+			if (matchesShortcut(e, "⇧⌘A")) {
+				e.preventDefault();
+				window.dispatchEvent(new CustomEvent("artstudio:deselect-all"));
+				return;
+			}
+
+			// Group selection
+			if (matchesShortcut(e, "⌘G")) {
+				e.preventDefault();
+				window.dispatchEvent(new CustomEvent("artstudio:group-selection"));
+				return;
+			}
+
+			// Ungroup selection
+			if (matchesShortcut(e, "⇧⌘G")) {
+				e.preventDefault();
+				window.dispatchEvent(new CustomEvent("artstudio:ungroup-selection"));
+				return;
+			}
+
+			// Duplicate selection
+			if (matchesShortcut(e, "⌘D")) {
+				e.preventDefault();
+				window.dispatchEvent(new CustomEvent("artstudio:duplicate-selection"));
 				return;
 			}
 		};
@@ -430,6 +777,12 @@ export const useKeyboardShortcuts = () => {
 		setPanOffset,
 		showLeftPanel,
 		showRightPanel,
+		showBrushesPanel,
+		showColorsPanel,
+		showLayersPanel,
+		showHistoryPanel,
+		showNavigator,
+		showInfoPanel,
 		showGrid,
 		setShowGrid,
 		showRulers,
@@ -442,5 +795,8 @@ export const useKeyboardShortcuts = () => {
 		addLayer,
 		activeLayerId,
 		duplicateLayer,
+		toggleLayerVisibility,
+		clearHistory,
+		setRenderingEngine,
 	]);
 };

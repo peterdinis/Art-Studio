@@ -14,6 +14,7 @@ import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 const HomeWrapper = () => {
 	// Initialize global keyboard shortcuts
 	useKeyboardShortcuts();
+
 	const {
 		showGrid,
 		showRulers,

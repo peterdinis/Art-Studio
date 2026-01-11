@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
 	File as FileIcon,
 	FolderOpen,
@@ -79,6 +79,7 @@ import { useArtStudioStore, Tool } from "@/stores/artStudioStore";
 import { toast } from "sonner";
 import { TemplatesDialog } from "../templates/TemplatesDialog";
 import { KeyboardShortcutsDialog } from "../dialogs/KeyboardSettingsDialog";
+
 interface MenuItemConfig {
 	label: string;
 	icon?: React.ComponentType<{ className?: string }>;
@@ -96,6 +97,7 @@ declare global {
 		fabricCanvas?: any;
 		konvaStage?: any;
 		copiedObject?: any;
+		artStudioStore?: any; // Add store reference
 	}
 }
 
@@ -103,6 +105,10 @@ export const TopMenuBar: React.FC = () => {
 	const [showTemplates, setShowTemplates] = useState(false);
 	const [showShortcuts, setShowShortcuts] = useState(false);
 
+	// Use the store at component level
+	const store = useArtStudioStore();
+
+	// Destructure store methods and state
 	const {
 		undo,
 		redo,
@@ -149,15 +155,16 @@ export const TopMenuBar: React.FC = () => {
 		resetWorkspace,
 		renderingEngine,
 		setRenderingEngine,
-	} = useArtStudioStore();
+	} = store;
+
+	// Store reference on window for keyboard shortcuts
+	useEffect(() => {
+		window.artStudioStore = store;
+	}, [store]);
 
 	const getCanvas = () => window.fabricCanvas || window.konvaStage;
 	const isFabric = () => !!window.fabricCanvas;
 	const isKonva = () => !!window.konvaStage;
-
-	// Listen for custom events from keyboard shortcuts hook
-	// Note: This effect is placed after all handler functions are defined
-	// We'll add it at the end of the component before the return statement
 
 	const handleNewCanvas = () => {
 		setShowTemplates(true);
@@ -173,50 +180,52 @@ export const TopMenuBar: React.FC = () => {
 				const reader = new FileReader();
 				reader.onload = (event) => {
 					const result = event.target?.result as string;
-					const store = useArtStudioStore.getState();
 
-					// If it's a JSON file, try to load it as a canvas state
-					if (file.name.endsWith(".json")) {
-						try {
+					// Use the store from component scope
+					if (store) {
+						// If it's a JSON file, try to load it as a canvas state
+						if (file.name.endsWith(".json")) {
+							try {
+								const canvas = getCanvas();
+								if (canvas) {
+									canvas.loadFromJSON(result, () => {
+										canvas.renderAll();
+										toast.success(`Loaded project: ${file.name}`);
+									});
+								}
+							} catch (err) {
+								toast.error("Failed to load project file");
+							}
+						} else {
+							// Load as image
+							store.addLoadedImage({
+								id: `img-${Date.now()}`,
+								src: result,
+								name: file.name,
+							});
+
+							// Also add to canvas
 							const canvas = getCanvas();
 							if (canvas) {
-								canvas.loadFromJSON(result, () => {
-									canvas.renderAll();
-									toast.success(`Loaded project: ${file.name}`);
-								});
-							}
-						} catch (err) {
-							toast.error("Failed to load project file");
-						}
-					} else {
-						// Load as image
-						store.addLoadedImage({
-							id: `img-${Date.now()}`,
-							src: result,
-							name: file.name,
-						});
-
-						// Also add to canvas
-						const canvas = getCanvas();
-						if (canvas) {
-							const img = new window.Image();
-							img.onload = () => {
-								import("fabric").then(({ FabricImage }) => {
-									FabricImage.fromURL(img.src).then((fabricImg) => {
-										fabricImg.set({
-											left: 100,
-											top: 100,
-											scaleX: 0.5,
-											scaleY: 0.5,
+								const img = new window.Image();
+								img.onload = () => {
+									import("fabric").then(({ FabricImage }) => {
+										FabricImage.fromURL(img.src).then((fabricImg) => {
+											fabricImg.set({
+												left: 100,
+												top: 100,
+												scaleX: 0.5,
+												scaleY: 0.5,
+											});
+											canvas.add(fabricImg);
+											canvas.renderAll();
 										});
-										canvas.add(fabricImg);
-										canvas.renderAll();
 									});
-								});
-							};
-							img.src = result;
+								};
+								img.src = result;
+							}
+							toast.success(`Opened: ${file.name}`);
 						}
-						toast.success(`Opened: ${file.name}`);
 					}
 				};
 
@@ -1894,12 +1903,14 @@ export const TopMenuBar: React.FC = () => {
 	];
 
 	// Listen for custom events from keyboard shortcuts hook
-	React.useEffect(() => {
+	useEffect(() => {
 		const handleNewCanvasEvent = () => setShowTemplates(true);
 		const handleOpenFileEvent = () => handleOpenFile();
 		const handleSaveEvent = () => handleSave();
 		const handleSaveAsEvent = () => handleSaveAs();
 		const handlePrintEvent = () => handlePrint();
+		const handleUndoEvent = () => handleUndo();
+		const handleRedoEvent = () => handleRedo();
 		const handleCutEvent = () => handleCut();
 		const handleCopyEvent = () => handleCopy();
 		const handlePasteEvent = (e: CustomEvent) => {
@@ -1911,6 +1922,13 @@ export const TopMenuBar: React.FC = () => {
 		};
 		const handleDeleteEvent = () => handleDeleteSelection();
 		const handleGlobalDeleteEvent = () => handleGlobalDelete();
+		const handleZoomInEvent = () => handleZoomIn();
+		const handleZoomOutEvent = () => handleZoomOut();
+		const handleFitToScreenEvent = () => handleFitToScreen();
+		const handleActualSizeEvent = () => handleActualSize();
+		const handleToggleGridEvent = () => setShowGrid(!showGrid);
+		const handleToggleRulersEvent = () => setShowRulers(!showRulers);
+		const handleToggleGuidesEvent = () => setShowGuides(!showGuides);
 		const handleMergeLayersEvent = () => handleMergeLayers();
 		const handleMergeVisibleEvent = () => handleMergeLayers();
 		const handleBringForwardEvent = () => handleBringForward();
@@ -1924,6 +1942,8 @@ export const TopMenuBar: React.FC = () => {
 		window.addEventListener("artstudio:save", handleSaveEvent);
 		window.addEventListener("artstudio:save-as", handleSaveAsEvent);
 		window.addEventListener("artstudio:print", handlePrintEvent);
+		window.addEventListener("artstudio:undo", handleUndoEvent);
+		window.addEventListener("artstudio:redo", handleRedoEvent);
 		window.addEventListener("artstudio:cut-selection", handleCutEvent);
 		window.addEventListener("artstudio:copy-selection", handleCopyEvent);
 		window.addEventListener(
@@ -1932,6 +1952,13 @@ export const TopMenuBar: React.FC = () => {
 		);
 		window.addEventListener("artstudio:delete-selection", handleDeleteEvent);
 		window.addEventListener("artstudio:global-delete", handleGlobalDeleteEvent);
+		window.addEventListener("artstudio:zoom-in", handleZoomInEvent);
+		window.addEventListener("artstudio:zoom-out", handleZoomOutEvent);
+		window.addEventListener("artstudio:fit-to-screen", handleFitToScreenEvent);
+		window.addEventListener("artstudio:actual-size", handleActualSizeEvent);
+		window.addEventListener("artstudio:toggle-grid", handleToggleGridEvent);
+		window.addEventListener("artstudio:toggle-rulers", handleToggleRulersEvent);
+		window.addEventListener("artstudio:toggle-guides", handleToggleGuidesEvent);
 		window.addEventListener("artstudio:merge-layers", handleMergeLayersEvent);
 		window.addEventListener("artstudio:merge-visible", handleMergeVisibleEvent);
 		window.addEventListener("artstudio:bring-forward", handleBringForwardEvent);
@@ -1949,6 +1976,8 @@ export const TopMenuBar: React.FC = () => {
 			window.removeEventListener("artstudio:save", handleSaveEvent);
 			window.removeEventListener("artstudio:save-as", handleSaveAsEvent);
 			window.removeEventListener("artstudio:print", handlePrintEvent);
+			window.removeEventListener("artstudio:undo", handleUndoEvent);
+			window.removeEventListener("artstudio:redo", handleRedoEvent);
 			window.removeEventListener("artstudio:cut-selection", handleCutEvent);
 			window.removeEventListener("artstudio:copy-selection", handleCopyEvent);
 			window.removeEventListener(
@@ -1962,6 +1991,28 @@ export const TopMenuBar: React.FC = () => {
 			window.removeEventListener(
 				"artstudio:global-delete",
 				handleGlobalDeleteEvent,
+			);
+			window.removeEventListener("artstudio:zoom-in", handleZoomInEvent);
+			window.removeEventListener("artstudio:zoom-out", handleZoomOutEvent);
+			window.removeEventListener(
+				"artstudio:fit-to-screen",
+				handleFitToScreenEvent,
+			);
+			window.removeEventListener(
+				"artstudio:actual-size",
+				handleActualSizeEvent,
+			);
+			window.removeEventListener(
+				"artstudio:toggle-grid",
+				handleToggleGridEvent,
+			);
+			window.removeEventListener(
+				"artstudio:toggle-rulers",
+				handleToggleRulersEvent,
+			);
+			window.removeEventListener(
+				"artstudio:toggle-guides",
+				handleToggleGuidesEvent,
 			);
 			window.removeEventListener(
 				"artstudio:merge-layers",
@@ -1992,7 +2043,16 @@ export const TopMenuBar: React.FC = () => {
 				handleShowShortcuts,
 			);
 		};
-	}, []);
+	}, [
+		showGrid,
+		showRulers,
+		showGuides,
+		handleUndo,
+		handleRedo,
+		handleZoomIn,
+		handleZoomOut,
+		handleFitToScreen,
+	]);
 
 	const renderMenuItems = (items: MenuItemConfig[]) => {
 		return items.map((item, index) => {
