@@ -24,7 +24,7 @@ interface DrawingLine {
   points: number[];
   stroke: string;
   strokeWidth: number;
-  tool: "brush" | "pencil" | "eraser" | "healing";
+  tool: "brush" | "pencil" | "eraser" | "healing" | "blur";
   layerId?: string;
 }
 
@@ -87,6 +87,13 @@ interface HealingData {
   brushSize: number;
 }
 
+// Blur tool data structure
+interface BlurData {
+  isActive: boolean;
+  brushSize: number;
+  intensity: number;
+}
+
 export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
   width = 1920,
   height = 1080,
@@ -130,6 +137,16 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
   const [isHealing, setIsHealing] = useState(false);
   const healingCanvas = useRef<HTMLCanvasElement | null>(null);
   const healingContext = useRef<CanvasRenderingContext2D | null>(null);
+
+  // Blur tool state
+  const [blurData, setBlurData] = useState<BlurData>({
+    isActive: false,
+    brushSize: 20,
+    intensity: 10,
+  });
+  const [isBlurring, setIsBlurring] = useState(false);
+  const blurCanvas = useRef<HTMLCanvasElement | null>(null);
+  const blurContext = useRef<CanvasRenderingContext2D | null>(null);
 
   // Flood fill state
   const floodFillImageData = useRef<ImageData | null>(null);
@@ -213,6 +230,18 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
     }
   }, [actualWidth, actualHeight]);
 
+  // Initialize blur canvas
+  useEffect(() => {
+    const canvas = document.createElement("canvas");
+    canvas.width = actualWidth;
+    canvas.height = actualHeight;
+    blurCanvas.current = canvas;
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    if (ctx) {
+      blurContext.current = ctx;
+    }
+  }, [actualWidth, actualHeight]);
+
   // Update canvas data for eyedropper
   const updateEyedropperData = useCallback(() => {
     if (!stageRef.current || !eyedropperContext.current) return;
@@ -271,6 +300,22 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
     ctx.drawImage(tempCanvas, 0, 0, actualWidth, actualHeight);
   }, [actualWidth, actualHeight, actualBackground]);
 
+  // Update blur canvas data
+  const updateBlurData = useCallback(() => {
+    if (!stageRef.current || !blurContext.current) return;
+
+    const stage = stageRef.current;
+    const tempCanvas = stage.toCanvas();
+    const ctx = blurContext.current;
+    
+    // Fill with background first
+    ctx.fillStyle = actualBackground;
+    ctx.fillRect(0, 0, actualWidth, actualHeight);
+    
+    // Draw the stage
+    ctx.drawImage(tempCanvas, 0, 0, actualWidth, actualHeight);
+  }, [actualWidth, actualHeight, actualBackground]);
+
   // Save canvas state
   const saveCanvasState = useCallback(
     (action: string) => {
@@ -282,6 +327,7 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
           images: images.map((img) => ({ ...img })),
           gradients,
           healingData,
+          blurData,
         });
         const dataURL = stageRef.current.toDataURL({ pixelRatio: 0.2 });
         addToHistory(state, dataURL, action);
@@ -289,7 +335,7 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
         console.error("Failed to save canvas state:", err);
       }
     },
-    [lines, shapes, images, gradients, healingData, addToHistory],
+    [lines, shapes, images, gradients, healingData, blurData, addToHistory],
   );
 
   // Handle transformer updates
@@ -689,6 +735,113 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
     [healingData, brushSettings.size, activeLayerId, saveCanvasState]
   );
 
+  // Blur tool function (Gaussian blur)
+  const applyBlurBrush = useCallback(
+    (targetX: number, targetY: number) => {
+      if (!blurContext.current) {
+        toast.error("Blur context not available");
+        return;
+      }
+
+      const brushSize = brushSettings.size;
+      const intensity = brushSettings.blurIntensity;
+      const halfSize = Math.floor(brushSize / 2);
+
+      // Get target area image data
+      const targetImageData = blurContext.current.getImageData(
+        Math.max(0, targetX - halfSize),
+        Math.max(0, targetY - halfSize),
+        brushSize,
+        brushSize
+      );
+
+      // Create a copy for blurred result
+      const blurredData = new ImageData(
+        new Uint8ClampedArray(targetImageData.data),
+        targetImageData.width,
+        targetImageData.height
+      );
+
+      // Simple box blur algorithm
+      const radius = Math.floor(intensity / 2);
+      const diameter = radius * 2 + 1;
+      const weight = 1.0 / (diameter * diameter);
+
+      // Apply blur in two passes (horizontal and vertical)
+      for (let pass = 0; pass < 2; pass++) {
+        for (let y = 0; y < brushSize; y++) {
+          for (let x = 0; x < brushSize; x++) {
+            let r = 0, g = 0, b = 0, a = 0;
+            let count = 0;
+
+            // Apply box blur kernel
+            for (let ky = -radius; ky <= radius; ky++) {
+              const ny = y + ky;
+              if (ny < 0 || ny >= brushSize) continue;
+
+              for (let kx = -radius; kx <= radius; kx++) {
+                const nx = x + kx;
+                if (nx < 0 || nx >= brushSize) continue;
+
+                const idx = (ny * brushSize + nx) * 4;
+                
+                if (pass === 0) {
+                  // First pass - use original data
+                  r += targetImageData.data[idx];
+                  g += targetImageData.data[idx + 1];
+                  b += targetImageData.data[idx + 2];
+                  a += targetImageData.data[idx + 3];
+                } else {
+                  // Second pass - use blurred data from first pass
+                  r += blurredData.data[idx];
+                  g += blurredData.data[idx + 1];
+                  b += blurredData.data[idx + 2];
+                  a += blurredData.data[idx + 3];
+                }
+                count++;
+              }
+            }
+
+            const targetIdx = (y * brushSize + x) * 4;
+            
+            if (count > 0) {
+              blurredData.data[targetIdx] = Math.round(r / count);
+              blurredData.data[targetIdx + 1] = Math.round(g / count);
+              blurredData.data[targetIdx + 2] = Math.round(b / count);
+              blurredData.data[targetIdx + 3] = Math.round(a / count);
+            }
+          }
+        }
+      }
+
+      // Apply the blurred pixels back to canvas
+      blurContext.current.putImageData(
+        blurredData,
+        Math.max(0, targetX - halfSize),
+        Math.max(0, targetY - halfSize)
+      );
+
+      // Create a shape for the blurred area
+      const blurredShape: ShapeObject = {
+        id: `blurred-${Date.now()}`,
+        type: "rect",
+        x: Math.max(0, targetX - halfSize),
+        y: Math.max(0, targetY - halfSize),
+        width: brushSize,
+        height: brushSize,
+        fill: `rgba(128, 128, 128, 0.1)`, // Very transparent gray for visual feedback
+        stroke: "none",
+        strokeWidth: 0,
+        layerId: activeLayerId || undefined,
+      };
+
+      setShapes((prev) => [...prev, blurredShape]);
+      saveCanvasState("Blur applied");
+      toast.success(`Area blurred (intensity: ${intensity})`);
+    },
+    [brushSettings.size, brushSettings.blurIntensity, activeLayerId, saveCanvasState]
+  );
+
   // Handle mouse down
   const handleMouseDown = (e: Konva.KonvaEventObject<MouseEvent>) => {
     const stage = stageRef.current;
@@ -703,7 +856,7 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
       y: pos.y / (zoom / 100) - panOffset.y,
     };
 
-    const drawingTools = ["brush", "pencil", "eraser", "healing"];
+    const drawingTools = ["brush", "pencil", "eraser", "healing", "blur"];
     const selectionTools = ["select", "move"];
     const shapeTools = ["rectangle", "ellipse", "line"];
 
@@ -746,6 +899,15 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
           return;
         }
       }
+
+      if (activeTool === "blur") {
+        // Blur tool logic
+        updateBlurData();
+        
+        // Apply blur
+        applyBlurBrush(transformedPos.x, transformedPos.y);
+        return;
+      }
       
       // Regular drawing tools
       const newLine: DrawingLine = {
@@ -753,7 +915,7 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
         points: [transformedPos.x, transformedPos.y],
         stroke: activeTool === "eraser" ? actualBackground : primaryColor,
         strokeWidth: brushSettings.size,
-        tool: activeTool as "brush" | "pencil" | "eraser" | "healing",
+        tool: activeTool as "brush" | "pencil" | "eraser" | "healing" | "blur",
         layerId: activeLayerId || undefined,
       };
       setLines([...lines, newLine]);
@@ -1077,6 +1239,11 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
       isActive: false,
       brushSize: 20,
     });
+    setBlurData({
+      isActive: false,
+      brushSize: 20,
+      intensity: 10,
+    });
     setHealingSource(null);
     saveCanvasState("Canvas cleared");
     toast.success("Canvas cleared");
@@ -1102,6 +1269,23 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
         setHealingSource(null);
         toast.info("Healing source cleared");
       }
+
+      // Adjust blur intensity with [ and ]
+      if (activeTool === "blur") {
+        if (e.key === "[" && !e.ctrlKey && !e.metaKey) {
+          e.preventDefault();
+          const store = useArtStudioStore.getState();
+          const newIntensity = Math.max(1, brushSettings.blurIntensity - 1);
+          store.setBrushSettings({ blurIntensity: newIntensity });
+          toast.info(`Blur intensity: ${newIntensity}`);
+        } else if (e.key === "]" && !e.ctrlKey && !e.metaKey) {
+          e.preventDefault();
+          const store = useArtStudioStore.getState();
+          const newIntensity = Math.min(50, brushSettings.blurIntensity + 1);
+          store.setBrushSettings({ blurIntensity: newIntensity });
+          toast.info(`Blur intensity: ${newIntensity}`);
+        }
+      }
     };
 
     const deleteSelected = () => {
@@ -1124,6 +1308,7 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
           if (state.shapes) setShapes(state.shapes);
           if (state.images) setImages(state.images);
           if (state.healingData) setHealingData(state.healingData);
+          if (state.blurData) setBlurData(state.blurData);
           // Gradients are stored in currentGradient, not a separate array
           toast.success("History restored");
         } catch (error) {
@@ -1149,7 +1334,7 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
         handleRestoreHistory as EventListener,
       );
     };
-  }, [selectedId, shapes, lines, images, saveCanvasState, clearAll, activeTool, setHealingSource]);
+  }, [selectedId, shapes, lines, images, saveCanvasState, clearAll, activeTool, setHealingSource, brushSettings.blurIntensity]);
 
   // Load images when added
   useEffect(() => {
@@ -1203,7 +1388,10 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
     if (activeTool === "healing") {
       updateHealingData();
     }
-  }, [activeTool, updateFloodFillData, updateEyedropperData, updateHealingData]);
+    if (activeTool === "blur") {
+      updateBlurData();
+    }
+  }, [activeTool, updateFloodFillData, updateEyedropperData, updateHealingData, updateBlurData]);
 
   // Get cursor based on active tool
   const getCursor = () => {
@@ -1698,6 +1886,19 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
         </div>
       )}
 
+      {/* Blur tool info */}
+      {activeTool === "blur" && (
+        <div className="absolute bottom-4 left-4 bg-black/70 text-white text-xs px-3 py-2 rounded pointer-events-none z-10">
+          <div>Blur Tool</div>
+          <div className="text-gray-300">
+            Size: {brushSettings.size}px | Intensity: {brushSettings.blurIntensity}
+          </div>
+          <div className="text-gray-400 text-[10px] mt-1">
+            Use [ and ] to adjust intensity
+          </div>
+        </div>
+      )}
+
       {/* Hidden canvas for flood fill operations */}
       <canvas
         ref={(el) => {
@@ -1722,6 +1923,16 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
       <canvas
         ref={(el) => {
           if (el) healingCanvas.current = el;
+        }}
+        width={actualWidth}
+        height={actualHeight}
+        style={{ display: "none" }}
+      />
+
+      {/* Hidden canvas for blur tool operations */}
+      <canvas
+        ref={(el) => {
+          if (el) blurCanvas.current = el;
         }}
         width={actualWidth}
         height={actualHeight}
