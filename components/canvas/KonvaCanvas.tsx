@@ -63,6 +63,22 @@ interface ImageObject {
 	layerId?: string;
 }
 
+interface GradientObject {
+	id: string;
+	type: "linear" | "radial";
+	x0: number;
+	y0: number;
+	x1: number;
+	y1: number;
+	colorStops: { offset: number; color: string }[];
+	layerId?: string;
+}
+
+interface FloodFillPoint {
+	x: number;
+	y: number;
+}
+
 export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 	width = 1920,
 	height = 1080,
@@ -78,6 +94,12 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 	const [images, setImages] = useState<ImageObject[]>([]);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const [isDrawing, setIsDrawing] = useState(false);
+	const [isFilling, setIsFilling] = useState(false);
+	const [isDrawingGradient, setIsDrawingGradient] = useState(false);
+	const [currentGradient, setCurrentGradient] = useState<GradientObject | null>(
+		null,
+	);
+	const gradientStartPoint = useRef<{ x: number; y: number } | null>(null);
 
 	// Shape drawing state
 	const [currentShape, setCurrentShape] = useState<ShapeObject | null>(null);
@@ -89,6 +111,15 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 
 	// Clone tool state
 	const cloneSourcePoint = useRef<{ x: number; y: number } | null>(null);
+
+	// Flood fill state
+	const floodFillImageData = useRef<ImageData | null>(null);
+	const floodFillCanvas = useRef<HTMLCanvasElement | null>(null);
+	const floodFillContext = useRef<CanvasRenderingContext2D | null>(null);
+
+	// Eyedropper state
+	const eyedropperCanvas = useRef<HTMLCanvasElement | null>(null);
+	const eyedropperContext = useRef<CanvasRenderingContext2D | null>(null);
 
 	const {
 		activeTool,
@@ -103,8 +134,12 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		canvasSize,
 		loadedImages,
 		setPrimaryColor,
+		setSecondaryColor,
 		layers,
 		activeLayerId,
+		gradients,
+		addGradient,
+		updateGradient,
 	} = useArtStudioStore();
 
 	const actualWidth = canvasSize?.width || width;
@@ -121,6 +156,72 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		};
 	}, []);
 
+	// Initialize flood fill canvas
+	useEffect(() => {
+		const canvas = document.createElement("canvas");
+		canvas.width = actualWidth;
+		canvas.height = actualHeight;
+		floodFillCanvas.current = canvas;
+		const ctx = canvas.getContext("2d");
+		if (ctx) {
+			floodFillContext.current = ctx;
+		}
+	}, [actualWidth, actualHeight]);
+
+	// Initialize eyedropper canvas
+	useEffect(() => {
+		const canvas = document.createElement("canvas");
+		canvas.width = actualWidth;
+		canvas.height = actualHeight;
+		eyedropperCanvas.current = canvas;
+		const ctx = canvas.getContext("2d", { willReadFrequently: true });
+		if (ctx) {
+			eyedropperContext.current = ctx;
+		}
+	}, [actualWidth, actualHeight]);
+
+	// Update canvas data for eyedropper
+	const updateEyedropperData = useCallback(() => {
+		if (!stageRef.current || !eyedropperContext.current) return;
+
+		const stage = stageRef.current;
+		const tempCanvas = stage.toCanvas();
+		const ctx = eyedropperContext.current;
+		ctx.clearRect(0, 0, actualWidth, actualHeight);
+
+		// Fill with background first
+		ctx.fillStyle = actualBackground;
+		ctx.fillRect(0, 0, actualWidth, actualHeight);
+
+		// Draw the stage
+		ctx.drawImage(tempCanvas, 0, 0, actualWidth, actualHeight);
+	}, [actualWidth, actualHeight, actualBackground]);
+
+	// Update flood fill image data when canvas changes
+	const updateFloodFillData = useCallback(() => {
+		if (!stageRef.current || !floodFillContext.current) return;
+
+		const stage = stageRef.current;
+		const tempCanvas = stage.toCanvas();
+		const ctx = floodFillContext.current;
+		ctx.clearRect(0, 0, actualWidth, actualHeight);
+
+		// Fill with background first
+		ctx.fillStyle = actualBackground;
+		ctx.fillRect(0, 0, actualWidth, actualHeight);
+
+		// Draw the stage
+		ctx.drawImage(tempCanvas, 0, 0, actualWidth, actualHeight);
+
+		// Get image data for flood fill
+		floodFillImageData.current = ctx.getImageData(
+			0,
+			0,
+			actualWidth,
+			actualHeight,
+		);
+	}, [actualWidth, actualHeight, actualBackground]);
+
 	// Save canvas state
 	const saveCanvasState = useCallback(
 		(action: string) => {
@@ -130,6 +231,7 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 					lines,
 					shapes,
 					images: images.map((img) => ({ ...img })),
+					gradients,
 				});
 				const dataURL = stageRef.current.toDataURL({ pixelRatio: 0.2 });
 				addToHistory(state, dataURL, action);
@@ -137,7 +239,7 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				console.error("Failed to save canvas state:", err);
 			}
 		},
-		[lines, shapes, images, addToHistory],
+		[lines, shapes, images, gradients, addToHistory],
 	);
 
 	// Handle transformer updates
@@ -165,6 +267,280 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		}
 	};
 
+	// Funkce pro konverzi různých formátů barev na RGB
+	const parseColorToRgb = (color: string) => {
+		// Pokud je to HEX (#ffffff nebo #fff)
+		if (color.startsWith("#")) {
+			const hex = color.replace("#", "");
+			let r = 0,
+				g = 0,
+				b = 0;
+
+			if (hex.length === 3) {
+				r = parseInt(hex[0] + hex[0], 16);
+				g = parseInt(hex[1] + hex[1], 16);
+				b = parseInt(hex[2] + hex[2], 16);
+			} else if (hex.length === 6) {
+				r = parseInt(hex.substring(0, 2), 16);
+				g = parseInt(hex.substring(2, 4), 16);
+				b = parseInt(hex.substring(4, 6), 16);
+			}
+			return { r, g, b };
+		}
+
+		// Pokud je to rgb(r, g, b)
+		if (color.startsWith("rgb")) {
+			const match = color.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+			if (match) {
+				return {
+					r: parseInt(match[1]),
+					g: parseInt(match[2]),
+					b: parseInt(match[3]),
+				};
+			}
+		}
+
+		// Pokud je to rgba(r, g, b, a)
+		if (color.startsWith("rgba")) {
+			const match = color.match(/rgba\((\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\)/);
+			if (match) {
+				return {
+					r: parseInt(match[1]),
+					g: parseInt(match[2]),
+					b: parseInt(match[3]),
+				};
+			}
+		}
+
+		// Fallback - černá barva
+		return { r: 0, g: 0, b: 0 };
+	};
+
+	// Funkce pro získání barvy z pixelu na canvasu
+	const getColorFromCanvas = useCallback(
+		(x: number, y: number) => {
+			if (!eyedropperContext.current) return null;
+
+			const ctx = eyedropperContext.current;
+			const pixelData = ctx.getImageData(
+				Math.floor(x),
+				Math.floor(y),
+				1,
+				1,
+			).data;
+
+			if (pixelData[3] === 0) {
+				// Pokud je pixel transparentní, vrátíme background barvu
+				return actualBackground;
+			}
+
+			// Konvertuj RGB na HEX
+			const r = pixelData[0].toString(16).padStart(2, "0");
+			const g = pixelData[1].toString(16).padStart(2, "0");
+			const b = pixelData[2].toString(16).padStart(2, "0");
+			return `#${r}${g}${b}`;
+		},
+		[actualBackground],
+	);
+
+	// Eyedropper funkce
+	const handleEyedropper = useCallback(
+		(x: number, y: number, isCtrlPressed: boolean = false) => {
+			// Aktualizuj data pro eyedropper
+			updateEyedropperData();
+
+			const color = getColorFromCanvas(x, y);
+			if (color) {
+				if (isCtrlPressed || activeTool === "eyedropper") {
+					// Ctrl+click nebo kliknutí při aktivním eyedropper toolu nastaví secondary color
+					setSecondaryColor(color);
+					toast.success(`Secondary color set to ${color}`);
+				} else {
+					// Normální kliknutí při aktivním eyedropper toolu nastaví primary color
+					setPrimaryColor(color);
+					toast.success(`Primary color set to ${color}`);
+				}
+				return color;
+			}
+			return null;
+		},
+		[
+			updateEyedropperData,
+			getColorFromCanvas,
+			setPrimaryColor,
+			setSecondaryColor,
+			activeTool,
+		],
+	);
+
+	// Flood fill function (queue-based algorithm)
+	const floodFill = useCallback(
+		(
+			startX: number,
+			startY: number,
+			targetColor: string, // rgb(r, g, b) formát
+			replacementColor: string, // HEX formát
+			tolerance: number = brushSettings.tolerance,
+		) => {
+			if (!floodFillImageData.current || !floodFillContext.current) {
+				console.error("Flood fill data not initialized");
+				return false;
+			}
+
+			const imageData = floodFillImageData.current;
+			const width = imageData.width;
+			const height = imageData.height;
+
+			// Konvertuj barvy na RGB
+			const targetRgb = parseColorToRgb(targetColor);
+			const replacementRgb = parseColorToRgb(replacementColor);
+
+			// Clamp coordinates
+			const x = Math.floor(Math.max(0, Math.min(width - 1, startX)));
+			const y = Math.floor(Math.max(0, Math.min(height - 1, startY)));
+
+			// Get starting pixel index
+			const startIndex = (y * width + x) * 4;
+
+			// Get starting color z imageData
+			const startR = imageData.data[startIndex];
+			const startG = imageData.data[startIndex + 1];
+			const startB = imageData.data[startIndex + 2];
+			const startA = imageData.data[startIndex + 3];
+
+			// Check if we're trying to fill with the same color
+			const colorDistance = Math.sqrt(
+				Math.pow(startR - replacementRgb.r, 2) +
+					Math.pow(startG - replacementRgb.g, 2) +
+					Math.pow(startB - replacementRgb.b, 2),
+			);
+
+			if (colorDistance <= tolerance) {
+				console.log("Same color, no fill needed");
+				return false;
+			}
+
+			// Create visited array
+			const visited = new Uint8Array(width * height);
+
+			// Initialize queue
+			const queue: FloodFillPoint[] = [];
+			queue.push({ x, y });
+			visited[y * width + x] = 1;
+
+			// Process queue
+			const processedPixels: FloodFillPoint[] = [];
+
+			while (queue.length > 0) {
+				const point = queue.shift()!;
+				const px = point.x;
+				const py = point.y;
+
+				// Add to processed pixels
+				processedPixels.push({ x: px, y: py });
+
+				// Check 4 directions
+				const directions = [
+					{ dx: 1, dy: 0 }, // right
+					{ dx: -1, dy: 0 }, // left
+					{ dx: 0, dy: 1 }, // down
+					{ dx: 0, dy: -1 }, // up
+				];
+
+				for (const dir of directions) {
+					const nx = px + dir.dx;
+					const ny = py + dir.dy;
+
+					// Check bounds
+					if (nx < 0 || nx >= width || ny < 0 || ny >= height) {
+						continue;
+					}
+
+					// Check if visited
+					if (visited[ny * width + nx]) {
+						continue;
+					}
+
+					// Get pixel color
+					const index = (ny * width + nx) * 4;
+					const r = imageData.data[index];
+					const g = imageData.data[index + 1];
+					const b = imageData.data[index + 2];
+					const a = imageData.data[index + 3];
+
+					// Check if pixel matches target color within tolerance
+					const pixelColorDistance = Math.sqrt(
+						Math.pow(r - startR, 2) +
+							Math.pow(g - startG, 2) +
+							Math.pow(b - startB, 2),
+					);
+
+					if (pixelColorDistance <= tolerance && a > 0) {
+						visited[ny * width + nx] = 1;
+						queue.push({ x: nx, y: ny });
+					}
+				}
+			}
+
+			console.log(`Filled ${processedPixels.length} pixels`);
+
+			// If no pixels to fill, return
+			if (processedPixels.length === 0) {
+				return false;
+			}
+
+			// Apply fill to image data
+			for (const pixel of processedPixels) {
+				const index = (pixel.y * width + pixel.x) * 4;
+				imageData.data[index] = replacementRgb.r;
+				imageData.data[index + 1] = replacementRgb.g;
+				imageData.data[index + 2] = replacementRgb.b;
+				// Keep alpha as is
+			}
+
+			// Update canvas
+			if (floodFillContext.current) {
+				floodFillContext.current.putImageData(imageData, 0, 0);
+
+				// Create a new Konva image from the filled area
+				const tempCanvas = floodFillCanvas.current;
+				if (tempCanvas) {
+					// Vytvoř nový tvar pro vyplněnou oblast
+					// Calculate bounds of filled area
+					let minX = width,
+						maxX = 0,
+						minY = height,
+						maxY = 0;
+					for (const pixel of processedPixels) {
+						if (pixel.x < minX) minX = pixel.x;
+						if (pixel.x > maxX) maxX = pixel.x;
+						if (pixel.y < minY) minY = pixel.y;
+						if (pixel.y > maxY) maxY = pixel.y;
+					}
+
+					// Přidej rectangle pro vyplněnou oblast
+					const fillShape: ShapeObject = {
+						id: `fill-${Date.now()}`,
+						type: "rect",
+						x: minX,
+						y: minY,
+						width: Math.max(1, maxX - minX),
+						height: Math.max(1, maxY - minY),
+						fill: replacementColor,
+						layerId: activeLayerId || undefined,
+					};
+
+					setShapes((prev) => [...prev, fillShape]);
+					saveCanvasState("Fill applied");
+					toast.success(`Area filled with ${replacementColor}`);
+				}
+			}
+
+			return true;
+		},
+		[brushSettings.tolerance, activeLayerId, saveCanvasState],
+	);
+
 	// Handle mouse down
 	const handleMouseDown = (e: Konva.KonvaEventObject<MouseEvent>) => {
 		const stage = stageRef.current;
@@ -182,6 +558,15 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		const drawingTools = ["brush", "pencil", "eraser"];
 		const selectionTools = ["select", "move"];
 		const shapeTools = ["rectangle", "ellipse", "line"];
+
+		// Eyedropper tool - priorita
+		if (activeTool === "eyedropper" || e.evt.ctrlKey) {
+			const isCtrlPressed = e.evt.ctrlKey || e.evt.metaKey;
+			handleEyedropper(transformedPos.x, transformedPos.y, isCtrlPressed);
+			
+			// Pokud je aktivní eyedropper tool, nechceme dělat nic jiného
+			if (activeTool === "eyedropper") return;
+		}
 
 		// Drawing tools
 		if (drawingTools.includes(activeTool)) {
@@ -258,29 +643,65 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 
 		// Fill tool
 		if (activeTool === "fill") {
-			const target = e.target;
-			if (target && target !== stage && target.name() !== "background") {
-				if ("fill" in target && typeof (target as any).fill === "function") {
-					(target as any).fill(primaryColor);
-					target.getLayer()?.batchDraw();
-					saveCanvasState("Fill applied");
+			setIsFilling(true);
+
+			// First, update the flood fill data from current canvas
+			updateFloodFillData();
+
+			// Get color at clicked position
+			if (floodFillContext.current) {
+				try {
+					const pixelData = floodFillContext.current.getImageData(
+						Math.floor(transformedPos.x),
+						Math.floor(transformedPos.y),
+						1,
+						1,
+					).data;
+
+					const targetColor = `rgb(${pixelData[0]}, ${pixelData[1]}, ${pixelData[2]})`;
+
+					// Perform flood fill
+					const success = floodFill(
+						transformedPos.x,
+						transformedPos.y,
+						targetColor,
+						primaryColor,
+						brushSettings.tolerance,
+					);
+
+					if (!success) {
+						toast.error("No area to fill or same color");
+					}
+				} catch (error) {
+					console.error("Fill error:", error);
+					toast.error("Failed to fill area");
 				}
+			} else {
+				toast.error("Fill context not available");
 			}
 			return;
 		}
 
-		// Eyedropper tool
-		if (activeTool === "eyedropper") {
-			const target = e.target;
-			if (target && target !== stage) {
-				if ("fill" in target && typeof (target as any).fill === "function") {
-					const color = (target as any).fill() as string;
-					if (color) {
-						setPrimaryColor(color);
-						toast.success(`Color sampled: ${color}`);
-					}
-				}
-			}
+		// Gradient tool
+		if (activeTool === "gradient") {
+			setIsDrawingGradient(true);
+			gradientStartPoint.current = transformedPos;
+
+			const newGradient: GradientObject = {
+				id: `gradient-${Date.now()}`,
+				type: brushSettings.gradientType,
+				x0: transformedPos.x,
+				y0: transformedPos.y,
+				x1: transformedPos.x + 100,
+				y1: transformedPos.y,
+				colorStops: brushSettings.gradientStops.map((stop) => ({
+					offset: stop.position,
+					color: stop.color,
+				})),
+				layerId: activeLayerId || undefined,
+			};
+
+			setCurrentGradient(newGradient);
 			return;
 		}
 
@@ -382,6 +803,16 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			return;
 		}
 
+		// Gradient drawing
+		if (isDrawingGradient && currentGradient && gradientStartPoint.current) {
+			setCurrentGradient({
+				...currentGradient,
+				x1: transformedPos.x,
+				y1: transformedPos.y,
+			});
+			return;
+		}
+
 		// Panning
 		if (isPanning.current && activeTool === "hand") {
 			const deltaX = e.evt.clientX - lastPanPos.current.x;
@@ -410,6 +841,21 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			shapeStartPoint.current = null;
 			saveCanvasState(`${currentShape.type} created`);
 			return;
+		}
+
+		if (isDrawingGradient && currentGradient) {
+			addGradient(currentGradient);
+			setCurrentGradient(null);
+			setIsDrawingGradient(false);
+			gradientStartPoint.current = null;
+			saveCanvasState("Gradient added");
+			toast.success("Gradient created");
+			return;
+		}
+
+		if (isFilling) {
+			setIsFilling(false);
+			// Flood fill already saved in the floodFill function
 		}
 
 		if (isPanning.current) {
@@ -529,6 +975,16 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		activeLayerId,
 	]);
 
+	// Update canvas data when needed
+	useEffect(() => {
+		if (activeTool === "fill") {
+			updateFloodFillData();
+		}
+		if (activeTool === "eyedropper") {
+			updateEyedropperData();
+		}
+	}, [activeTool, updateFloodFillData, updateEyedropperData]);
+
 	// Get cursor based on active tool
 	const getCursor = () => {
 		switch (activeTool) {
@@ -538,6 +994,7 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			case "clone":
 			case "healing":
 			case "blur":
+			case "gradient":
 				return "crosshair";
 			case "hand":
 				return isPanning.current ? "grabbing" : "grab";
@@ -546,7 +1003,6 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			case "zoom":
 				return "zoom-in";
 			case "fill":
-			case "gradient":
 				return "cell";
 			case "text":
 				return "text";
@@ -713,6 +1169,53 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 								<ImageNode key={image.id} image={image} />
 							))}
 
+						{/* Gradients */}
+						{gradients
+							.filter((gradient) => isLayerVisible(gradient.layerId))
+							.map((gradient) => {
+								const x = Math.min(gradient.x0, gradient.x1);
+								const y = Math.min(gradient.y0, gradient.y1);
+								const width = Math.abs(gradient.x1 - gradient.x0);
+								const height = Math.abs(gradient.y1 - gradient.y0);
+
+								return (
+									<Rect
+										key={gradient.id}
+										id={gradient.id}
+										x={x}
+										y={y}
+										width={width}
+										height={height}
+										draggable={activeTool === "select" || activeTool === "move"}
+										onClick={() => setSelectedId(gradient.id)}
+										onTap={() => setSelectedId(gradient.id)}
+										onDragEnd={(e) => {
+											const deltaX = e.target.x() - x;
+											const deltaY = e.target.y() - y;
+
+											updateGradient(gradient.id, {
+												x0: gradient.x0 + deltaX,
+												y0: gradient.y0 + deltaY,
+												x1: gradient.x1 + deltaX,
+												y1: gradient.y1 + deltaY,
+											});
+											saveCanvasState("Gradient moved");
+										}}
+										fillLinearGradientStartPoint={{
+											x: gradient.x0 - x,
+											y: gradient.y0 - y,
+										}}
+										fillLinearGradientEndPoint={{
+											x: gradient.x1 - x,
+											y: gradient.y1 - y,
+										}}
+										fillLinearGradientColorStops={gradient.colorStops.flatMap(
+											(stop) => [stop.offset, stop.color],
+										)}
+									/>
+								);
+							})}
+
 						{/* Shapes */}
 						{shapes
 							.filter((shape) => isLayerVisible(shape.layerId))
@@ -875,6 +1378,38 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 								return null;
 							})}
 
+						{/* Current gradient being drawn */}
+						{currentGradient && activeTool === "gradient" && (
+							<Rect
+								x={Math.min(currentGradient.x0, currentGradient.x1)}
+								y={Math.min(currentGradient.y0, currentGradient.y1)}
+								width={Math.abs(currentGradient.x1 - currentGradient.x0)}
+								height={Math.abs(currentGradient.y1 - currentGradient.y0)}
+								fillLinearGradientStartPoint={{
+									x:
+										currentGradient.x0 -
+										Math.min(currentGradient.x0, currentGradient.x1),
+									y:
+										currentGradient.y0 -
+										Math.min(currentGradient.y0, currentGradient.y1),
+								}}
+								fillLinearGradientEndPoint={{
+									x:
+										currentGradient.x1 -
+										Math.min(currentGradient.x0, currentGradient.x1),
+									y:
+										currentGradient.y1 -
+										Math.min(currentGradient.y0, currentGradient.y1),
+								}}
+								fillLinearGradientColorStops={currentGradient.colorStops.flatMap(
+									(stop) => [stop.offset, stop.color],
+								)}
+								stroke="#666"
+								strokeWidth={1}
+								dash={[5, 5]}
+							/>
+						)}
+
 						{/* Current shape being drawn */}
 						{currentShape && currentShape.type === "rect" && (
 							<Rect
@@ -922,6 +1457,26 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 					</Layer>
 				</Stage>
 			</div>
+
+			{/* Hidden canvas for flood fill operations */}
+			<canvas
+				ref={(el) => {
+					if (el) floodFillCanvas.current = el;
+				}}
+				width={actualWidth}
+				height={actualHeight}
+				style={{ display: "none" }}
+			/>
+			
+			{/* Hidden canvas for eyedropper operations */}
+			<canvas
+				ref={(el) => {
+					if (el) eyedropperCanvas.current = el;
+				}}
+				width={actualWidth}
+				height={actualHeight}
+				style={{ display: "none" }}
+			/>
 		</div>
 	);
 };

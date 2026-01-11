@@ -43,6 +43,14 @@ export interface BrushSettings {
 	cornerRadius: number;
 	fillType: "solid" | "gradient" | "none";
 	sides: number;
+
+	// Nové speciální nastavení pro Paint Bucket
+	fillTolerance: number;
+	fillContiguous: boolean;
+	fillOpacity: number;
+	fillBlendMode: "normal" | "multiply" | "screen" | "overlay";
+	fillAntiAlias: boolean;
+
 	// Přidáno pro text
 	fontFamily: string;
 	fontSize: number;
@@ -52,6 +60,27 @@ export interface BrushSettings {
 	fontStyle: "normal" | "italic";
 	lineHeight: number;
 	letterSpacing: number;
+
+	// Gradient settings
+	gradientType: "linear" | "radial";
+	gradientStops: { color: string; position: number }[];
+
+	// Clone settings
+	cloneSourceX: number;
+	cloneSourceY: number;
+	cloneAligned: boolean;
+	cloneOpacity: number;
+}
+
+export interface GradientObject {
+	id: string;
+	type: "linear" | "radial";
+	x0: number;
+	y0: number;
+	x1: number;
+	y1: number;
+	colorStops: { offset: number; color: string }[];
+	layerId?: string;
 }
 
 export interface HistoryEntry {
@@ -90,6 +119,8 @@ interface ArtStudioState {
 	// Brush settings
 	brushSettings: BrushSettings;
 	setBrushSettings: (settings: Partial<BrushSettings>) => void;
+	resetBrushSettings: () => void;
+	setToolDefaults: (tool: Tool) => void;
 
 	// Layers
 	layers: Layer[];
@@ -104,10 +135,20 @@ interface ArtStudioState {
 	duplicateLayer: (id: string) => void;
 	reorderLayers: (fromIndex: number, toIndex: number) => void;
 	clearLayers: () => void;
+	mergeLayers: (layerIds: string[]) => void;
 
 	// Images
 	loadedImages: { id: string; src: string; name: string }[];
 	addLoadedImage: (image: { id: string; src: string; name: string }) => void;
+	removeLoadedImage: (id: string) => void;
+	clearLoadedImages: () => void;
+
+	// Gradients
+	gradients: GradientObject[];
+	addGradient: (gradient: GradientObject) => void;
+	updateGradient: (id: string, updates: Partial<GradientObject>) => void;
+	removeGradient: (id: string) => void;
+	clearGradients: () => void;
 
 	// Canvas
 	zoom: number;
@@ -116,6 +157,7 @@ interface ArtStudioState {
 	setPanOffset: (offset: { x: number; y: number }) => void;
 	canvasSize: CanvasSize | null;
 	setCanvasSize: (size: CanvasSize) => void;
+	resetCanvasView: () => void;
 
 	// History
 	history: HistoryEntry[];
@@ -131,6 +173,18 @@ interface ArtStudioState {
 	canRedo: () => boolean;
 	restoreToHistoryIndex: (index: number) => void;
 	clearHistory: () => void;
+
+	// Selection
+	selectionBounds: {
+		x: number;
+		y: number;
+		width: number;
+		height: number;
+	} | null;
+	setSelectionBounds: (
+		bounds: { x: number; y: number; width: number; height: number } | null,
+	) => void;
+	clearSelection: () => void;
 
 	// UI State
 	showColorPicker: boolean;
@@ -153,6 +207,10 @@ interface ArtStudioState {
 	setShowNavigator: (show: boolean) => void;
 	showInfoPanel: boolean;
 	setShowInfoPanel: (show: boolean) => void;
+	showFillPanel: boolean;
+	setShowFillPanel: (show: boolean) => void;
+	showGradientPanel: boolean;
+	setShowGradientPanel: (show: boolean) => void;
 
 	// Canvas overlays
 	showGrid: boolean;
@@ -164,10 +222,59 @@ interface ArtStudioState {
 
 	// Reset workspace
 	resetWorkspace: () => void;
+
+	// Fill tool preview
+	fillPreview: { x: number; y: number; color: string } | null;
+	setFillPreview: (
+		preview: { x: number; y: number; color: string } | null,
+	) => void;
 }
 
 const generateLayerId = () =>
 	`layer-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+const defaultBrushSettings: BrushSettings = {
+	size: 10,
+	opacity: 100,
+	hardness: 100,
+	smoothing: 20,
+	strokeWidth: 2,
+	feather: 0,
+	tolerance: 32,
+	cornerRadius: 0,
+	fillType: "solid",
+	sides: 5,
+
+	// Paint Bucket specific
+	fillTolerance: 32,
+	fillContiguous: true,
+	fillOpacity: 100,
+	fillBlendMode: "normal",
+	fillAntiAlias: true,
+
+	// Text
+	fontFamily: "Arial",
+	fontSize: 16,
+	fontWeight: "normal",
+	textAlign: "left",
+	textDecoration: "none",
+	fontStyle: "normal",
+	lineHeight: 1.2,
+	letterSpacing: 0,
+
+	// Gradient
+	gradientType: "linear",
+	gradientStops: [
+		{ color: "#ffffff", position: 0 },
+		{ color: "#000000", position: 1 },
+	],
+
+	// Clone
+	cloneSourceX: 0,
+	cloneSourceY: 0,
+	cloneAligned: true,
+	cloneOpacity: 100,
+};
 
 export const useArtStudioStore = create<ArtStudioState>((set, get) => ({
 	// Rendering Engine
@@ -176,7 +283,11 @@ export const useArtStudioStore = create<ArtStudioState>((set, get) => ({
 
 	// Tools
 	activeTool: "brush",
-	setActiveTool: (tool) => set({ activeTool: tool }),
+	setActiveTool: (tool) => {
+		set({ activeTool: tool });
+		// Automaticky nastav výchozí hodnoty pro tool
+		get().setToolDefaults(tool);
+	},
 
 	// Colors
 	primaryColor: "#ffffff",
@@ -208,31 +319,94 @@ export const useArtStudioStore = create<ArtStudioState>((set, get) => ({
 	},
 
 	// Brush settings
-	brushSettings: {
-		size: 10,
-		opacity: 100,
-		hardness: 100,
-		smoothing: 20,
-		strokeWidth: 2,
-		feather: 0,
-		tolerance: 32,
-		cornerRadius: 0,
-		fillType: "solid",
-		sides: 5,
-		// Nové text settings
-		fontFamily: "Arial",
-		fontSize: 16,
-		fontWeight: "normal",
-		textAlign: "left",
-		textDecoration: "none",
-		fontStyle: "normal",
-		lineHeight: 1.2,
-		letterSpacing: 0,
-	},
+	brushSettings: defaultBrushSettings,
 	setBrushSettings: (settings) =>
 		set((state) => ({
 			brushSettings: { ...state.brushSettings, ...settings },
 		})),
+	resetBrushSettings: () => set({ brushSettings: defaultBrushSettings }),
+	setToolDefaults: (tool) => {
+		const currentSettings = get().brushSettings;
+		let newSettings: Partial<BrushSettings> = {};
+
+		switch (tool) {
+			case "brush":
+				newSettings = {
+					size: 10,
+					opacity: 100,
+					hardness: 100,
+					smoothing: 20,
+				};
+				break;
+			case "pencil":
+				newSettings = {
+					size: 3,
+					opacity: 100,
+					hardness: 100,
+					smoothing: 0,
+				};
+				break;
+			case "eraser":
+				newSettings = {
+					size: 20,
+					opacity: 100,
+					hardness: 100,
+				};
+				break;
+			case "fill":
+				newSettings = {
+					fillTolerance: 32,
+					fillContiguous: true,
+					fillOpacity: 100,
+				};
+				break;
+			case "gradient":
+				newSettings = {
+					gradientType: "linear",
+					gradientStops: [
+						{ color: get().primaryColor, position: 0 },
+						{ color: get().secondaryColor, position: 1 },
+					],
+				};
+				break;
+			case "text":
+				newSettings = {
+					fontSize: 24,
+					fontFamily: "Arial",
+					fontWeight: "normal",
+				};
+				break;
+			case "rectangle":
+			case "ellipse":
+			case "polygon":
+			case "line":
+				newSettings = {
+					strokeWidth: 2,
+					cornerRadius: 0,
+					fillType: "solid",
+				};
+				break;
+			case "clone":
+				newSettings = {
+					size: 20,
+					opacity: 100,
+					cloneAligned: true,
+					cloneOpacity: 100,
+				};
+				break;
+			case "magicwand":
+				newSettings = {
+					tolerance: 32,
+				};
+				break;
+		}
+
+		if (Object.keys(newSettings).length > 0) {
+			set((state) => ({
+				brushSettings: { ...state.brushSettings, ...newSettings },
+			}));
+		}
+	},
 
 	// Layers
 	layers: [
@@ -320,6 +494,12 @@ export const useArtStudioStore = create<ArtStudioState>((set, get) => ({
 			activeLayerId: null,
 		});
 	},
+	mergeLayers: (layerIds) => {
+		const { layers } = get();
+		// Implementace mergování vrstev
+		// Prozatím jen placeholder
+		console.log("Merging layers:", layerIds);
+	},
 
 	// Images
 	loadedImages: [],
@@ -327,6 +507,27 @@ export const useArtStudioStore = create<ArtStudioState>((set, get) => ({
 		set((state) => ({
 			loadedImages: [...state.loadedImages, image],
 		})),
+	removeLoadedImage: (id) =>
+		set((state) => ({
+			loadedImages: state.loadedImages.filter((img) => img.id !== id),
+		})),
+	clearLoadedImages: () => set({ loadedImages: [] }),
+
+	// Gradients
+	gradients: [],
+	addGradient: (gradient) =>
+		set((state) => ({ gradients: [...state.gradients, gradient] })),
+	updateGradient: (id, updates) =>
+		set((state) => ({
+			gradients: state.gradients.map((g) =>
+				g.id === id ? { ...g, ...updates } : g,
+			),
+		})),
+	removeGradient: (id) =>
+		set((state) => ({
+			gradients: state.gradients.filter((g) => g.id !== id),
+		})),
+	clearGradients: () => set({ gradients: [] }),
 
 	// Canvas
 	zoom: 100,
@@ -336,6 +537,7 @@ export const useArtStudioStore = create<ArtStudioState>((set, get) => ({
 	canvasSize: null,
 	setCanvasSize: (size) =>
 		set({ canvasSize: size, history: [], historyIndex: -1 }),
+	resetCanvasView: () => set({ zoom: 100, panOffset: { x: 0, y: 0 } }),
 
 	// History
 	history: [],
@@ -380,6 +582,11 @@ export const useArtStudioStore = create<ArtStudioState>((set, get) => ({
 		});
 	},
 
+	// Selection
+	selectionBounds: null,
+	setSelectionBounds: (bounds) => set({ selectionBounds: bounds }),
+	clearSelection: () => set({ selectionBounds: null }),
+
 	// UI State
 	showColorPicker: false,
 	setShowColorPicker: (show) => set({ showColorPicker: show }),
@@ -401,6 +608,10 @@ export const useArtStudioStore = create<ArtStudioState>((set, get) => ({
 	setShowNavigator: (show) => set({ showNavigator: show }),
 	showInfoPanel: false,
 	setShowInfoPanel: (show) => set({ showInfoPanel: show }),
+	showFillPanel: false,
+	setShowFillPanel: (show) => set({ showFillPanel: show }),
+	showGradientPanel: false,
+	setShowGradientPanel: (show) => set({ showGradientPanel: show }),
 
 	// Canvas overlays
 	showGrid: false,
@@ -421,8 +632,14 @@ export const useArtStudioStore = create<ArtStudioState>((set, get) => ({
 			showHistoryPanel: true,
 			showNavigator: false,
 			showInfoPanel: false,
+			showFillPanel: false,
+			showGradientPanel: false,
 			showGrid: false,
 			showRulers: false,
 			showGuides: false,
 		}),
+
+	// Fill tool preview
+	fillPreview: null,
+	setFillPreview: (preview) => set({ fillPreview: preview }),
 }));

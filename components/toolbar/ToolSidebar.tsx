@@ -46,6 +46,7 @@ import {
 	AlertDialogTitle,
 	AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { GradientOptionsPanel } from "../panels/GradientOptionsPanel";
 
 interface ToolConfig {
 	id: Tool;
@@ -135,7 +136,7 @@ const tools: ToolConfig[] = [
 		id: "gradient",
 		icon: Blend,
 		label: "Gradient Tool",
-		shortcut: "G",
+		shortcut: "Shift+G",
 		description:
 			"Create smooth color transitions. Click and drag to define gradient direction.",
 		category: "drawing",
@@ -146,7 +147,7 @@ const tools: ToolConfig[] = [
 		label: "Eyedropper",
 		shortcut: "I",
 		description:
-			"Sample colors from the canvas. Alt+click with any tool for quick sampling.",
+			"Sample colors from the canvas. Click to set primary color, Ctrl/Cmd+click to set secondary color.",
 		category: "drawing",
 	},
 	{
@@ -240,6 +241,14 @@ const tools: ToolConfig[] = [
 			"Pan around the canvas. Hold Space with any tool for quick access.",
 		category: "navigation",
 	},
+	{
+		id: "zoom",
+		icon: ZoomIn,
+		label: "Zoom Tool",
+		shortcut: "Z",
+		description: "Zoom in and out of the canvas. Alt+click to zoom out.",
+		category: "navigation",
+	},
 ];
 
 export const ToolSidebar: React.FC = () => {
@@ -262,6 +271,7 @@ export const ToolSidebar: React.FC = () => {
 
 	// Pokud je aktivní text tool, zobrazte text options v sidebaru
 	const shouldShowTextOptions = activeTool === "text";
+	const shouldShowGradientOptions = activeTool === "gradient";
 
 	// Funkce pro vymazání plátna
 	const handleClearCanvas = () => {
@@ -280,11 +290,26 @@ export const ToolSidebar: React.FC = () => {
 			)
 				return;
 
+			const key = e.key.toUpperCase();
+
+			// Handle special shortcuts
+			if (key === "G" && e.shiftKey) {
+				e.preventDefault();
+				e.stopPropagation();
+				setActiveTool("gradient");
+				return;
+			}
+
 			// Skip if modifier keys are pressed (except for specific combos)
 			if (e.ctrlKey || e.metaKey || e.altKey) return;
 
-			const key = e.key.toUpperCase();
-			const tool = tools.find((t) => t.shortcut.toUpperCase() === key);
+			const tool = tools.find((t) => {
+				// Handle special case for G (both fill and gradient)
+				if (t.shortcut.toUpperCase() === "G" && !e.shiftKey) {
+					return t.id === "fill";
+				}
+				return t.shortcut.toUpperCase() === key;
+			});
 
 			if (tool) {
 				e.preventDefault();
@@ -614,6 +639,13 @@ export const ToolSidebar: React.FC = () => {
 			{shouldShowTextOptions && (
 				<div className="w-64 border-l border-border/50">
 					<TextOptionsPanel />
+				</div>
+			)}
+
+			{/* Gradient options panel when gradient tool is active */}
+			{shouldShowGradientOptions && (
+				<div className="w-64 border-l border-border/50">
+					<GradientOptionsPanel />
 				</div>
 			)}
 		</div>

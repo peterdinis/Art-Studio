@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, Ubuntu } from "next/font/google";
+import { Ubuntu } from "next/font/google";
 import "./globals.css";
 import ScrollToTop from "@/components/shared/ScrollToTop";
 
