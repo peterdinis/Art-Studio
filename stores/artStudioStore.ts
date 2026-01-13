@@ -477,7 +477,6 @@ export const useArtStudioStore = create<ArtStudioState>((set, get) => ({
 	},
 	mergeLayers: (layerIds) => {
 		const { layers } = get();
-		console.log("Merging layers:", layerIds);
 	},
 	loadedImages: [],
 	addLoadedImage: (image) =>
