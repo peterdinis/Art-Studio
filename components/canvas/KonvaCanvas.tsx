@@ -1351,10 +1351,10 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		}
 	};
 
-	const ImageNode: React.FC<{ image: ImageObject; onClick: (id: string) => void }> = ({ 
-		image, 
-		onClick 
-	}) => {
+	const ImageNode: React.FC<{
+		image: ImageObject;
+		onClick: (id: string) => void;
+	}> = ({ image, onClick }) => {
 		const [img, setImg] = useState<HTMLImageElement | null>(null);
 
 		useEffect(() => {
@@ -1476,7 +1476,8 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 					onMouseLeave={handleMouseUp}
 					onClick={(e) => {
 						const clickedOnEmpty =
-							e.target === e.target.getStage() || e.target.name() === "background";
+							e.target === e.target.getStage() ||
+							e.target.name() === "background";
 
 						if (clickedOnEmpty) {
 							setSelectedId(null);
@@ -1535,9 +1536,9 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 						{images
 							.filter((img) => isLayerVisible(img.layerId))
 							.map((image) => (
-								<ImageNode 
-									key={image.id} 
-									image={image} 
+								<ImageNode
+									key={image.id}
+									image={image}
 									onClick={handleObjectClick}
 								/>
 							))}
@@ -1736,7 +1737,7 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 													e.cancelBubble = true;
 													return;
 												}
-												
+
 												const textNode = e.target as Konva.Text;
 												const stage = textNode.getStage();
 												if (!stage) return;
@@ -1874,7 +1875,16 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 								}
 								return newBox;
 							}}
-							enabledAnchors={['middle-left', 'middle-right', 'top-center', 'bottom-center', 'top-left', 'top-right', 'bottom-left', 'bottom-right']}
+							enabledAnchors={[
+								"middle-left",
+								"middle-right",
+								"top-center",
+								"bottom-center",
+								"top-left",
+								"top-right",
+								"bottom-left",
+								"bottom-right",
+							]}
 							rotateEnabled={true}
 							borderEnabled={true}
 							anchorStroke="#0077ff"
