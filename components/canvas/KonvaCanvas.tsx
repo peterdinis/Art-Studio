@@ -322,24 +322,27 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 	);
 
 	// Funkcia na obnovenie stavu z histórie
-	const restoreCanvasState = useCallback((stateString: string) => {
-		try {
-			const state: CanvasState = JSON.parse(stateString);
-			
-			// Obnov všetky stavy
-			if (state.lines) setLines(state.lines);
-			if (state.shapes) setShapes(state.shapes);
-			if (state.images) setImages(state.images);
-			if (state.gradients) setGradients(state.gradients);
-			if (state.healingData) setHealingData(state.healingData);
-			if (state.blurData) setBlurData(state.blurData);
-			
-			console.log("Canvas state restored from history");
-		} catch (error) {
-			console.error("Failed to restore canvas state:", error);
-			toast.error("Failed to restore history state");
-		}
-	}, [setGradients]);
+	const restoreCanvasState = useCallback(
+		(stateString: string) => {
+			try {
+				const state: CanvasState = JSON.parse(stateString);
+
+				// Obnov všetky stavy
+				if (state.lines) setLines(state.lines);
+				if (state.shapes) setShapes(state.shapes);
+				if (state.images) setImages(state.images);
+				if (state.gradients) setGradients(state.gradients);
+				if (state.healingData) setHealingData(state.healingData);
+				if (state.blurData) setBlurData(state.blurData);
+
+				console.log("Canvas state restored from history");
+			} catch (error) {
+				console.error("Failed to restore canvas state:", error);
+				toast.error("Failed to restore history state");
+			}
+		},
+		[setGradients],
+	);
 
 	useEffect(() => {
 		const handleRestoreHistory = (e: CustomEvent) => {
@@ -352,7 +355,7 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			"artstudio:restore-history",
 			handleRestoreHistory as EventListener,
 		);
-		
+
 		return () => {
 			window.removeEventListener(
 				"artstudio:restore-history",

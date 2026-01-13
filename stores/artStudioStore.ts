@@ -526,7 +526,7 @@ export const useArtStudioStore = create<ArtStudioState>((set, get) => ({
 		if (historyIndex > 0) {
 			const newIndex = historyIndex - 1;
 			set({ historyIndex: newIndex });
-			
+
 			// Trigger history restore event
 			const entry = history[newIndex];
 			if (entry?.canvasData) {
@@ -536,7 +536,7 @@ export const useArtStudioStore = create<ArtStudioState>((set, get) => ({
 					}),
 				);
 			}
-			
+
 			return history[newIndex];
 		}
 		return null;
@@ -546,7 +546,7 @@ export const useArtStudioStore = create<ArtStudioState>((set, get) => ({
 		if (historyIndex < history.length - 1) {
 			const newIndex = historyIndex + 1;
 			set({ historyIndex: newIndex });
-			
+
 			// Trigger history restore event
 			const entry = history[newIndex];
 			if (entry?.canvasData) {
@@ -556,7 +556,7 @@ export const useArtStudioStore = create<ArtStudioState>((set, get) => ({
 					}),
 				);
 			}
-			
+
 			return history[newIndex];
 		}
 		return null;
@@ -567,7 +567,7 @@ export const useArtStudioStore = create<ArtStudioState>((set, get) => ({
 		const { history, historyIndex } = get();
 		if (index >= 0 && index < history.length && index !== historyIndex) {
 			set({ historyIndex: index });
-			
+
 			// Trigger history restore event
 			const entry = history[index];
 			if (entry?.canvasData) {
