@@ -403,9 +403,6 @@ export function useErrorHandler() {
 		const errorObj = err instanceof Error ? err : new Error(String(err));
 		setError(errorObj);
 
-		// Log to error reporting service
-		console.error("Error caught:", errorObj);
-
 		return errorObj;
 	};
 

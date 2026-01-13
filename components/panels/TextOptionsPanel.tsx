@@ -68,7 +68,6 @@ export const TextOptionsPanel: React.FC = () => {
 					setBrushSettings({ fontFamily: fontName });
 					toast.success(`Font "${fontName}" loaded successfully`);
 				} catch (error) {
-					console.error("Failed to load font:", error);
 					toast.error("Failed to load font");
 				}
 			}
