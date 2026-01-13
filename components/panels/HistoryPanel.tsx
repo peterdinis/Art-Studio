@@ -25,7 +25,6 @@ export const HistoryPanel: React.FC = () => {
 	const handleClearHistory = () => {
 		if (history.length === 0) return;
 
-		// Ukáž potvrdenie pred vymazaním
 		if (
 			window.confirm(
 				"Are you sure you want to clear all history? This cannot be undone.",
@@ -38,7 +37,6 @@ export const HistoryPanel: React.FC = () => {
 
 	return (
 		<div className="panel-glass p-4 w-full flex flex-col animate-fade-in">
-			{/* Header */}
 			<div className="flex items-center justify-between mb-3">
 				<div className="flex items-center gap-2">
 					<History className="w-4 h-4 text-muted-foreground" />
@@ -61,7 +59,6 @@ export const HistoryPanel: React.FC = () => {
 				</Tooltip>
 			</div>
 
-			{/* History List */}
 			<ScrollArea className="flex-1 max-h-100">
 				<div className="space-y-2 pr-2">
 					{history.length === 0 ? (
@@ -83,7 +80,6 @@ export const HistoryPanel: React.FC = () => {
 										: "border-border hover:border-primary/50 bg-card"
 								}`}
 							>
-								{/* Thumbnail */}
 								<div className="aspect-video w-full bg-muted relative overflow-hidden">
 									{entry.thumbnail ? (
 										<img
@@ -97,7 +93,6 @@ export const HistoryPanel: React.FC = () => {
 										</div>
 									)}
 
-									{/* Hover overlay */}
 									{index !== historyIndex && (
 										<div className="absolute inset-0 bg-background/80 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
 											<div className="flex items-center gap-1 text-xs text-foreground">
@@ -107,7 +102,6 @@ export const HistoryPanel: React.FC = () => {
 										</div>
 									)}
 
-									{/* Current indicator */}
 									{index === historyIndex && (
 										<div className="absolute top-1 right-1 px-1.5 py-0.5 bg-primary text-primary-foreground text-[10px] font-medium rounded">
 											Current
@@ -115,7 +109,6 @@ export const HistoryPanel: React.FC = () => {
 									)}
 								</div>
 
-								{/* Info */}
 								<div className="p-2">
 									<div className="flex items-center justify-between">
 										<span className="text-xs font-medium text-foreground">
@@ -139,7 +132,6 @@ export const HistoryPanel: React.FC = () => {
 				</div>
 			</ScrollArea>
 
-			{/* Footer info */}
 			{history.length > 0 && (
 				<div className="pt-3 mt-3 border-t border-border">
 					<p className="text-xs text-muted-foreground text-center">
