@@ -79,7 +79,6 @@ interface FloodFillPoint {
 	y: number;
 }
 
-// Healing brush data structure
 interface HealingData {
 	sourceX: number;
 	sourceY: number;
@@ -87,11 +86,19 @@ interface HealingData {
 	brushSize: number;
 }
 
-// Blur tool data structure
 interface BlurData {
 	isActive: boolean;
 	brushSize: number;
 	intensity: number;
+}
+
+interface CanvasState {
+	lines: DrawingLine[];
+	shapes: ShapeObject[];
+	images: ImageObject[];
+	gradients: GradientObject[];
+	healingData: HealingData;
+	blurData: BlurData;
 }
 
 export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
@@ -116,18 +123,14 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 	);
 	const gradientStartPoint = useRef<{ x: number; y: number } | null>(null);
 
-	// Shape drawing state
 	const [currentShape, setCurrentShape] = useState<ShapeObject | null>(null);
 	const shapeStartPoint = useRef<{ x: number; y: number } | null>(null);
 
-	// Panning state
 	const isPanning = useRef(false);
 	const lastPanPos = useRef({ x: 0, y: 0 });
 
-	// Clone tool state
 	const cloneSourcePoint = useRef<{ x: number; y: number } | null>(null);
 
-	// Healing brush state
 	const [healingData, setHealingData] = useState<HealingData>({
 		sourceX: 0,
 		sourceY: 0,
@@ -138,7 +141,6 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 	const healingCanvas = useRef<HTMLCanvasElement | null>(null);
 	const healingContext = useRef<CanvasRenderingContext2D | null>(null);
 
-	// Blur tool state
 	const [blurData, setBlurData] = useState<BlurData>({
 		isActive: false,
 		brushSize: 20,
@@ -148,12 +150,10 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 	const blurCanvas = useRef<HTMLCanvasElement | null>(null);
 	const blurContext = useRef<CanvasRenderingContext2D | null>(null);
 
-	// Flood fill state
 	const floodFillImageData = useRef<ImageData | null>(null);
 	const floodFillCanvas = useRef<HTMLCanvasElement | null>(null);
 	const floodFillContext = useRef<CanvasRenderingContext2D | null>(null);
 
-	// Eyedropper state
 	const eyedropperCanvas = useRef<HTMLCanvasElement | null>(null);
 	const eyedropperContext = useRef<CanvasRenderingContext2D | null>(null);
 
@@ -176,6 +176,7 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		gradients,
 		addGradient,
 		updateGradient,
+		setGradients,
 		healingSource,
 		setHealingSource,
 	} = useArtStudioStore();
@@ -184,7 +185,6 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 	const actualHeight = canvasSize?.height || height;
 	const actualBackground = canvasSize?.backgroundColor || backgroundColor;
 
-	// Expose stage to window for menu bar access
 	useEffect(() => {
 		if (stageRef.current) {
 			(window as any).konvaStage = stageRef.current;
@@ -194,7 +194,6 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		};
 	}, []);
 
-	// Initialize flood fill canvas
 	useEffect(() => {
 		const canvas = document.createElement("canvas");
 		canvas.width = actualWidth;
@@ -206,7 +205,6 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		}
 	}, [actualWidth, actualHeight]);
 
-	// Initialize eyedropper canvas
 	useEffect(() => {
 		const canvas = document.createElement("canvas");
 		canvas.width = actualWidth;
@@ -218,7 +216,6 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		}
 	}, [actualWidth, actualHeight]);
 
-	// Initialize healing canvas
 	useEffect(() => {
 		const canvas = document.createElement("canvas");
 		canvas.width = actualWidth;
@@ -230,7 +227,6 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		}
 	}, [actualWidth, actualHeight]);
 
-	// Initialize blur canvas
 	useEffect(() => {
 		const canvas = document.createElement("canvas");
 		canvas.width = actualWidth;
@@ -242,7 +238,6 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		}
 	}, [actualWidth, actualHeight]);
 
-	// Update canvas data for eyedropper
 	const updateEyedropperData = useCallback(() => {
 		if (!stageRef.current || !eyedropperContext.current) return;
 
@@ -251,15 +246,12 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		const ctx = eyedropperContext.current;
 		ctx.clearRect(0, 0, actualWidth, actualHeight);
 
-		// Fill with background first
 		ctx.fillStyle = actualBackground;
 		ctx.fillRect(0, 0, actualWidth, actualHeight);
 
-		// Draw the stage
 		ctx.drawImage(tempCanvas, 0, 0, actualWidth, actualHeight);
 	}, [actualWidth, actualHeight, actualBackground]);
 
-	// Update flood fill image data when canvas changes
 	const updateFloodFillData = useCallback(() => {
 		if (!stageRef.current || !floodFillContext.current) return;
 
@@ -268,14 +260,11 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		const ctx = floodFillContext.current;
 		ctx.clearRect(0, 0, actualWidth, actualHeight);
 
-		// Fill with background first
 		ctx.fillStyle = actualBackground;
 		ctx.fillRect(0, 0, actualWidth, actualHeight);
 
-		// Draw the stage
 		ctx.drawImage(tempCanvas, 0, 0, actualWidth, actualHeight);
 
-		// Get image data for flood fill
 		floodFillImageData.current = ctx.getImageData(
 			0,
 			0,
@@ -284,7 +273,6 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		);
 	}, [actualWidth, actualHeight, actualBackground]);
 
-	// Update healing canvas data
 	const updateHealingData = useCallback(() => {
 		if (!stageRef.current || !healingContext.current) return;
 
@@ -292,15 +280,12 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		const tempCanvas = stage.toCanvas();
 		const ctx = healingContext.current;
 
-		// Fill with background first
 		ctx.fillStyle = actualBackground;
 		ctx.fillRect(0, 0, actualWidth, actualHeight);
 
-		// Draw the stage
 		ctx.drawImage(tempCanvas, 0, 0, actualWidth, actualHeight);
 	}, [actualWidth, actualHeight, actualBackground]);
 
-	// Update blur canvas data
 	const updateBlurData = useCallback(() => {
 		if (!stageRef.current || !blurContext.current) return;
 
@@ -308,29 +293,27 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		const tempCanvas = stage.toCanvas();
 		const ctx = blurContext.current;
 
-		// Fill with background first
 		ctx.fillStyle = actualBackground;
 		ctx.fillRect(0, 0, actualWidth, actualHeight);
 
-		// Draw the stage
 		ctx.drawImage(tempCanvas, 0, 0, actualWidth, actualHeight);
 	}, [actualWidth, actualHeight, actualBackground]);
 
-	// Save canvas state
 	const saveCanvasState = useCallback(
 		(action: string) => {
 			if (!stageRef.current) return;
 			try {
-				const state = JSON.stringify({
+				const canvasState: CanvasState = {
 					lines,
 					shapes,
 					images: images.map((img) => ({ ...img })),
 					gradients,
 					healingData,
 					blurData,
-				});
+				};
+				const stateString = JSON.stringify(canvasState);
 				const dataURL = stageRef.current.toDataURL({ pixelRatio: 0.2 });
-				addToHistory(state, dataURL, action);
+				addToHistory(stateString, dataURL, action);
 			} catch (err) {
 				console.error("Failed to save canvas state:", err);
 			}
@@ -338,7 +321,49 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		[lines, shapes, images, gradients, healingData, blurData, addToHistory],
 	);
 
-	// Handle transformer updates
+	// Funkcia na obnovenie stavu z histórie
+	const restoreCanvasState = useCallback(
+		(stateString: string) => {
+			try {
+				const state: CanvasState = JSON.parse(stateString);
+
+				// Obnov všetky stavy
+				if (state.lines) setLines(state.lines);
+				if (state.shapes) setShapes(state.shapes);
+				if (state.images) setImages(state.images);
+				if (state.gradients) setGradients(state.gradients);
+				if (state.healingData) setHealingData(state.healingData);
+				if (state.blurData) setBlurData(state.blurData);
+
+				console.log("Canvas state restored from history");
+			} catch (error) {
+				console.error("Failed to restore canvas state:", error);
+				toast.error("Failed to restore history state");
+			}
+		},
+		[setGradients],
+	);
+
+	useEffect(() => {
+		const handleRestoreHistory = (e: CustomEvent) => {
+			if (e.detail?.canvasData) {
+				restoreCanvasState(e.detail.canvasData);
+			}
+		};
+
+		window.addEventListener(
+			"artstudio:restore-history",
+			handleRestoreHistory as EventListener,
+		);
+
+		return () => {
+			window.removeEventListener(
+				"artstudio:restore-history",
+				handleRestoreHistory as EventListener,
+			);
+		};
+	}, [restoreCanvasState]);
+
 	useEffect(() => {
 		if (!transformerRef.current || !stageRef.current) return;
 
@@ -353,7 +378,6 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		}
 	}, [selectedId]);
 
-	// Handle stage click for selection
 	const handleStageClick = (e: Konva.KonvaEventObject<MouseEvent>) => {
 		const clickedOnEmpty =
 			e.target === e.target.getStage() || e.target.name() === "background";
@@ -363,9 +387,7 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		}
 	};
 
-	// Funkce pro konverzi různých formátů barev na RGB
 	const parseColorToRgb = (color: string) => {
-		// Pokud je to HEX (#ffffff nebo #fff)
 		if (color.startsWith("#")) {
 			const hex = color.replace("#", "");
 			let r = 0,
@@ -384,7 +406,6 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			return { r, g, b };
 		}
 
-		// Pokud je to rgb(r, g, b)
 		if (color.startsWith("rgb")) {
 			const match = color.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
 			if (match) {
@@ -396,7 +417,6 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			}
 		}
 
-		// Pokud je to rgba(r, g, b, a)
 		if (color.startsWith("rgba")) {
 			const match = color.match(/rgba\((\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\)/);
 			if (match) {
@@ -408,11 +428,9 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			}
 		}
 
-		// Fallback - černá barva
 		return { r: 0, g: 0, b: 0 };
 	};
 
-	// Funkce pro získání barvy z pixelu na canvasu
 	const getColorFromCanvas = useCallback(
 		(x: number, y: number) => {
 			if (!eyedropperContext.current) return null;
@@ -426,11 +444,9 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			).data;
 
 			if (pixelData[3] === 0) {
-				// Pokud je pixel transparentní, vrátíme background barvu
 				return actualBackground;
 			}
 
-			// Konvertuj RGB na HEX
 			const r = pixelData[0].toString(16).padStart(2, "0");
 			const g = pixelData[1].toString(16).padStart(2, "0");
 			const b = pixelData[2].toString(16).padStart(2, "0");
@@ -439,20 +455,16 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		[actualBackground],
 	);
 
-	// Eyedropper funkce
 	const handleEyedropper = useCallback(
 		(x: number, y: number, isCtrlPressed: boolean = false) => {
-			// Aktualizuj data pro eyedropper
 			updateEyedropperData();
 
 			const color = getColorFromCanvas(x, y);
 			if (color) {
 				if (isCtrlPressed || activeTool === "eyedropper") {
-					// Ctrl+click nebo kliknutí při aktivním eyedropper toolu nastaví secondary color
 					setSecondaryColor(color);
 					toast.success(`Secondary color set to ${color}`);
 				} else {
-					// Normální kliknutí při aktivním eyedropper toolu nastaví primary color
 					setPrimaryColor(color);
 					toast.success(`Primary color set to ${color}`);
 				}
@@ -469,13 +481,12 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		],
 	);
 
-	// Flood fill function (queue-based algorithm)
 	const floodFill = useCallback(
 		(
 			startX: number,
 			startY: number,
-			targetColor: string, // rgb(r, g, b) formát
-			replacementColor: string, // HEX formát
+			targetColor: string,
+			replacementColor: string,
 			tolerance: number = brushSettings.tolerance,
 		) => {
 			if (!floodFillImageData.current || !floodFillContext.current) {
@@ -487,24 +498,19 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			const width = imageData.width;
 			const height = imageData.height;
 
-			// Konvertuj barvy na RGB
 			const targetRgb = parseColorToRgb(targetColor);
 			const replacementRgb = parseColorToRgb(replacementColor);
 
-			// Clamp coordinates
 			const x = Math.floor(Math.max(0, Math.min(width - 1, startX)));
 			const y = Math.floor(Math.max(0, Math.min(height - 1, startY)));
 
-			// Get starting pixel index
 			const startIndex = (y * width + x) * 4;
 
-			// Get starting color z imageData
 			const startR = imageData.data[startIndex];
 			const startG = imageData.data[startIndex + 1];
 			const startB = imageData.data[startIndex + 2];
 			const startA = imageData.data[startIndex + 3];
 
-			// Check if we're trying to fill with the same color
 			const colorDistance = Math.sqrt(
 				Math.pow(startR - replacementRgb.r, 2) +
 					Math.pow(startG - replacementRgb.g, 2) +
@@ -516,15 +522,12 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				return false;
 			}
 
-			// Create visited array
 			const visited = new Uint8Array(width * height);
 
-			// Initialize queue
 			const queue: FloodFillPoint[] = [];
 			queue.push({ x, y });
 			visited[y * width + x] = 1;
 
-			// Process queue
 			const processedPixels: FloodFillPoint[] = [];
 
 			while (queue.length > 0) {
@@ -532,39 +535,33 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				const px = point.x;
 				const py = point.y;
 
-				// Add to processed pixels
 				processedPixels.push({ x: px, y: py });
 
-				// Check 4 directions
 				const directions = [
-					{ dx: 1, dy: 0 }, // right
-					{ dx: -1, dy: 0 }, // left
-					{ dx: 0, dy: 1 }, // down
-					{ dx: 0, dy: -1 }, // up
+					{ dx: 1, dy: 0 },
+					{ dx: -1, dy: 0 },
+					{ dx: 0, dy: 1 },
+					{ dx: 0, dy: -1 },
 				];
 
 				for (const dir of directions) {
 					const nx = px + dir.dx;
 					const ny = py + dir.dy;
 
-					// Check bounds
 					if (nx < 0 || nx >= width || ny < 0 || ny >= height) {
 						continue;
 					}
 
-					// Check if visited
 					if (visited[ny * width + nx]) {
 						continue;
 					}
 
-					// Get pixel color
 					const index = (ny * width + nx) * 4;
 					const r = imageData.data[index];
 					const g = imageData.data[index + 1];
 					const b = imageData.data[index + 2];
 					const a = imageData.data[index + 3];
 
-					// Check if pixel matches target color within tolerance
 					const pixelColorDistance = Math.sqrt(
 						Math.pow(r - startR, 2) +
 							Math.pow(g - startG, 2) +
@@ -580,29 +577,22 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 
 			console.log(`Filled ${processedPixels.length} pixels`);
 
-			// If no pixels to fill, return
 			if (processedPixels.length === 0) {
 				return false;
 			}
 
-			// Apply fill to image data
 			for (const pixel of processedPixels) {
 				const index = (pixel.y * width + pixel.x) * 4;
 				imageData.data[index] = replacementRgb.r;
 				imageData.data[index + 1] = replacementRgb.g;
 				imageData.data[index + 2] = replacementRgb.b;
-				// Keep alpha as is
 			}
 
-			// Update canvas
 			if (floodFillContext.current) {
 				floodFillContext.current.putImageData(imageData, 0, 0);
 
-				// Create a new Konva image from the filled area
 				const tempCanvas = floodFillCanvas.current;
 				if (tempCanvas) {
-					// Vytvoř nový tvar pro vyplněnou oblast
-					// Calculate bounds of filled area
 					let minX = width,
 						maxX = 0,
 						minY = height,
@@ -614,7 +604,6 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 						if (pixel.y > maxY) maxY = pixel.y;
 					}
 
-					// Přidej rectangle pro vyplněnou oblast
 					const fillShape: ShapeObject = {
 						id: `fill-${Date.now()}`,
 						type: "rect",
@@ -637,7 +626,6 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		[brushSettings.tolerance, activeLayerId, saveCanvasState],
 	);
 
-	// Healing brush function
 	const applyHealingBrush = useCallback(
 		(targetX: number, targetY: number) => {
 			if (!healingContext.current || !healingData.isActive) {
@@ -648,11 +636,9 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			const brushSize = brushSettings.size;
 			const halfSize = Math.floor(brushSize / 2);
 
-			// Get source area coordinates
 			const sourceX = healingData.sourceX;
 			const sourceY = healingData.sourceY;
 
-			// Get source area image data
 			const sourceImageData = healingContext.current.getImageData(
 				Math.max(0, sourceX - halfSize),
 				Math.max(0, sourceY - halfSize),
@@ -660,7 +646,6 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				brushSize,
 			);
 
-			// Get target area image data
 			const targetImageData = healingContext.current.getImageData(
 				Math.max(0, targetX - halfSize),
 				Math.max(0, targetY - halfSize),
@@ -668,25 +653,21 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				brushSize,
 			);
 
-			// Simple healing algorithm - blend source into target
 			for (let i = 0; i < targetImageData.data.length; i += 4) {
 				const sourceIdx = i;
 
-				// Get source pixel values
 				const sr = sourceImageData.data[sourceIdx];
 				const sg = sourceImageData.data[sourceIdx + 1];
 				const sb = sourceImageData.data[sourceIdx + 2];
 				const sa = sourceImageData.data[sourceIdx + 3];
 
-				// Get target pixel values
 				const tr = targetImageData.data[i];
 				const tg = targetImageData.data[i + 1];
 				const tb = targetImageData.data[i + 2];
 				const ta = targetImageData.data[i + 3];
 
-				// Simple blending - average of source and target
 				if (sa > 0 && ta > 0) {
-					const blendFactor = 0.7; // How much to use from source
+					const blendFactor = 0.7;
 
 					targetImageData.data[i] = Math.round(
 						tr * (1 - blendFactor) + sr * blendFactor,
@@ -697,9 +678,7 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 					targetImageData.data[i + 2] = Math.round(
 						tb * (1 - blendFactor) + sb * blendFactor,
 					);
-					// Alpha remains from target
 				} else if (sa > 0) {
-					// If target is transparent, use source
 					targetImageData.data[i] = sr;
 					targetImageData.data[i + 1] = sg;
 					targetImageData.data[i + 2] = sb;
@@ -707,14 +686,12 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				}
 			}
 
-			// Apply the healed pixels back to canvas
 			healingContext.current.putImageData(
 				targetImageData,
 				Math.max(0, targetX - halfSize),
 				Math.max(0, targetY - halfSize),
 			);
 
-			// Create a shape for the healed area
 			const healedShape: ShapeObject = {
 				id: `healed-${Date.now()}`,
 				type: "rect",
@@ -722,7 +699,7 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				y: Math.max(0, targetY - halfSize),
 				width: brushSize,
 				height: brushSize,
-				fill: `rgba(255, 255, 255, 0.3)`, // Semi-transparent
+				fill: `rgba(255, 255, 255, 0.3)`,
 				stroke: "none",
 				strokeWidth: 0,
 				layerId: activeLayerId || undefined,
@@ -735,7 +712,6 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		[healingData, brushSettings.size, activeLayerId, saveCanvasState],
 	);
 
-	// Blur tool function (Gaussian blur)
 	const applyBlurBrush = useCallback(
 		(targetX: number, targetY: number) => {
 			if (!blurContext.current) {
@@ -747,7 +723,6 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			const intensity = brushSettings.blurIntensity;
 			const halfSize = Math.floor(brushSize / 2);
 
-			// Get target area image data
 			const targetImageData = blurContext.current.getImageData(
 				Math.max(0, targetX - halfSize),
 				Math.max(0, targetY - halfSize),
@@ -755,19 +730,15 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				brushSize,
 			);
 
-			// Create a copy for blurred result
 			const blurredData = new ImageData(
 				new Uint8ClampedArray(targetImageData.data),
 				targetImageData.width,
 				targetImageData.height,
 			);
 
-			// Simple box blur algorithm
 			const radius = Math.floor(intensity / 2);
 			const diameter = radius * 2 + 1;
-			const weight = 1.0 / (diameter * diameter);
 
-			// Apply blur in two passes (horizontal and vertical)
 			for (let pass = 0; pass < 2; pass++) {
 				for (let y = 0; y < brushSize; y++) {
 					for (let x = 0; x < brushSize; x++) {
@@ -777,7 +748,6 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 							a = 0;
 						let count = 0;
 
-						// Apply box blur kernel
 						for (let ky = -radius; ky <= radius; ky++) {
 							const ny = y + ky;
 							if (ny < 0 || ny >= brushSize) continue;
@@ -789,13 +759,11 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 								const idx = (ny * brushSize + nx) * 4;
 
 								if (pass === 0) {
-									// First pass - use original data
 									r += targetImageData.data[idx];
 									g += targetImageData.data[idx + 1];
 									b += targetImageData.data[idx + 2];
 									a += targetImageData.data[idx + 3];
 								} else {
-									// Second pass - use blurred data from first pass
 									r += blurredData.data[idx];
 									g += blurredData.data[idx + 1];
 									b += blurredData.data[idx + 2];
@@ -817,14 +785,12 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				}
 			}
 
-			// Apply the blurred pixels back to canvas
 			blurContext.current.putImageData(
 				blurredData,
 				Math.max(0, targetX - halfSize),
 				Math.max(0, targetY - halfSize),
 			);
 
-			// Create a shape for the blurred area
 			const blurredShape: ShapeObject = {
 				id: `blurred-${Date.now()}`,
 				type: "rect",
@@ -832,7 +798,7 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				y: Math.max(0, targetY - halfSize),
 				width: brushSize,
 				height: brushSize,
-				fill: `rgba(128, 128, 128, 0.1)`, // Very transparent gray for visual feedback
+				fill: `rgba(128, 128, 128, 0.1)`,
 				stroke: "none",
 				strokeWidth: 0,
 				layerId: activeLayerId || undefined,
@@ -850,7 +816,6 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		],
 	);
 
-	// Handle mouse down
 	const handleMouseDown = (e: Konva.KonvaEventObject<MouseEvent>) => {
 		const stage = stageRef.current;
 		if (!stage) return;
@@ -858,7 +823,6 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		const pos = stage.getPointerPosition();
 		if (!pos) return;
 
-		// Transform pointer based on zoom
 		const transformedPos = {
 			x: pos.x / (zoom / 100) - panOffset.x,
 			y: pos.y / (zoom / 100) - panOffset.y,
@@ -868,25 +832,20 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		const selectionTools = ["select", "move"];
 		const shapeTools = ["rectangle", "ellipse", "line"];
 
-		// Eyedropper tool - priorita
 		if (activeTool === "eyedropper" || e.evt.ctrlKey) {
 			const isCtrlPressed = e.evt.ctrlKey || e.evt.metaKey;
 			handleEyedropper(transformedPos.x, transformedPos.y, isCtrlPressed);
 
-			// Pokud je aktivní eyedropper tool, nechceme dělat nic jiného
 			if (activeTool === "eyedropper") return;
 		}
 
-		// Drawing tools
 		if (drawingTools.includes(activeTool)) {
 			setIsDrawing(true);
 
 			if (activeTool === "healing") {
-				// Healing brush logic
 				updateHealingData();
 
 				if (e.evt.altKey) {
-					// Set healing source
 					setHealingData((prev) => ({
 						...prev,
 						sourceX: transformedPos.x,
@@ -898,7 +857,6 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 					toast.success("Healing source set (click to heal)");
 					return;
 				} else {
-					// Apply healing
 					if (!healingData.isActive) {
 						toast.error("Alt+click to set healing source first");
 						return;
@@ -909,15 +867,12 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			}
 
 			if (activeTool === "blur") {
-				// Blur tool logic
 				updateBlurData();
 
-				// Apply blur
 				applyBlurBrush(transformedPos.x, transformedPos.y);
 				return;
 			}
 
-			// Regular drawing tools
 			const newLine: DrawingLine = {
 				id: `line-${Date.now()}`,
 				points: [transformedPos.x, transformedPos.y],
@@ -930,12 +885,10 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			return;
 		}
 
-		// Selection tools - handled by Konva's built-in selection
 		if (selectionTools.includes(activeTool)) {
 			return;
 		}
 
-		// Shape tools
 		if (shapeTools.includes(activeTool)) {
 			shapeStartPoint.current = transformedPos;
 
@@ -969,7 +922,6 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			return;
 		}
 
-		// Text tool
 		if (activeTool === "text") {
 			const newTextShape: ShapeObject = {
 				id: `text-${Date.now()}`,
@@ -988,14 +940,11 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			return;
 		}
 
-		// Fill tool
 		if (activeTool === "fill") {
 			setIsFilling(true);
 
-			// First, update the flood fill data from current canvas
 			updateFloodFillData();
 
-			// Get color at clicked position
 			if (floodFillContext.current) {
 				try {
 					const pixelData = floodFillContext.current.getImageData(
@@ -1007,7 +956,6 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 
 					const targetColor = `rgb(${pixelData[0]}, ${pixelData[1]}, ${pixelData[2]})`;
 
-					// Perform flood fill
 					const success = floodFill(
 						transformedPos.x,
 						transformedPos.y,
@@ -1029,7 +977,6 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			return;
 		}
 
-		// Gradient tool
 		if (activeTool === "gradient") {
 			setIsDrawingGradient(true);
 			gradientStartPoint.current = transformedPos;
@@ -1052,7 +999,6 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			return;
 		}
 
-		// Zoom tool
 		if (activeTool === "zoom") {
 			if (e.evt.altKey) {
 				setZoom(Math.max(10, zoom - 25));
@@ -1062,14 +1008,12 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			return;
 		}
 
-		// Hand tool
 		if (activeTool === "hand") {
 			isPanning.current = true;
 			lastPanPos.current = { x: e.evt.clientX, y: e.evt.clientY };
 			return;
 		}
 
-		// Clone tool
 		if (activeTool === "clone") {
 			if (e.evt.altKey) {
 				cloneSourcePoint.current = transformedPos;
@@ -1084,7 +1028,6 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		}
 	};
 
-	// Handle mouse move
 	const handleMouseMove = (e: Konva.KonvaEventObject<MouseEvent>) => {
 		const stage = stageRef.current;
 		if (!stage) return;
@@ -1097,7 +1040,6 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			y: pos.y / (zoom / 100) - panOffset.y,
 		};
 
-		// Drawing
 		if (isDrawing && lines.length > 0) {
 			const lastLine = lines[lines.length - 1];
 			const newPoints = [
@@ -1114,7 +1056,6 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			return;
 		}
 
-		// Shape drawing
 		if (currentShape && shapeStartPoint.current) {
 			const startX = shapeStartPoint.current.x;
 			const startY = shapeStartPoint.current.y;
@@ -1150,7 +1091,6 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			return;
 		}
 
-		// Gradient drawing
 		if (isDrawingGradient && currentGradient && gradientStartPoint.current) {
 			setCurrentGradient({
 				...currentGradient,
@@ -1160,7 +1100,6 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			return;
 		}
 
-		// Panning
 		if (isPanning.current && activeTool === "hand") {
 			const deltaX = e.evt.clientX - lastPanPos.current.x;
 			const deltaY = e.evt.clientY - lastPanPos.current.y;
@@ -1174,7 +1113,6 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		}
 	};
 
-	// Handle mouse up
 	const handleMouseUp = () => {
 		if (isDrawing) {
 			setIsDrawing(false);
@@ -1202,7 +1140,6 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 
 		if (isFilling) {
 			setIsFilling(false);
-			// Flood fill already saved in the floodFill function
 		}
 
 		if (isPanning.current) {
@@ -1210,7 +1147,6 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		}
 	};
 
-	// Handle wheel for zoom
 	const handleWheel = useCallback(
 		(e: WheelEvent) => {
 			if (e.ctrlKey || e.metaKey) {
@@ -1235,7 +1171,6 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		return () => container.removeEventListener("wheel", handleWheel);
 	}, [handleWheel]);
 
-	// Funkce pro vymazání všeho na plátně
 	const clearAll = useCallback(() => {
 		setShapes([]);
 		setLines([]);
@@ -1257,7 +1192,6 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		toast.success("Canvas cleared");
 	}, [saveCanvasState, setHealingSource]);
 
-	// Handle keyboard shortcuts and global actions
 	useEffect(() => {
 		const handleKeyDown = (e: KeyboardEvent) => {
 			if (
@@ -1266,19 +1200,16 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			)
 				return;
 
-			// Delete selected
 			if ((e.key === "Delete" || e.key === "Backspace") && selectedId) {
 				deleteSelected();
 			}
 
-			// Reset healing source
 			if (e.key === "Escape" && activeTool === "healing") {
 				setHealingData((prev) => ({ ...prev, isActive: false }));
 				setHealingSource(null);
 				toast.info("Healing source cleared");
 			}
 
-			// Adjust blur intensity with [ and ]
 			if (activeTool === "blur") {
 				if (e.key === "[" && !e.ctrlKey && !e.metaKey) {
 					e.preventDefault();
@@ -1307,40 +1238,13 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			}
 		};
 
-		// Restore history from undo/redo
-		const handleRestoreHistory = (e: CustomEvent) => {
-			if (e.detail?.canvasData) {
-				try {
-					const state = JSON.parse(e.detail.canvasData);
-					if (state.lines) setLines(state.lines);
-					if (state.shapes) setShapes(state.shapes);
-					if (state.images) setImages(state.images);
-					if (state.healingData) setHealingData(state.healingData);
-					if (state.blurData) setBlurData(state.blurData);
-					// Gradients are stored in currentGradient, not a separate array
-					toast.success("History restored");
-				} catch (error) {
-					console.error("Failed to restore history:", error);
-					toast.error("Failed to restore history");
-				}
-			}
-		};
-
 		window.addEventListener("keydown", handleKeyDown);
 		window.addEventListener("artstudio:delete-selection", deleteSelected);
 		window.addEventListener("artstudio:clear-canvas", clearAll);
-		window.addEventListener(
-			"artstudio:restore-history",
-			handleRestoreHistory as EventListener,
-		);
 		return () => {
 			window.removeEventListener("keydown", handleKeyDown);
 			window.removeEventListener("artstudio:delete-selection", deleteSelected);
 			window.removeEventListener("artstudio:clear-canvas", clearAll);
-			window.removeEventListener(
-				"artstudio:restore-history",
-				handleRestoreHistory as EventListener,
-			);
 		};
 	}, [
 		selectedId,
@@ -1354,7 +1258,6 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		brushSettings.blurIntensity,
 	]);
 
-	// Load images when added
 	useEffect(() => {
 		if (loadedImages.length === 0) return;
 
@@ -1395,7 +1298,6 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		activeLayerId,
 	]);
 
-	// Update canvas data when needed
 	useEffect(() => {
 		if (activeTool === "fill") {
 			updateFloodFillData();
@@ -1417,7 +1319,6 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		updateBlurData,
 	]);
 
-	// Get cursor based on active tool
 	const getCursor = () => {
 		switch (activeTool) {
 			case "brush":
@@ -1449,7 +1350,6 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		}
 	};
 
-	// Render loaded images as Konva Images
 	const ImageNode: React.FC<{ image: ImageObject }> = ({ image }) => {
 		const [img, setImg] = useState<HTMLImageElement | null>(null);
 
@@ -1506,7 +1406,6 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		);
 	};
 
-	// Helper to check if a layer is visible
 	const isLayerVisible = useCallback(
 		(layerId?: string) => {
 			if (!layerId) return true;
@@ -1521,7 +1420,6 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			className="flex-1 overflow-hidden bg-canvas relative flex items-center justify-center"
 			style={{ cursor: getCursor() }}
 		>
-			{/* Checkered background pattern */}
 			<div
 				className="absolute inset-0 opacity-20"
 				style={{
@@ -1565,7 +1463,6 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 					onTouchEnd={handleMouseUp}
 				>
 					<Layer ref={layerRef}>
-						{/* Background */}
 						<Rect
 							name="background"
 							x={0}
@@ -1575,7 +1472,6 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 							fill={actualBackground}
 						/>
 
-						{/* Drawing lines */}
 						{lines
 							.filter((line) => isLayerVisible(line.layerId))
 							.map((line) => (
@@ -1594,14 +1490,12 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 								/>
 							))}
 
-						{/* Images */}
 						{images
 							.filter((img) => isLayerVisible(img.layerId))
 							.map((image) => (
 								<ImageNode key={image.id} image={image} />
 							))}
 
-						{/* Gradients */}
 						{gradients
 							.filter((gradient) => isLayerVisible(gradient.layerId))
 							.map((gradient) => {
@@ -1648,7 +1542,6 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 								);
 							})}
 
-						{/* Shapes */}
 						{shapes
 							.filter((shape) => isLayerVisible(shape.layerId))
 							.map((shape) => {
@@ -1748,7 +1641,6 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 											onClick={() => setSelectedId(shape.id)}
 											onTap={() => setSelectedId(shape.id)}
 											onDblClick={(e) => {
-												// Enable text editing
 												const textNode = e.target as Konva.Text;
 												const stage = textNode.getStage();
 												if (!stage) return;
@@ -1810,7 +1702,6 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 								return null;
 							})}
 
-						{/* Current gradient being drawn */}
 						{currentGradient && activeTool === "gradient" && (
 							<Rect
 								x={Math.min(currentGradient.x0, currentGradient.x1)}
@@ -1842,7 +1733,6 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 							/>
 						)}
 
-						{/* Current shape being drawn */}
 						{currentShape && currentShape.type === "rect" && (
 							<Rect
 								x={currentShape.x}
@@ -1876,7 +1766,6 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 							/>
 						)}
 
-						{/* Transformer for selection */}
 						<Transformer
 							ref={transformerRef}
 							boundBoxFunc={(oldBox, newBox) => {
@@ -1890,7 +1779,6 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				</Stage>
 			</div>
 
-			{/* Healing source indicator */}
 			{healingData.isActive && activeTool === "healing" && (
 				<div
 					className="absolute border-2 border-blue-500 pointer-events-none z-10 rounded-full"
@@ -1910,7 +1798,6 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				</div>
 			)}
 
-			{/* Blur tool info */}
 			{activeTool === "blur" && (
 				<div className="absolute bottom-4 left-4 bg-black/70 text-white text-xs px-3 py-2 rounded pointer-events-none z-10">
 					<div>Blur Tool</div>
@@ -1924,7 +1811,6 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				</div>
 			)}
 
-			{/* Hidden canvas for flood fill operations */}
 			<canvas
 				ref={(el) => {
 					if (el) floodFillCanvas.current = el;
@@ -1934,7 +1820,6 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				style={{ display: "none" }}
 			/>
 
-			{/* Hidden canvas for eyedropper operations */}
 			<canvas
 				ref={(el) => {
 					if (el) eyedropperCanvas.current = el;
@@ -1944,7 +1829,6 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				style={{ display: "none" }}
 			/>
 
-			{/* Hidden canvas for healing brush operations */}
 			<canvas
 				ref={(el) => {
 					if (el) healingCanvas.current = el;
@@ -1954,7 +1838,6 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				style={{ display: "none" }}
 			/>
 
-			{/* Hidden canvas for blur tool operations */}
 			<canvas
 				ref={(el) => {
 					if (el) blurCanvas.current = el;
