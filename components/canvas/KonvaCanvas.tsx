@@ -321,13 +321,11 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		[lines, shapes, images, gradients, healingData, blurData, addToHistory],
 	);
 
-	// Funkcia na obnovenie stavu z histórie
 	const restoreCanvasState = useCallback(
 		(stateString: string) => {
 			try {
 				const state: CanvasState = JSON.parse(stateString);
 
-				// Obnov všetky stavy
 				if (state.lines) setLines(state.lines);
 				if (state.shapes) setShapes(state.shapes);
 				if (state.images) setImages(state.images);
@@ -832,14 +830,10 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		const selectionTools = ["select", "move"];
 		const shapeTools = ["rectangle", "ellipse", "line"];
 
-		if (activeTool === "eyedropper" || e.evt.ctrlKey) {
-			const isCtrlPressed = e.evt.ctrlKey || e.evt.metaKey;
-			handleEyedropper(transformedPos.x, transformedPos.y, isCtrlPressed);
-
-			if (activeTool === "eyedropper") return;
-		}
-
+		// DÔLEŽITÉ: Kresliace nástroje majú prioritu
 		if (drawingTools.includes(activeTool)) {
+			// Zabrániť výberu objektu, keď kreslíme
+			e.evt.preventDefault();
 			setIsDrawing(true);
 
 			if (activeTool === "healing") {
@@ -883,6 +877,13 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			};
 			setLines([...lines, newLine]);
 			return;
+		}
+
+		if (activeTool === "eyedropper" || e.evt.ctrlKey) {
+			const isCtrlPressed = e.evt.ctrlKey || e.evt.metaKey;
+			handleEyedropper(transformedPos.x, transformedPos.y, isCtrlPressed);
+
+			if (activeTool === "eyedropper") return;
 		}
 
 		if (selectionTools.includes(activeTool)) {
@@ -1350,7 +1351,10 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		}
 	};
 
-	const ImageNode: React.FC<{ image: ImageObject }> = ({ image }) => {
+	const ImageNode: React.FC<{ image: ImageObject; onClick: (id: string) => void }> = ({ 
+		image, 
+		onClick 
+	}) => {
 		const [img, setImg] = useState<HTMLImageElement | null>(null);
 
 		useEffect(() => {
@@ -1358,6 +1362,8 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			loadedImg.src = image.src;
 			loadedImg.onload = () => setImg(loadedImg);
 		}, [image.src]);
+
+		const drawingTools = ["brush", "pencil", "eraser", "healing", "blur"];
 
 		if (!img) return null;
 
@@ -1370,8 +1376,17 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				width={image.width}
 				height={image.height}
 				draggable={activeTool === "select" || activeTool === "move"}
-				onClick={() => setSelectedId(image.id)}
-				onTap={() => setSelectedId(image.id)}
+				listening={!drawingTools.includes(activeTool)}
+				onClick={() => {
+					if (!drawingTools.includes(activeTool)) {
+						onClick(image.id);
+					}
+				}}
+				onTap={() => {
+					if (!drawingTools.includes(activeTool)) {
+						onClick(image.id);
+					}
+				}}
 				onDragEnd={(e) => {
 					setImages(
 						images.map((i) =>
@@ -1414,6 +1429,15 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		[layers],
 	);
 
+	const handleObjectClick = (id: string) => {
+		const drawingTools = ["brush", "pencil", "eraser", "healing", "blur"];
+		if (!drawingTools.includes(activeTool)) {
+			setSelectedId(id);
+		}
+	};
+
+	const drawingTools = ["brush", "pencil", "eraser", "healing", "blur"];
+
 	return (
 		<div
 			ref={containerRef}
@@ -1450,7 +1474,14 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 					onMouseMove={handleMouseMove}
 					onMouseUp={handleMouseUp}
 					onMouseLeave={handleMouseUp}
-					onClick={handleStageClick}
+					onClick={(e) => {
+						const clickedOnEmpty =
+							e.target === e.target.getStage() || e.target.name() === "background";
+
+						if (clickedOnEmpty) {
+							setSelectedId(null);
+						}
+					}}
 					onTouchStart={(e) => {
 						const touch = e.evt.touches[0];
 						if (touch) {
@@ -1470,6 +1501,11 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 							width={actualWidth}
 							height={actualHeight}
 							fill={actualBackground}
+							onClick={(e) => {
+								if (activeTool !== "select" && activeTool !== "move") {
+									e.cancelBubble = true;
+								}
+							}}
 						/>
 
 						{lines
@@ -1487,13 +1523,23 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 									globalCompositeOperation={
 										line.tool === "eraser" ? "destination-out" : "source-over"
 									}
+									listening={!drawingTools.includes(activeTool)}
+									onClick={() => {
+										if (!drawingTools.includes(activeTool)) {
+											handleObjectClick(line.id);
+										}
+									}}
 								/>
 							))}
 
 						{images
 							.filter((img) => isLayerVisible(img.layerId))
 							.map((image) => (
-								<ImageNode key={image.id} image={image} />
+								<ImageNode 
+									key={image.id} 
+									image={image} 
+									onClick={handleObjectClick}
+								/>
 							))}
 
 						{gradients
@@ -1513,8 +1559,17 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 										width={width}
 										height={height}
 										draggable={activeTool === "select" || activeTool === "move"}
-										onClick={() => setSelectedId(gradient.id)}
-										onTap={() => setSelectedId(gradient.id)}
+										listening={!drawingTools.includes(activeTool)}
+										onClick={() => {
+											if (!drawingTools.includes(activeTool)) {
+												handleObjectClick(gradient.id);
+											}
+										}}
+										onTap={() => {
+											if (!drawingTools.includes(activeTool)) {
+												handleObjectClick(gradient.id);
+											}
+										}}
 										onDragEnd={(e) => {
 											const deltaX = e.target.x() - x;
 											const deltaY = e.target.y() - y;
@@ -1560,8 +1615,17 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 											draggable={
 												activeTool === "select" || activeTool === "move"
 											}
-											onClick={() => setSelectedId(shape.id)}
-											onTap={() => setSelectedId(shape.id)}
+											listening={!drawingTools.includes(activeTool)}
+											onClick={() => {
+												if (!drawingTools.includes(activeTool)) {
+													handleObjectClick(shape.id);
+												}
+											}}
+											onTap={() => {
+												if (!drawingTools.includes(activeTool)) {
+													handleObjectClick(shape.id);
+												}
+											}}
 											onDragEnd={(e) => {
 												setShapes(
 													shapes.map((s) =>
@@ -1591,8 +1655,17 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 											draggable={
 												activeTool === "select" || activeTool === "move"
 											}
-											onClick={() => setSelectedId(shape.id)}
-											onTap={() => setSelectedId(shape.id)}
+											listening={!drawingTools.includes(activeTool)}
+											onClick={() => {
+												if (!drawingTools.includes(activeTool)) {
+													handleObjectClick(shape.id);
+												}
+											}}
+											onTap={() => {
+												if (!drawingTools.includes(activeTool)) {
+													handleObjectClick(shape.id);
+												}
+											}}
 											onDragEnd={(e) => {
 												setShapes(
 													shapes.map((s) =>
@@ -1619,8 +1692,17 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 											draggable={
 												activeTool === "select" || activeTool === "move"
 											}
-											onClick={() => setSelectedId(shape.id)}
-											onTap={() => setSelectedId(shape.id)}
+											listening={!drawingTools.includes(activeTool)}
+											onClick={() => {
+												if (!drawingTools.includes(activeTool)) {
+													handleObjectClick(shape.id);
+												}
+											}}
+											onTap={() => {
+												if (!drawingTools.includes(activeTool)) {
+													handleObjectClick(shape.id);
+												}
+											}}
 										/>
 									);
 								}
@@ -1638,9 +1720,23 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 											draggable={
 												activeTool === "select" || activeTool === "move"
 											}
-											onClick={() => setSelectedId(shape.id)}
-											onTap={() => setSelectedId(shape.id)}
+											listening={!drawingTools.includes(activeTool)}
+											onClick={() => {
+												if (!drawingTools.includes(activeTool)) {
+													handleObjectClick(shape.id);
+												}
+											}}
+											onTap={() => {
+												if (!drawingTools.includes(activeTool)) {
+													handleObjectClick(shape.id);
+												}
+											}}
 											onDblClick={(e) => {
+												if (drawingTools.includes(activeTool)) {
+													e.cancelBubble = true;
+													return;
+												}
+												
 												const textNode = e.target as Konva.Text;
 												const stage = textNode.getStage();
 												if (!stage) return;
@@ -1730,6 +1826,7 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 								stroke="#666"
 								strokeWidth={1}
 								dash={[5, 5]}
+								listening={false}
 							/>
 						)}
 
@@ -1742,6 +1839,7 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 								fill={currentShape.fill}
 								stroke={currentShape.stroke}
 								strokeWidth={currentShape.strokeWidth}
+								listening={false}
 							/>
 						)}
 
@@ -1754,6 +1852,7 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 								fill={currentShape.fill}
 								stroke={currentShape.stroke}
 								strokeWidth={currentShape.strokeWidth}
+								listening={false}
 							/>
 						)}
 
@@ -1763,6 +1862,7 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 								stroke={currentShape.fill}
 								strokeWidth={currentShape.strokeWidth}
 								lineCap="round"
+								listening={false}
 							/>
 						)}
 
@@ -1774,6 +1874,15 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 								}
 								return newBox;
 							}}
+							enabledAnchors={['middle-left', 'middle-right', 'top-center', 'bottom-center', 'top-left', 'top-right', 'bottom-left', 'bottom-right']}
+							rotateEnabled={true}
+							borderEnabled={true}
+							anchorStroke="#0077ff"
+							anchorFill="#ffffff"
+							anchorStrokeWidth={2}
+							anchorSize={8}
+							borderStroke="#0077ff"
+							borderDash={[3, 3]}
 						/>
 					</Layer>
 				</Stage>
