@@ -98,7 +98,7 @@ export const useKeyboardShortcuts = () => {
 	} = useArtStudioStore();
 
 	useEffect(() => {
-		const handleKeyDown = (e: KeyboardEvent) => {
+		const handleKeyDown = async (e: KeyboardEvent) => {
 			// Skip if typing in input/textarea
 			if (
 				e.target instanceof HTMLInputElement ||
@@ -213,16 +213,21 @@ export const useKeyboardShortcuts = () => {
 			if (matchesShortcut(e, "⌘Z")) {
 				if (!e.shiftKey) {
 					e.preventDefault();
-					const entry = undo();
-					if (entry) {
-						window.dispatchEvent(
-							new CustomEvent("artstudio:restore-history", {
-								detail: { canvasData: entry.canvasData },
-							}),
-						);
-						toast.success("Undone");
-					} else {
-						toast.info("Nothing to undo");
+					try {
+						const entry = await undo();
+						if (entry && entry.canvasData) {
+							window.dispatchEvent(
+								new CustomEvent("artstudio:restore-history", {
+									detail: { canvasData: entry.canvasData },
+								}),
+							);
+							toast.success("Undone");
+						} else {
+							toast.info("Nothing to undo");
+						}
+					} catch (error) {
+						console.error('Error during undo:', error);
+						toast.error("Failed to undo");
 					}
 					return;
 				}
@@ -230,16 +235,21 @@ export const useKeyboardShortcuts = () => {
 
 			if (matchesShortcut(e, "⇧⌘Z")) {
 				e.preventDefault();
-				const entry = redo();
-				if (entry) {
-					window.dispatchEvent(
-						new CustomEvent("artstudio:restore-history", {
-							detail: { canvasData: entry.canvasData },
-						}),
-					);
-					toast.success("Redone");
-				} else {
-					toast.info("Nothing to redo");
+				try {
+					const entry = await redo();
+					if (entry && entry.canvasData) {
+						window.dispatchEvent(
+							new CustomEvent("artstudio:restore-history", {
+								detail: { canvasData: entry.canvasData },
+							}),
+						);
+						toast.success("Redone");
+					} else {
+						toast.info("Nothing to redo");
+					}
+				} catch (error) {
+					console.error('Error during redo:', error);
+					toast.error("Failed to redo");
 				}
 				return;
 			}
