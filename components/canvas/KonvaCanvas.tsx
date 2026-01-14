@@ -157,6 +157,11 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 	const eyedropperCanvas = useRef<HTMLCanvasElement | null>(null);
 	const eyedropperContext = useRef<CanvasRenderingContext2D | null>(null);
 
+	// Pridané stavy pre správu session
+	const [isLoadingSession, setIsLoadingSession] = useState(true);
+	const [hasRestoredState, setHasRestoredState] = useState(false);
+	const [lastSessionId, setLastSessionId] = useState<string | null>(null);
+
 	const {
 		activeTool,
 		primaryColor,
@@ -179,11 +184,80 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		setGradients,
 		healingSource,
 		setHealingSource,
+		sessionId,
+		initializeSession,
 	} = useArtStudioStore();
 
 	const actualWidth = canvasSize?.width || width;
 	const actualHeight = canvasSize?.height || height;
 	const actualBackground = canvasSize?.backgroundColor || backgroundColor;
+
+	// Inicializácia session a načítanie stavu
+	useEffect(() => {
+		const loadSessionAndState = async () => {
+			try {
+				console.log('Loading session for canvas...');
+				setIsLoadingSession(true);
+				
+				// Inicializuj session (ak ešte nebola inicializovaná)
+				if (!sessionId) {
+					await initializeSession();
+				}
+				
+				// Skontroluj, či máme session dáta
+				const storeState = useArtStudioStore.getState();
+				console.log('Current session ID:', storeState.sessionId);
+				
+				if (storeState.sessionId) {
+					setLastSessionId(storeState.sessionId);
+					
+					// Počkáme krátko, aby sa store stabilizoval
+					await new Promise(resolve => setTimeout(resolve, 500));
+					
+					// Načítame session dát z IndexedDB priamo
+					const { sessionDB } = await import('@/db/indexedDB');
+					const savedData = await sessionDB.loadSessionData();
+					
+					if (savedData) {
+						console.log('Found saved session data:', savedData);
+						
+						// Ak máme uložené dáta, obnovíme ich
+						if (savedData.lines) setLines(savedData.lines || []);
+						if (savedData.shapes) setShapes(savedData.shapes || []);
+						if (savedData.images) setImages(savedData.images || []);
+						if (savedData.gradients) setGradients(savedData.gradients || []);
+						
+						// Obnovíme healing a blur data
+						if (savedData.healingData) setHealingData(savedData.healingData);
+						if (savedData.blurData) setBlurData(savedData.blurData);
+						
+						console.log('Canvas state restored from session');
+						setHasRestoredState(true);
+						
+						// Upozornime, že canvas je načítaný
+						setTimeout(() => {
+							toast.success('Session restored', {
+								description: 'Your previous work has been loaded'
+							});
+						}, 1000);
+					} else {
+						console.log('No saved session data found');
+						setHasRestoredState(false);
+					}
+				}
+				
+			} catch (error) {
+				console.error('Error loading session:', error);
+				toast.error('Failed to load session', {
+					description: 'Starting with a fresh canvas'
+				});
+			} finally {
+				setIsLoadingSession(false);
+			}
+		};
+
+		loadSessionAndState();
+	}, [sessionId, initializeSession, setGradients]);
 
 	useEffect(() => {
 		if (stageRef.current) {
@@ -307,7 +381,7 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 					lines,
 					shapes,
 					images: images.map((img) => ({ ...img })),
-					gradients,
+					gradients: gradients.map((grad) => ({ ...grad })),
 					healingData,
 					blurData,
 				};
@@ -321,18 +395,22 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		[lines, shapes, images, gradients, healingData, blurData, addToHistory],
 	);
 
+	// Zlepšená funkcia pre obnovu stavu z histórie
 	const restoreCanvasState = useCallback(
 		(stateString: string) => {
 			try {
 				const state: CanvasState = JSON.parse(stateString);
 
-				if (state.lines) setLines(state.lines);
-				if (state.shapes) setShapes(state.shapes);
-				if (state.images) setImages(state.images);
-				if (state.gradients) setGradients(state.gradients);
+				setLines(state.lines || []);
+				setShapes(state.shapes || []);
+				setImages(state.images || []);
+				setGradients(state.gradients || []);
 				if (state.healingData) setHealingData(state.healingData);
 				if (state.blurData) setBlurData(state.blurData);
 
+				// Uložíme, že máme obnovený stav
+				setHasRestoredState(true);
+				
 				console.log("Canvas state restored from history");
 			} catch (error) {
 				console.error("Failed to restore canvas state:", error);
@@ -361,6 +439,20 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			);
 		};
 	}, [restoreCanvasState]);
+
+	// Auto-save effect - ukladanie pri zmene stavu
+	useEffect(() => {
+		if (!hasRestoredState || isLoadingSession) return;
+		
+		const autoSave = setTimeout(() => {
+			if (lines.length > 0 || shapes.length > 0 || images.length > 0) {
+				console.log('Auto-saving canvas state...');
+				saveCanvasState('auto_save');
+			}
+		}, 10000); // Ukladá každých 10 sekúnd po zmene
+		
+		return () => clearTimeout(autoSave);
+	}, [lines, shapes, images, hasRestoredState, isLoadingSession, saveCanvasState]);
 
 	useEffect(() => {
 		if (!transformerRef.current || !stageRef.current) return;
@@ -1320,6 +1412,19 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		updateBlurData,
 	]);
 
+	// Loading indicator
+	if (isLoadingSession) {
+		return (
+			<div className="flex-1 flex items-center justify-center bg-canvas">
+				<div className="text-center">
+					<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+					<p className="text-muted-foreground">Loading your session...</p>
+					<p className="text-xs text-gray-500 mt-2">Restoring your previous work</p>
+				</div>
+			</div>
+		);
+	}
+
 	const getCursor = () => {
 		switch (activeTool) {
 			case "brush":
@@ -1457,6 +1562,14 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 					backgroundPosition: "0 0, 0 10px, 10px -10px, -10px 0px",
 				}}
 			/>
+
+			{/* Session status indicator */}
+			{hasRestoredState && (
+				<div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-green-500/10 text-green-600 text-xs px-3 py-1.5 rounded-full border border-green-500/20 pointer-events-none z-20 flex items-center gap-2">
+					<div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+					<span>Session restored • Auto-save active</span>
+				</div>
+			)}
 
 			<div
 				className="relative shadow-2xl rounded-sm overflow-hidden"
