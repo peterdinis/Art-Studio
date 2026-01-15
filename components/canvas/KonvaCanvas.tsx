@@ -197,60 +197,59 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 	useEffect(() => {
 		const loadSessionAndState = async () => {
 			try {
-				console.log('Loading session for canvas...');
+				console.log("Loading session for canvas...");
 				setIsLoadingSession(true);
-				
+
 				// Inicializuj session (ak ešte nebola inicializovaná)
 				if (!sessionId) {
 					await initializeSession();
 				}
-				
+
 				// Skontroluj, či máme session dáta
 				const storeState = useArtStudioStore.getState();
-				console.log('Current session ID:', storeState.sessionId);
-				
+				console.log("Current session ID:", storeState.sessionId);
+
 				if (storeState.sessionId) {
 					setLastSessionId(storeState.sessionId);
-					
+
 					// Počkáme krátko, aby sa store stabilizoval
-					await new Promise(resolve => setTimeout(resolve, 500));
-					
+					await new Promise((resolve) => setTimeout(resolve, 500));
+
 					// Načítame session dát z IndexedDB priamo
-					const { sessionDB } = await import('@/db/indexedDB');
+					const { sessionDB } = await import("@/db/indexedDB");
 					const savedData = await sessionDB.loadSessionData();
-					
+
 					if (savedData) {
-						console.log('Found saved session data:', savedData);
-						
+						console.log("Found saved session data:", savedData);
+
 						// Ak máme uložené dáta, obnovíme ich
 						if (savedData.lines) setLines(savedData.lines || []);
 						if (savedData.shapes) setShapes(savedData.shapes || []);
 						if (savedData.images) setImages(savedData.images || []);
 						if (savedData.gradients) setGradients(savedData.gradients || []);
-						
+
 						// Obnovíme healing a blur data
 						if (savedData.healingData) setHealingData(savedData.healingData);
 						if (savedData.blurData) setBlurData(savedData.blurData);
-						
-						console.log('Canvas state restored from session');
+
+						console.log("Canvas state restored from session");
 						setHasRestoredState(true);
-						
+
 						// Upozornime, že canvas je načítaný
 						setTimeout(() => {
-							toast.success('Session restored', {
-								description: 'Your previous work has been loaded'
+							toast.success("Session restored", {
+								description: "Your previous work has been loaded",
 							});
 						}, 1000);
 					} else {
-						console.log('No saved session data found');
+						console.log("No saved session data found");
 						setHasRestoredState(false);
 					}
 				}
-				
 			} catch (error) {
-				console.error('Error loading session:', error);
-				toast.error('Failed to load session', {
-					description: 'Starting with a fresh canvas'
+				console.error("Error loading session:", error);
+				toast.error("Failed to load session", {
+					description: "Starting with a fresh canvas",
 				});
 			} finally {
 				setIsLoadingSession(false);
@@ -411,7 +410,7 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 
 				// Uložíme, že máme obnovený stav
 				setHasRestoredState(true);
-				
+
 				console.log("Canvas state restored from history");
 			} catch (error) {
 				console.error("Failed to restore canvas state:", error);
@@ -444,27 +443,34 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 	// Auto-save effect - ukladanie pri zmene stavu
 	useEffect(() => {
 		if (!hasRestoredState || isLoadingSession) return;
-		
+
 		const autoSave = setTimeout(() => {
 			if (lines.length > 0 || shapes.length > 0 || images.length > 0) {
-				console.log('Auto-saving canvas state...');
-				saveCanvasState('auto_save');
+				console.log("Auto-saving canvas state...");
+				saveCanvasState("auto_save");
 			}
 		}, 10000); // Ukladá každých 10 sekúnd po zmene
-		
+
 		return () => clearTimeout(autoSave);
-	}, [lines, shapes, images, hasRestoredState, isLoadingSession, saveCanvasState]);
+	}, [
+		lines,
+		shapes,
+		images,
+		hasRestoredState,
+		isLoadingSession,
+		saveCanvasState,
+	]);
 
 	// Effect pre zobrazenie a skrytie session notifikácie
 	useEffect(() => {
 		if (hasRestoredState) {
 			setShowSessionNotification(true);
-			
+
 			// Skry oznámenie po 3 sekundách
 			const timer = setTimeout(() => {
 				setShowSessionNotification(false);
 			}, 3000);
-			
+
 			return () => clearTimeout(timer);
 		}
 	}, [hasRestoredState]);
@@ -1444,7 +1450,9 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				<div className="text-center">
 					<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
 					<p className="text-muted-foreground">Loading your session...</p>
-					<p className="text-xs text-gray-500 mt-2">Restoring your previous work</p>
+					<p className="text-xs text-gray-500 mt-2">
+						Restoring your previous work
+					</p>
 				</div>
 			</div>
 		);
