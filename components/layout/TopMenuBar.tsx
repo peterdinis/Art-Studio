@@ -327,6 +327,249 @@ export const TopMenuBar: React.FC = () => {
 		}
 	};
 
+	const handleExportPDF = async () => {
+		const canvas = getCanvas();
+		if (!canvas) {
+			toast.error("No canvas to export");
+			return;
+		}
+
+		try {
+			// For PDF, we'll use jsPDF library
+			const { jsPDF } = await import("jspdf");
+			
+			const dataURL = isFabric()
+				? canvas.toDataURL({
+						format: "png",
+						quality: 1,
+						multiplier: 2,
+					})
+				: canvas.toDataURL({ pixelRatio: 2 });
+			
+			const pdf = new jsPDF({
+				orientation: "landscape",
+				unit: "px",
+				format: [canvas.width!, canvas.height!],
+			});
+			
+			pdf.addImage(dataURL, "PNG", 0, 0, canvas.width!, canvas.height!);
+			pdf.save("artwork.pdf");
+			toast.success("Exported as PDF");
+		} catch (error) {
+			console.error("Error exporting PDF:", error);
+			toast.error("Failed to export PDF");
+		}
+	};
+
+	const handleExportWithTransparentBackground = () => {
+		const canvas = getCanvas();
+		if (!canvas) {
+			toast.error("No canvas to export");
+			return;
+		}
+
+		// Store original background
+		const originalBackground = canvas.backgroundColor;
+		
+		// Set transparent background
+		canvas.backgroundColor = "transparent";
+		
+		const dataURL = isFabric()
+			? canvas.toDataURL({
+					format: "png",
+					quality: 1,
+					multiplier: 2,
+				})
+			: canvas.toDataURL({ pixelRatio: 2 });
+		
+		// Restore original background
+		canvas.backgroundColor = originalBackground;
+		canvas.renderAll();
+		
+		const a = document.createElement("a");
+		a.href = dataURL;
+		a.download = "artwork-transparent.png";
+		a.click();
+		toast.success("Exported with transparent background");
+	};
+
+	const handleExportFaviconPackage = () => {
+		const canvas = getCanvas();
+		if (!canvas) {
+			toast.error("No canvas to export");
+			return;
+		}
+
+		// Favicon sizes
+		const sizes = [
+			{ size: 16, name: "favicon-16x16.png" },
+			{ size: 32, name: "favicon-32x32.png" },
+			{ size: 48, name: "favicon-48x48.png" },
+			{ size: 64, name: "favicon-64x64.png" },
+			{ size: 128, name: "favicon-128x128.png" },
+			{ size: 256, name: "favicon-256x256.png" },
+			{ size: 512, name: "favicon-512x512.png" },
+		];
+
+		// Create a zip file with all favicon sizes
+		import("jszip").then((JSZip) => {
+			const zip = new JSZip();
+			const promises = sizes.map(({ size, name }) => {
+				return new Promise<void>((resolve) => {
+					const offscreenCanvas = document.createElement("canvas");
+					offscreenCanvas.width = size;
+					offscreenCanvas.height = size;
+					const ctx = offscreenCanvas.getContext("2d");
+					
+					if (ctx) {
+						// Draw scaled version of the canvas
+						ctx.drawImage(canvas.getElement(), 0, 0, size, size);
+						offscreenCanvas.toBlob((blob) => {
+							if (blob) {
+								zip.file(name, blob);
+							}
+							resolve();
+						}, "image/png");
+					} else {
+						resolve();
+					}
+				});
+			});
+
+			Promise.all(promises).then(() => {
+				zip.generateAsync({ type: "blob" }).then((content) => {
+					const url = URL.createObjectURL(content);
+					const a = document.createElement("a");
+					a.href = url;
+					a.download = "favicon-package.zip";
+					a.click();
+					URL.revokeObjectURL(url);
+					toast.success("Favicon package exported");
+				});
+			});
+		}).catch((error) => {
+			console.error("Error creating favicon package:", error);
+			toast.error("Failed to export favicon package");
+		});
+	};
+
+	const handleExportSocialMedia = (platform: string) => {
+		const canvas = getCanvas();
+		if (!canvas) {
+			toast.error("No canvas to export");
+			return;
+		}
+
+		const dimensions: Record<string, { width: number; height: number }> = {
+			instagram: { width: 1080, height: 1080 },
+			twitter: { width: 1200, height: 675 },
+			facebook: { width: 1200, height: 630 },
+			linkedin: { width: 1200, height: 627 },
+		};
+
+		const dim = dimensions[platform];
+		if (!dim) {
+			toast.error("Invalid platform");
+			return;
+		}
+
+		const offscreenCanvas = document.createElement("canvas");
+		offscreenCanvas.width = dim.width;
+		offscreenCanvas.height = dim.height;
+		const ctx = offscreenCanvas.getContext("2d");
+		
+		if (ctx) {
+			// Fill with white background
+			ctx.fillStyle = "#ffffff";
+			ctx.fillRect(0, 0, dim.width, dim.height);
+			
+			// Draw centered and scaled version of the canvas
+			const canvasElement = canvas.getElement();
+			const scale = Math.min(dim.width / canvas.width!, dim.height / canvas.height!);
+			const scaledWidth = canvas.width! * scale;
+			const scaledHeight = canvas.height! * scale;
+			const x = (dim.width - scaledWidth) / 2;
+			const y = (dim.height - scaledHeight) / 2;
+			
+			ctx.drawImage(canvasElement, x, y, scaledWidth, scaledHeight);
+			
+			const dataURL = offscreenCanvas.toDataURL("image/png", 1);
+			const a = document.createElement("a");
+			a.href = dataURL;
+			a.download = `artwork-${platform}.png`;
+			a.click();
+			toast.success(`Exported for ${platform}`);
+		}
+	};
+
+	const handleExportMultipleSizes = () => {
+		const canvas = getCanvas();
+		if (!canvas) {
+			toast.error("No canvas to export");
+			return;
+		}
+
+		const sizes = [
+			{ width: 1920, height: 1080, name: "HD" },
+			{ width: 1280, height: 720, name: "720p" },
+			{ width: 1024, height: 768, name: "XGA" },
+			{ width: 800, height: 600, name: "SVGA" },
+			{ width: 640, height: 480, name: "VGA" },
+		];
+
+		import("jszip").then((JSZip) => {
+			const zip = new JSZip();
+			const promises = sizes.map(({ width, height, name }) => {
+				return new Promise<void>((resolve) => {
+					const offscreenCanvas = document.createElement("canvas");
+					offscreenCanvas.width = width;
+					offscreenCanvas.height = height;
+					const ctx = offscreenCanvas.getContext("2d");
+					
+					if (ctx) {
+						// Fill with white background
+						ctx.fillStyle = "#ffffff";
+						ctx.fillRect(0, 0, width, height);
+						
+						// Draw centered and scaled version of the canvas
+						const canvasElement = canvas.getElement();
+						const scale = Math.min(width / canvas.width!, height / canvas.height!);
+						const scaledWidth = canvas.width! * scale;
+						const scaledHeight = canvas.height! * scale;
+						const x = (width - scaledWidth) / 2;
+						const y = (height - scaledHeight) / 2;
+						
+						ctx.drawImage(canvasElement, x, y, scaledWidth, scaledHeight);
+						
+						offscreenCanvas.toBlob((blob) => {
+							if (blob) {
+								zip.file(`artwork-${name}-${width}x${height}.png`, blob);
+							}
+							resolve();
+						}, "image/png");
+					} else {
+						resolve();
+					}
+				});
+			});
+
+			Promise.all(promises).then(() => {
+				zip.generateAsync({ type: "blob" }).then((content) => {
+					const url = URL.createObjectURL(content);
+					const a = document.createElement("a");
+					a.href = url;
+					a.download = "artwork-multiple-sizes.zip";
+					a.click();
+					URL.revokeObjectURL(url);
+					toast.success("Multiple sizes exported");
+				});
+			});
+		}).catch((error) => {
+			console.error("Error creating multiple sizes package:", error);
+			toast.error("Failed to export multiple sizes");
+		});
+	};
+
 	const handleShare = () => {
 		const canvas = getCanvas();
 		if (canvas) {
@@ -1301,6 +1544,49 @@ export const TopMenuBar: React.FC = () => {
 				{ label: "JPEG", icon: FileImage, action: () => handleExport("JPEG") },
 				{ label: "WebP", icon: FileImage, action: () => handleExport("WebP") },
 				{ label: "SVG", icon: FileImage, action: () => handleExport("SVG") },
+				{ label: "PDF", icon: FileImage, action: () => handleExportPDF() },
+				{ label: "TIFF", icon: FileImage, action: () => handleExport("TIFF") },
+				{ label: "BMP", icon: FileImage, action: () => handleExport("BMP") },
+				{ label: "GIF", icon: FileImage, action: () => handleExport("GIF") },
+				{ label: "ICO", icon: FileImage, action: () => handleExport("ICO") },
+				{ separator: true, label: "" },
+				{
+					label: "Export with Transparent Background",
+					icon: FileImage,
+					action: () => handleExportWithTransparentBackground(),
+				},
+				{
+					label: "Export as Favicon Package",
+					icon: FileImage,
+					action: () => handleExportFaviconPackage(),
+				},
+				{
+					label: "Export for Social Media",
+					icon: Share2,
+					submenu: [
+						{
+							label: "Instagram (1080x1080)",
+							action: () => handleExportSocialMedia("instagram"),
+						},
+						{
+							label: "Twitter (1200x675)",
+							action: () => handleExportSocialMedia("twitter"),
+						},
+						{
+							label: "Facebook (1200x630)",
+							action: () => handleExportSocialMedia("facebook"),
+						},
+						{
+							label: "LinkedIn (1200x627)",
+							action: () => handleExportSocialMedia("linkedin"),
+						},
+					],
+				},
+				{
+					label: "Export Multiple Sizes",
+					icon: Scale,
+					action: () => handleExportMultipleSizes(),
+				},
 				{ separator: true, label: "" },
 				{
 					label: "Project JSON",
@@ -1314,7 +1600,7 @@ export const TopMenuBar: React.FC = () => {
 	];
 
 	const handleUndo = () => {
-		const entry = undo();
+		const entry = undo() as any;
 		if (entry) {
 			const canvas = getCanvas();
 			if (canvas) {
@@ -1339,7 +1625,7 @@ export const TopMenuBar: React.FC = () => {
 	};
 
 	const handleRedo = () => {
-		const entry = redo();
+		const entry = redo() as any;
 		if (entry) {
 			const canvas = getCanvas();
 			if (canvas) {
@@ -1874,332 +2160,332 @@ export const TopMenuBar: React.FC = () => {
 			checked: showNavigator,
 		},
 		{
-			label: "Info Panel",
-			icon: showInfoPanel ? Check : Info,
-			action: () => {
-				setShowInfoPanel(!showInfoPanel);
-				toast.success(showInfoPanel ? "Info panel hidden" : "Info panel shown");
+				label: "Info Panel",
+				icon: showInfoPanel ? Check : Info,
+				action: () => {
+					setShowInfoPanel(!showInfoPanel);
+					toast.success(showInfoPanel ? "Info panel hidden" : "Info panel shown");
+				},
+				checked: showInfoPanel,
 			},
-			checked: showInfoPanel,
-		},
-		{ separator: true, label: "" },
-		{
-			label: "Reset Workspace",
-			action: () => {
-				resetWorkspace();
-				toast.success("Workspace reset");
+			{ separator: true, label: "" },
+			{
+				label: "Reset Workspace",
+				action: () => {
+					resetWorkspace();
+					toast.success("Workspace reset");
+				},
 			},
-		},
-	];
+		];
 
-	const menus = [
-		{ label: "File", items: fileMenu },
-		{ label: "Edit", items: editMenu },
-		{ label: "View", items: viewMenu },
-		{ label: "Image", items: imageMenu },
-		{ label: "Layer", items: layerMenu },
-		{ label: "Filter", items: filterMenu },
-		{ label: "Window", items: windowMenu },
-	];
+		const menus = [
+			{ label: "File", items: fileMenu },
+			{ label: "Edit", items: editMenu },
+			{ label: "View", items: viewMenu },
+			{ label: "Image", items: imageMenu },
+			{ label: "Layer", items: layerMenu },
+			{ label: "Filter", items: filterMenu },
+			{ label: "Window", items: windowMenu },
+		];
 
-	// Listen for custom events from keyboard shortcuts hook
-	useEffect(() => {
-		const handleNewCanvasEvent = () => setShowTemplates(true);
-		const handleOpenFileEvent = () => handleOpenFile();
-		const handleSaveEvent = () => handleSave();
-		const handleSaveAsEvent = () => handleSaveAs();
-		const handlePrintEvent = () => handlePrint();
-		const handleUndoEvent = () => handleUndo();
-		const handleRedoEvent = () => handleRedo();
-		const handleCutEvent = () => handleCut();
-		const handleCopyEvent = () => handleCopy();
-		const handlePasteEvent = (e: CustomEvent) => {
-			if (e.detail?.offset === false) {
-				handlePasteInPlace();
-			} else {
-				handlePaste();
-			}
-		};
-		const handleDeleteEvent = () => handleDeleteSelection();
-		const handleGlobalDeleteEvent = () => handleGlobalDelete();
-		const handleZoomInEvent = () => handleZoomIn();
-		const handleZoomOutEvent = () => handleZoomOut();
-		const handleFitToScreenEvent = () => handleFitToScreen();
-		const handleActualSizeEvent = () => handleActualSize();
-		const handleToggleGridEvent = () => setShowGrid(!showGrid);
-		const handleToggleRulersEvent = () => setShowRulers(!showRulers);
-		const handleToggleGuidesEvent = () => setShowGuides(!showGuides);
-		const handleMergeLayersEvent = () => handleMergeLayers();
-		const handleMergeVisibleEvent = () => handleMergeLayers();
-		const handleBringForwardEvent = () => handleBringForward();
-		const handleSendBackwardEvent = () => handleSendBackward();
-		const handleBringToFrontEvent = () => handleBringToFront();
-		const handleSendToBackEvent = () => handleSendToBack();
-		const handleShowShortcuts = () => setShowShortcuts(true);
+		// Listen for custom events from keyboard shortcuts hook
+		useEffect(() => {
+			const handleNewCanvasEvent = () => setShowTemplates(true);
+			const handleOpenFileEvent = () => handleOpenFile();
+			const handleSaveEvent = () => handleSave();
+			const handleSaveAsEvent = () => handleSaveAs();
+			const handlePrintEvent = () => handlePrint();
+			const handleUndoEvent = () => handleUndo();
+			const handleRedoEvent = () => handleRedo();
+			const handleCutEvent = () => handleCut();
+			const handleCopyEvent = () => handleCopy();
+			const handlePasteEvent = (e: CustomEvent) => {
+				if (e.detail?.offset === false) {
+					handlePasteInPlace();
+				} else {
+					handlePaste();
+				}
+			};
+			const handleDeleteEvent = () => handleDeleteSelection();
+			const handleGlobalDeleteEvent = () => handleGlobalDelete();
+			const handleZoomInEvent = () => handleZoomIn();
+			const handleZoomOutEvent = () => handleZoomOut();
+			const handleFitToScreenEvent = () => handleFitToScreen();
+			const handleActualSizeEvent = () => handleActualSize();
+			const handleToggleGridEvent = () => setShowGrid(!showGrid);
+			const handleToggleRulersEvent = () => setShowRulers(!showRulers);
+			const handleToggleGuidesEvent = () => setShowGuides(!showGuides);
+			const handleMergeLayersEvent = () => handleMergeLayers();
+			const handleMergeVisibleEvent = () => handleMergeLayers();
+			const handleBringForwardEvent = () => handleBringForward();
+			const handleSendBackwardEvent = () => handleSendBackward();
+			const handleBringToFrontEvent = () => handleBringToFront();
+			const handleSendToBackEvent = () => handleSendToBack();
+			const handleShowShortcuts = () => setShowShortcuts(true);
 
-		window.addEventListener("artstudio:new-canvas", handleNewCanvasEvent);
-		window.addEventListener("artstudio:open-file", handleOpenFileEvent);
-		window.addEventListener("artstudio:save", handleSaveEvent);
-		window.addEventListener("artstudio:save-as", handleSaveAsEvent);
-		window.addEventListener("artstudio:print", handlePrintEvent);
-		window.addEventListener("artstudio:undo", handleUndoEvent);
-		window.addEventListener("artstudio:redo", handleRedoEvent);
-		window.addEventListener("artstudio:cut-selection", handleCutEvent);
-		window.addEventListener("artstudio:copy-selection", handleCopyEvent);
-		window.addEventListener(
-			"artstudio:paste",
-			handlePasteEvent as EventListener,
-		);
-		window.addEventListener("artstudio:delete-selection", handleDeleteEvent);
-		window.addEventListener("artstudio:global-delete", handleGlobalDeleteEvent);
-		window.addEventListener("artstudio:zoom-in", handleZoomInEvent);
-		window.addEventListener("artstudio:zoom-out", handleZoomOutEvent);
-		window.addEventListener("artstudio:fit-to-screen", handleFitToScreenEvent);
-		window.addEventListener("artstudio:actual-size", handleActualSizeEvent);
-		window.addEventListener("artstudio:toggle-grid", handleToggleGridEvent);
-		window.addEventListener("artstudio:toggle-rulers", handleToggleRulersEvent);
-		window.addEventListener("artstudio:toggle-guides", handleToggleGuidesEvent);
-		window.addEventListener("artstudio:merge-layers", handleMergeLayersEvent);
-		window.addEventListener("artstudio:merge-visible", handleMergeVisibleEvent);
-		window.addEventListener("artstudio:bring-forward", handleBringForwardEvent);
-		window.addEventListener("artstudio:send-backward", handleSendBackwardEvent);
-		window.addEventListener(
-			"artstudio:bring-to-front",
-			handleBringToFrontEvent,
-		);
-		window.addEventListener("artstudio:send-to-back", handleSendToBackEvent);
-		window.addEventListener("artstudio:show-shortcuts", handleShowShortcuts);
-
-		return () => {
-			window.removeEventListener("artstudio:new-canvas", handleNewCanvasEvent);
-			window.removeEventListener("artstudio:open-file", handleOpenFileEvent);
-			window.removeEventListener("artstudio:save", handleSaveEvent);
-			window.removeEventListener("artstudio:save-as", handleSaveAsEvent);
-			window.removeEventListener("artstudio:print", handlePrintEvent);
-			window.removeEventListener("artstudio:undo", handleUndoEvent);
-			window.removeEventListener("artstudio:redo", handleRedoEvent);
-			window.removeEventListener("artstudio:cut-selection", handleCutEvent);
-			window.removeEventListener("artstudio:copy-selection", handleCopyEvent);
-			window.removeEventListener(
+			window.addEventListener("artstudio:new-canvas", handleNewCanvasEvent);
+			window.addEventListener("artstudio:open-file", handleOpenFileEvent);
+			window.addEventListener("artstudio:save", handleSaveEvent);
+			window.addEventListener("artstudio:save-as", handleSaveAsEvent);
+			window.addEventListener("artstudio:print", handlePrintEvent);
+			window.addEventListener("artstudio:undo", handleUndoEvent);
+			window.addEventListener("artstudio:redo", handleRedoEvent);
+			window.addEventListener("artstudio:cut-selection", handleCutEvent);
+			window.addEventListener("artstudio:copy-selection", handleCopyEvent);
+			window.addEventListener(
 				"artstudio:paste",
 				handlePasteEvent as EventListener,
 			);
-			window.removeEventListener(
-				"artstudio:delete-selection",
-				handleDeleteEvent,
-			);
-			window.removeEventListener(
-				"artstudio:global-delete",
-				handleGlobalDeleteEvent,
-			);
-			window.removeEventListener("artstudio:zoom-in", handleZoomInEvent);
-			window.removeEventListener("artstudio:zoom-out", handleZoomOutEvent);
-			window.removeEventListener(
-				"artstudio:fit-to-screen",
-				handleFitToScreenEvent,
-			);
-			window.removeEventListener(
-				"artstudio:actual-size",
-				handleActualSizeEvent,
-			);
-			window.removeEventListener(
-				"artstudio:toggle-grid",
-				handleToggleGridEvent,
-			);
-			window.removeEventListener(
-				"artstudio:toggle-rulers",
-				handleToggleRulersEvent,
-			);
-			window.removeEventListener(
-				"artstudio:toggle-guides",
-				handleToggleGuidesEvent,
-			);
-			window.removeEventListener(
-				"artstudio:merge-layers",
-				handleMergeLayersEvent,
-			);
-			window.removeEventListener(
-				"artstudio:merge-visible",
-				handleMergeVisibleEvent,
-			);
-			window.removeEventListener(
-				"artstudio:bring-forward",
-				handleBringForwardEvent,
-			);
-			window.removeEventListener(
-				"artstudio:send-backward",
-				handleSendBackwardEvent,
-			);
-			window.removeEventListener(
+			window.addEventListener("artstudio:delete-selection", handleDeleteEvent);
+			window.addEventListener("artstudio:global-delete", handleGlobalDeleteEvent);
+			window.addEventListener("artstudio:zoom-in", handleZoomInEvent);
+			window.addEventListener("artstudio:zoom-out", handleZoomOutEvent);
+			window.addEventListener("artstudio:fit-to-screen", handleFitToScreenEvent);
+			window.addEventListener("artstudio:actual-size", handleActualSizeEvent);
+			window.addEventListener("artstudio:toggle-grid", handleToggleGridEvent);
+			window.addEventListener("artstudio:toggle-rulers", handleToggleRulersEvent);
+			window.addEventListener("artstudio:toggle-guides", handleToggleGuidesEvent);
+			window.addEventListener("artstudio:merge-layers", handleMergeLayersEvent);
+			window.addEventListener("artstudio:merge-visible", handleMergeVisibleEvent);
+			window.addEventListener("artstudio:bring-forward", handleBringForwardEvent);
+			window.addEventListener("artstudio:send-backward", handleSendBackwardEvent);
+			window.addEventListener(
 				"artstudio:bring-to-front",
 				handleBringToFrontEvent,
 			);
-			window.removeEventListener(
-				"artstudio:send-to-back",
-				handleSendToBackEvent,
-			);
-			window.removeEventListener(
-				"artstudio:show-shortcuts",
-				handleShowShortcuts,
-			);
-		};
-	}, [
-		showGrid,
-		showRulers,
-		showGuides,
-		handleUndo,
-		handleRedo,
-		handleZoomIn,
-		handleZoomOut,
-		handleFitToScreen,
-	]);
+			window.addEventListener("artstudio:send-to-back", handleSendToBackEvent);
+			window.addEventListener("artstudio:show-shortcuts", handleShowShortcuts);
 
-	const renderMenuItems = (items: MenuItemConfig[]) => {
-		return items.map((item, index) => {
-			if (item.separator) {
-				return <DropdownMenuSeparator key={`sep-${index}`} />;
-			}
-
-			if (item.submenu) {
-				return (
-					<DropdownMenuSub key={item.label}>
-						<DropdownMenuSubTrigger className="flex items-center gap-2">
-							{item.icon && (
-								<item.icon className="w-4 h-4 text-muted-foreground" />
-							)}
-							<span>{item.label}</span>
-						</DropdownMenuSubTrigger>
-						<DropdownMenuSubContent className="min-w-50">
-							{renderMenuItems(item.submenu)}
-						</DropdownMenuSubContent>
-					</DropdownMenuSub>
+			return () => {
+				window.removeEventListener("artstudio:new-canvas", handleNewCanvasEvent);
+				window.removeEventListener("artstudio:open-file", handleOpenFileEvent);
+				window.removeEventListener("artstudio:save", handleSaveEvent);
+				window.removeEventListener("artstudio:save-as", handleSaveAsEvent);
+				window.removeEventListener("artstudio:print", handlePrintEvent);
+				window.removeEventListener("artstudio:undo", handleUndoEvent);
+				window.removeEventListener("artstudio:redo", handleRedoEvent);
+				window.removeEventListener("artstudio:cut-selection", handleCutEvent);
+				window.removeEventListener("artstudio:copy-selection", handleCopyEvent);
+				window.removeEventListener(
+					"artstudio:paste",
+					handlePasteEvent as EventListener,
 				);
-			}
+				window.removeEventListener(
+					"artstudio:delete-selection",
+					handleDeleteEvent,
+				);
+				window.removeEventListener(
+					"artstudio:global-delete",
+					handleGlobalDeleteEvent,
+				);
+				window.removeEventListener("artstudio:zoom-in", handleZoomInEvent);
+				window.removeEventListener("artstudio:zoom-out", handleZoomOutEvent);
+				window.removeEventListener(
+					"artstudio:fit-to-screen",
+					handleFitToScreenEvent,
+				);
+				window.removeEventListener(
+					"artstudio:actual-size",
+					handleActualSizeEvent,
+				);
+				window.removeEventListener(
+					"artstudio:toggle-grid",
+					handleToggleGridEvent,
+				);
+				window.removeEventListener(
+					"artstudio:toggle-rulers",
+					handleToggleRulersEvent,
+				);
+				window.removeEventListener(
+					"artstudio:toggle-guides",
+					handleToggleGuidesEvent,
+				);
+				window.removeEventListener(
+					"artstudio:merge-layers",
+					handleMergeLayersEvent,
+				);
+				window.removeEventListener(
+					"artstudio:merge-visible",
+					handleMergeVisibleEvent,
+				);
+				window.removeEventListener(
+					"artstudio:bring-forward",
+					handleBringForwardEvent,
+				);
+				window.removeEventListener(
+					"artstudio:send-backward",
+					handleSendBackwardEvent,
+				);
+				window.removeEventListener(
+					"artstudio:bring-to-front",
+					handleBringToFrontEvent,
+				);
+				window.removeEventListener(
+					"artstudio:send-to-back",
+					handleSendToBackEvent,
+				);
+				window.removeEventListener(
+					"artstudio:show-shortcuts",
+					handleShowShortcuts,
+				);
+			};
+		}, [
+			showGrid,
+			showRulers,
+			showGuides,
+			handleUndo,
+			handleRedo,
+			handleZoomIn,
+			handleZoomOut,
+			handleFitToScreen,
+		]);
 
-			return (
-				<DropdownMenuItem
-					key={item.label}
-					onClick={item.action}
-					disabled={item.disabled}
-					className="flex items-center gap-2"
-				>
-					{item.icon && <item.icon className="w-4 h-4 text-muted-foreground" />}
-					<span className="flex-1">{item.label}</span>
-					{item.shortcut && (
-						<DropdownMenuShortcut>{item.shortcut}</DropdownMenuShortcut>
-					)}
-				</DropdownMenuItem>
-			);
-		});
-	};
+		const renderMenuItems = (items: MenuItemConfig[]) => {
+			return items.map((item, index) => {
+				if (item.separator) {
+					return <DropdownMenuSeparator key={`sep-${index}`} />;
+				}
 
-	return (
-		<div className="h-10 bg-card border-b border-border flex items-center justify-between px-2 animate-fade-in">
-			{/* Left: Logo & Menu */}
-			<div className="flex items-center gap-1">
-				{/* Logo */}
-				<div className="flex items-center gap-2 px-3">
-					<div className="w-6 h-6 rounded-md bg-linear-to-br from-primary to-primary/50 flex items-center justify-center">
-						<Palette className="w-4 h-4 text-primary-foreground" />
+				if (item.submenu) {
+					return (
+						<DropdownMenuSub key={item.label}>
+							<DropdownMenuSubTrigger className="flex items-center gap-2">
+								{item.icon && (
+									<item.icon className="w-4 h-4 text-muted-foreground" />
+								)}
+								<span>{item.label}</span>
+							</DropdownMenuSubTrigger>
+							<DropdownMenuSubContent className="min-w-50">
+								{renderMenuItems(item.submenu)}
+							</DropdownMenuSubContent>
+						</DropdownMenuSub>
+					);
+				}
+
+				return (
+					<DropdownMenuItem
+						key={item.label}
+						onClick={item.action}
+						disabled={item.disabled}
+						className="flex items-center gap-2"
+					>
+						{item.icon && <item.icon className="w-4 h-4 text-muted-foreground" />}
+						<span className="flex-1">{item.label}</span>
+						{item.shortcut && (
+							<DropdownMenuShortcut>{item.shortcut}</DropdownMenuShortcut>
+						)}
+					</DropdownMenuItem>
+				);
+			});
+		};
+
+		return (
+			<div className="h-10 bg-card border-b border-border flex items-center justify-between px-2 animate-fade-in">
+				{/* Left: Logo & Menu */}
+				<div className="flex items-center gap-1">
+					{/* Logo */}
+					<div className="flex items-center gap-2 px-3">
+						<div className="w-6 h-6 rounded-md bg-linear-to-br from-primary to-primary/50 flex items-center justify-center">
+							<Palette className="w-4 h-4 text-primary-foreground" />
+						</div>
+						<span className="font-semibold text-sm text-foreground">
+							ArtStudio
+						</span>
 					</div>
-					<span className="font-semibold text-sm text-foreground">
-						ArtStudio
-					</span>
+
+					<div className="w-px h-5 bg-border mx-2" />
+
+					{/* Menu Items */}
+					{menus.map((menu) => (
+						<DropdownMenu key={menu.label}>
+							<DropdownMenuTrigger asChild>
+								<button className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded transition-colors outline-none">
+									{menu.label}
+								</button>
+							</DropdownMenuTrigger>
+							<DropdownMenuContent align="start" className="min-w-55">
+								{renderMenuItems(menu.items)}
+							</DropdownMenuContent>
+						</DropdownMenu>
+					))}
 				</div>
 
-				<div className="w-px h-5 bg-border mx-2" />
-
-				{/* Menu Items */}
-				{menus.map((menu) => (
-					<DropdownMenu key={menu.label}>
-						<DropdownMenuTrigger asChild>
-							<button className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded transition-colors outline-none">
-								{menu.label}
+				{/* Right: Quick Actions */}
+				<div className="flex items-center gap-1">
+					<Tooltip>
+						<TooltipTrigger asChild>
+							<button onClick={handleNewCanvas} className="tool-button w-8 h-8">
+								<FileIcon className="w-4 h-4" />
 							</button>
-						</DropdownMenuTrigger>
-						<DropdownMenuContent align="start" className="min-w-55">
-							{renderMenuItems(menu.items)}
-						</DropdownMenuContent>
-					</DropdownMenu>
-				))}
+						</TooltipTrigger>
+						<TooltipContent>New Canvas</TooltipContent>
+					</Tooltip>
+
+					<Tooltip>
+						<TooltipTrigger asChild>
+							<button onClick={handleOpenFile} className="tool-button w-8 h-8">
+								<FolderOpen className="w-4 h-4" />
+							</button>
+						</TooltipTrigger>
+						<TooltipContent>Open File (⌘O)</TooltipContent>
+					</Tooltip>
+
+					<Tooltip>
+						<TooltipTrigger asChild>
+							<button onClick={handleSave} className="tool-button w-8 h-8">
+								<Save className="w-4 h-4" />
+							</button>
+						</TooltipTrigger>
+						<TooltipContent>Save</TooltipContent>
+					</Tooltip>
+
+					<Tooltip>
+						<TooltipTrigger asChild>
+							<button
+								onClick={() => handleExport("PNG")}
+								className="tool-button w-8 h-8"
+							>
+								<Download className="w-4 h-4" />
+							</button>
+						</TooltipTrigger>
+						<TooltipContent>Export</TooltipContent>
+					</Tooltip>
+
+					<div className="w-px h-5 bg-border mx-1" />
+
+					<Tooltip>
+						<TooltipTrigger asChild>
+							<button
+								onClick={() => setShowGrid(!showGrid)}
+								className={`tool-button w-8 h-8 ${showGrid ? "bg-primary/20" : ""}`}
+							>
+								<Grid3X3 className="w-4 h-4" />
+							</button>
+						</TooltipTrigger>
+						<TooltipContent>Toggle Grid</TooltipContent>
+					</Tooltip>
+
+					<Tooltip>
+						<TooltipTrigger asChild>
+							<button
+								onClick={() => setShowShortcuts(true)}
+								className="tool-button w-8 h-8"
+							>
+								<Keyboard className="w-4 h-4" />
+							</button>
+						</TooltipTrigger>
+						<TooltipContent>Keyboard Shortcuts (⌘/)</TooltipContent>
+					</Tooltip>
+				</div>
+
+				{/* Templates Dialog */}
+				<TemplatesDialog open={showTemplates} onOpenChange={setShowTemplates} />
+
+				{/* Keyboard Shortcuts Dialog */}
+				<KeyboardShortcutsDialog
+					open={showShortcuts}
+					onOpenChange={setShowShortcuts}
+				/>
 			</div>
-
-			{/* Right: Quick Actions */}
-			<div className="flex items-center gap-1">
-				<Tooltip>
-					<TooltipTrigger asChild>
-						<button onClick={handleNewCanvas} className="tool-button w-8 h-8">
-							<FileIcon className="w-4 h-4" />
-						</button>
-					</TooltipTrigger>
-					<TooltipContent>New Canvas</TooltipContent>
-				</Tooltip>
-
-				<Tooltip>
-					<TooltipTrigger asChild>
-						<button onClick={handleOpenFile} className="tool-button w-8 h-8">
-							<FolderOpen className="w-4 h-4" />
-						</button>
-					</TooltipTrigger>
-					<TooltipContent>Open File (⌘O)</TooltipContent>
-				</Tooltip>
-
-				<Tooltip>
-					<TooltipTrigger asChild>
-						<button onClick={handleSave} className="tool-button w-8 h-8">
-							<Save className="w-4 h-4" />
-						</button>
-					</TooltipTrigger>
-					<TooltipContent>Save</TooltipContent>
-				</Tooltip>
-
-				<Tooltip>
-					<TooltipTrigger asChild>
-						<button
-							onClick={() => handleExport("PNG")}
-							className="tool-button w-8 h-8"
-						>
-							<Download className="w-4 h-4" />
-						</button>
-					</TooltipTrigger>
-					<TooltipContent>Export</TooltipContent>
-				</Tooltip>
-
-				<div className="w-px h-5 bg-border mx-1" />
-
-				<Tooltip>
-					<TooltipTrigger asChild>
-						<button
-							onClick={() => setShowGrid(!showGrid)}
-							className={`tool-button w-8 h-8 ${showGrid ? "bg-primary/20" : ""}`}
-						>
-							<Grid3X3 className="w-4 h-4" />
-						</button>
-					</TooltipTrigger>
-					<TooltipContent>Toggle Grid</TooltipContent>
-				</Tooltip>
-
-				<Tooltip>
-					<TooltipTrigger asChild>
-						<button
-							onClick={() => setShowShortcuts(true)}
-							className="tool-button w-8 h-8"
-						>
-							<Keyboard className="w-4 h-4" />
-						</button>
-					</TooltipTrigger>
-					<TooltipContent>Keyboard Shortcuts (⌘/)</TooltipContent>
-				</Tooltip>
-			</div>
-
-			{/* Templates Dialog */}
-			<TemplatesDialog open={showTemplates} onOpenChange={setShowTemplates} />
-
-			{/* Keyboard Shortcuts Dialog */}
-			<KeyboardShortcutsDialog
-				open={showShortcuts}
-				onOpenChange={setShowShortcuts}
-			/>
-		</div>
-	);
-};
+		);
+	};
