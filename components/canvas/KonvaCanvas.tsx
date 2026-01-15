@@ -906,6 +906,15 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		],
 	);
 
+	// FIX: Presunutý isLayerVisible pred ostatné hooky, aby sa stabilizovalo poradie
+	const isLayerVisible = useCallback(
+		(layerId?: string) => {
+			if (!layerId) return true;
+			return layers.find((l) => l.id === layerId)?.visible ?? true;
+		},
+		[layers],
+	);
+
 	const handleMouseDown = (e: Konva.KonvaEventObject<MouseEvent>) => {
 		const stage = stageRef.current;
 		if (!stage) return;
@@ -1256,6 +1265,7 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		[zoom, panOffset, setZoom, setPanOffset],
 	);
 
+	// FIX: Presunutý useEffect pre handleWheel pred ostatné hooky
 	useEffect(() => {
 		const container = containerRef.current;
 		if (!container) return;
@@ -1391,6 +1401,7 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		activeLayerId,
 	]);
 
+	// FIX: Tento useEffect bol problémový - teraz je na správnom mieste v poradí
 	useEffect(() => {
 		if (activeTool === "fill") {
 			updateFloodFillData();
@@ -1525,14 +1536,6 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			/>
 		);
 	};
-
-	const isLayerVisible = useCallback(
-		(layerId?: string) => {
-			if (!layerId) return true;
-			return layers.find((l) => l.id === layerId)?.visible ?? true;
-		},
-		[layers],
-	);
 
 	const handleObjectClick = (id: string) => {
 		const drawingTools = ["brush", "pencil", "eraser", "healing", "blur"];
