@@ -1568,7 +1568,7 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 
 			{/* Session status indicator */}
 			{hasRestoredState && (
-				<div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-green-500/10 text-green-600 text-xs px-3 py-1.5 rounded-full border border-green-500/20 pointer-events-none z-20 flex items-center gap-2">
+				<div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-green-500/10 text-green-600 text-xs px-3 py-1.5 rounded-full border border-green-500/20 pointer-events-none z-20 flex items-center gap-2 transition-opacity duration-1000">
 					<div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
 					<span>Session restored • Auto-save active</span>
 				</div>

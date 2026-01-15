@@ -420,3 +420,26 @@
     background: #505050;
   }
 }
+
+@keyframes fade-in-out {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-10px);
+  }
+  15% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+  85% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-10px);
+  }
+}
+
+.animate-fade-in-out {
+  animation: fade-in-out 3s ease-in-out forwards;
+}
