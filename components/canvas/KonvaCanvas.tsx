@@ -161,6 +161,7 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 	const [isLoadingSession, setIsLoadingSession] = useState(true);
 	const [hasRestoredState, setHasRestoredState] = useState(false);
 	const [lastSessionId, setLastSessionId] = useState<string | null>(null);
+	const [showSessionNotification, setShowSessionNotification] = useState(false); // Pridané
 
 	const {
 		activeTool,
@@ -453,6 +454,20 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		
 		return () => clearTimeout(autoSave);
 	}, [lines, shapes, images, hasRestoredState, isLoadingSession, saveCanvasState]);
+
+	// Effect pre zobrazenie a skrytie session notifikácie
+	useEffect(() => {
+		if (hasRestoredState) {
+			setShowSessionNotification(true);
+			
+			// Skry oznámenie po 3 sekundách
+			const timer = setTimeout(() => {
+				setShowSessionNotification(false);
+			}, 3000);
+			
+			return () => clearTimeout(timer);
+		}
+	}, [hasRestoredState]);
 
 	useEffect(() => {
 		if (!transformerRef.current || !stageRef.current) return;
@@ -1401,7 +1416,6 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		activeLayerId,
 	]);
 
-	// FIX: Tento useEffect bol problémový - teraz je na správnom mieste v poradí
 	useEffect(() => {
 		if (activeTool === "fill") {
 			updateFloodFillData();
@@ -1567,8 +1581,8 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			/>
 
 			{/* Session status indicator */}
-			{hasRestoredState && (
-				<div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-green-500/10 text-green-600 text-xs px-3 py-1.5 rounded-full border border-green-500/20 pointer-events-none z-20 flex items-center gap-2 transition-opacity duration-1000">
+			{showSessionNotification && (
+				<div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-green-500/10 text-green-600 text-xs px-3 py-1.5 rounded-full border border-green-500/20 pointer-events-none z-20 flex items-center gap-2 transition-opacity duration-300">
 					<div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
 					<span>Session restored • Auto-save active</span>
 				</div>
