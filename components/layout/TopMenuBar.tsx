@@ -1314,7 +1314,7 @@ export const TopMenuBar: React.FC = () => {
 	];
 
 	const handleUndo = () => {
-		const entry = undo();
+		const entry = undo() as any;
 		if (entry) {
 			const canvas = getCanvas();
 			if (canvas) {
@@ -1339,7 +1339,7 @@ export const TopMenuBar: React.FC = () => {
 	};
 
 	const handleRedo = () => {
-		const entry = redo();
+		const entry = redo() as any;
 		if (entry) {
 			const canvas = getCanvas();
 			if (canvas) {
