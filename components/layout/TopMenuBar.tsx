@@ -412,7 +412,9 @@ export const TopMenuBar: React.FC = () => {
 		];
 
 		// Create a zip file with all favicon sizes
-		import("jszip").then((JSZip) => {
+		import("jszip").then((JSZipModule) => {
+			// Oprava: JSZip je default export
+			const JSZip = JSZipModule.default || JSZipModule;
 			const zip = new JSZip();
 			const promises = sizes.map(({ size, name }) => {
 				return new Promise<void>((resolve) => {
@@ -437,7 +439,7 @@ export const TopMenuBar: React.FC = () => {
 			});
 
 			Promise.all(promises).then(() => {
-				zip.generateAsync({ type: "blob" }).then((content) => {
+				zip.generateAsync({ type: "blob" }).then((content: Blob | MediaSource) => {
 					const url = URL.createObjectURL(content);
 					const a = document.createElement("a");
 					a.href = url;
@@ -517,7 +519,9 @@ export const TopMenuBar: React.FC = () => {
 			{ width: 640, height: 480, name: "VGA" },
 		];
 
-		import("jszip").then((JSZip) => {
+		import("jszip").then((JSZipModule) => {
+			// Oprava: JSZip je default export
+			const JSZip = JSZipModule.default || JSZipModule;
 			const zip = new JSZip();
 			const promises = sizes.map(({ width, height, name }) => {
 				return new Promise<void>((resolve) => {
@@ -554,7 +558,7 @@ export const TopMenuBar: React.FC = () => {
 			});
 
 			Promise.all(promises).then(() => {
-				zip.generateAsync({ type: "blob" }).then((content) => {
+				zip.generateAsync({ type: "blob" }).then((content: Blob | MediaSource) => {
 					const url = URL.createObjectURL(content);
 					const a = document.createElement("a");
 					a.href = url;
@@ -2160,332 +2164,332 @@ export const TopMenuBar: React.FC = () => {
 			checked: showNavigator,
 		},
 		{
-				label: "Info Panel",
-				icon: showInfoPanel ? Check : Info,
-				action: () => {
-					setShowInfoPanel(!showInfoPanel);
-					toast.success(showInfoPanel ? "Info panel hidden" : "Info panel shown");
-				},
-				checked: showInfoPanel,
+			label: "Info Panel",
+			icon: showInfoPanel ? Check : Info,
+			action: () => {
+				setShowInfoPanel(!showInfoPanel);
+				toast.success(showInfoPanel ? "Info panel hidden" : "Info panel shown");
 			},
-			{ separator: true, label: "" },
-			{
-				label: "Reset Workspace",
-				action: () => {
-					resetWorkspace();
-					toast.success("Workspace reset");
-				},
+			checked: showInfoPanel,
+		},
+		{ separator: true, label: "" },
+		{
+			label: "Reset Workspace",
+			action: () => {
+				resetWorkspace();
+				toast.success("Workspace reset");
 			},
-		];
+		},
+	];
 
-		const menus = [
-			{ label: "File", items: fileMenu },
-			{ label: "Edit", items: editMenu },
-			{ label: "View", items: viewMenu },
-			{ label: "Image", items: imageMenu },
-			{ label: "Layer", items: layerMenu },
-			{ label: "Filter", items: filterMenu },
-			{ label: "Window", items: windowMenu },
-		];
+	const menus = [
+		{ label: "File", items: fileMenu },
+		{ label: "Edit", items: editMenu },
+		{ label: "View", items: viewMenu },
+		{ label: "Image", items: imageMenu },
+		{ label: "Layer", items: layerMenu },
+		{ label: "Filter", items: filterMenu },
+		{ label: "Window", items: windowMenu },
+	];
 
-		// Listen for custom events from keyboard shortcuts hook
-		useEffect(() => {
-			const handleNewCanvasEvent = () => setShowTemplates(true);
-			const handleOpenFileEvent = () => handleOpenFile();
-			const handleSaveEvent = () => handleSave();
-			const handleSaveAsEvent = () => handleSaveAs();
-			const handlePrintEvent = () => handlePrint();
-			const handleUndoEvent = () => handleUndo();
-			const handleRedoEvent = () => handleRedo();
-			const handleCutEvent = () => handleCut();
-			const handleCopyEvent = () => handleCopy();
-			const handlePasteEvent = (e: CustomEvent) => {
-				if (e.detail?.offset === false) {
-					handlePasteInPlace();
-				} else {
-					handlePaste();
-				}
-			};
-			const handleDeleteEvent = () => handleDeleteSelection();
-			const handleGlobalDeleteEvent = () => handleGlobalDelete();
-			const handleZoomInEvent = () => handleZoomIn();
-			const handleZoomOutEvent = () => handleZoomOut();
-			const handleFitToScreenEvent = () => handleFitToScreen();
-			const handleActualSizeEvent = () => handleActualSize();
-			const handleToggleGridEvent = () => setShowGrid(!showGrid);
-			const handleToggleRulersEvent = () => setShowRulers(!showRulers);
-			const handleToggleGuidesEvent = () => setShowGuides(!showGuides);
-			const handleMergeLayersEvent = () => handleMergeLayers();
-			const handleMergeVisibleEvent = () => handleMergeLayers();
-			const handleBringForwardEvent = () => handleBringForward();
-			const handleSendBackwardEvent = () => handleSendBackward();
-			const handleBringToFrontEvent = () => handleBringToFront();
-			const handleSendToBackEvent = () => handleSendToBack();
-			const handleShowShortcuts = () => setShowShortcuts(true);
+	// Listen for custom events from keyboard shortcuts hook
+	useEffect(() => {
+		const handleNewCanvasEvent = () => setShowTemplates(true);
+		const handleOpenFileEvent = () => handleOpenFile();
+		const handleSaveEvent = () => handleSave();
+		const handleSaveAsEvent = () => handleSaveAs();
+		const handlePrintEvent = () => handlePrint();
+		const handleUndoEvent = () => handleUndo();
+		const handleRedoEvent = () => handleRedo();
+		const handleCutEvent = () => handleCut();
+		const handleCopyEvent = () => handleCopy();
+		const handlePasteEvent = (e: CustomEvent) => {
+			if (e.detail?.offset === false) {
+				handlePasteInPlace();
+			} else {
+				handlePaste();
+			}
+		};
+		const handleDeleteEvent = () => handleDeleteSelection();
+		const handleGlobalDeleteEvent = () => handleGlobalDelete();
+		const handleZoomInEvent = () => handleZoomIn();
+		const handleZoomOutEvent = () => handleZoomOut();
+		const handleFitToScreenEvent = () => handleFitToScreen();
+		const handleActualSizeEvent = () => handleActualSize();
+		const handleToggleGridEvent = () => setShowGrid(!showGrid);
+		const handleToggleRulersEvent = () => setShowRulers(!showRulers);
+		const handleToggleGuidesEvent = () => setShowGuides(!showGuides);
+		const handleMergeLayersEvent = () => handleMergeLayers();
+		const handleMergeVisibleEvent = () => handleMergeLayers();
+		const handleBringForwardEvent = () => handleBringForward();
+		const handleSendBackwardEvent = () => handleSendBackward();
+		const handleBringToFrontEvent = () => handleBringToFront();
+		const handleSendToBackEvent = () => handleSendToBack();
+		const handleShowShortcuts = () => setShowShortcuts(true);
 
-			window.addEventListener("artstudio:new-canvas", handleNewCanvasEvent);
-			window.addEventListener("artstudio:open-file", handleOpenFileEvent);
-			window.addEventListener("artstudio:save", handleSaveEvent);
-			window.addEventListener("artstudio:save-as", handleSaveAsEvent);
-			window.addEventListener("artstudio:print", handlePrintEvent);
-			window.addEventListener("artstudio:undo", handleUndoEvent);
-			window.addEventListener("artstudio:redo", handleRedoEvent);
-			window.addEventListener("artstudio:cut-selection", handleCutEvent);
-			window.addEventListener("artstudio:copy-selection", handleCopyEvent);
-			window.addEventListener(
+		window.addEventListener("artstudio:new-canvas", handleNewCanvasEvent);
+		window.addEventListener("artstudio:open-file", handleOpenFileEvent);
+		window.addEventListener("artstudio:save", handleSaveEvent);
+		window.addEventListener("artstudio:save-as", handleSaveAsEvent);
+		window.addEventListener("artstudio:print", handlePrintEvent);
+		window.addEventListener("artstudio:undo", handleUndoEvent);
+		window.addEventListener("artstudio:redo", handleRedoEvent);
+		window.addEventListener("artstudio:cut-selection", handleCutEvent);
+		window.addEventListener("artstudio:copy-selection", handleCopyEvent);
+		window.addEventListener(
+			"artstudio:paste",
+			handlePasteEvent as EventListener,
+		);
+		window.addEventListener("artstudio:delete-selection", handleDeleteEvent);
+		window.addEventListener("artstudio:global-delete", handleGlobalDeleteEvent);
+		window.addEventListener("artstudio:zoom-in", handleZoomInEvent);
+		window.addEventListener("artstudio:zoom-out", handleZoomOutEvent);
+		window.addEventListener("artstudio:fit-to-screen", handleFitToScreenEvent);
+		window.addEventListener("artstudio:actual-size", handleActualSizeEvent);
+		window.addEventListener("artstudio:toggle-grid", handleToggleGridEvent);
+		window.addEventListener("artstudio:toggle-rulers", handleToggleRulersEvent);
+		window.addEventListener("artstudio:toggle-guides", handleToggleGuidesEvent);
+		window.addEventListener("artstudio:merge-layers", handleMergeLayersEvent);
+		window.addEventListener("artstudio:merge-visible", handleMergeVisibleEvent);
+		window.addEventListener("artstudio:bring-forward", handleBringForwardEvent);
+		window.addEventListener("artstudio:send-backward", handleSendBackwardEvent);
+		window.addEventListener(
+			"artstudio:bring-to-front",
+			handleBringToFrontEvent,
+		);
+		window.addEventListener("artstudio:send-to-back", handleSendToBackEvent);
+		window.addEventListener("artstudio:show-shortcuts", handleShowShortcuts);
+
+		return () => {
+			window.removeEventListener("artstudio:new-canvas", handleNewCanvasEvent);
+			window.removeEventListener("artstudio:open-file", handleOpenFileEvent);
+			window.removeEventListener("artstudio:save", handleSaveEvent);
+			window.removeEventListener("artstudio:save-as", handleSaveAsEvent);
+			window.removeEventListener("artstudio:print", handlePrintEvent);
+			window.removeEventListener("artstudio:undo", handleUndoEvent);
+			window.removeEventListener("artstudio:redo", handleRedoEvent);
+			window.removeEventListener("artstudio:cut-selection", handleCutEvent);
+			window.removeEventListener("artstudio:copy-selection", handleCopyEvent);
+			window.removeEventListener(
 				"artstudio:paste",
 				handlePasteEvent as EventListener,
 			);
-			window.addEventListener("artstudio:delete-selection", handleDeleteEvent);
-			window.addEventListener("artstudio:global-delete", handleGlobalDeleteEvent);
-			window.addEventListener("artstudio:zoom-in", handleZoomInEvent);
-			window.addEventListener("artstudio:zoom-out", handleZoomOutEvent);
-			window.addEventListener("artstudio:fit-to-screen", handleFitToScreenEvent);
-			window.addEventListener("artstudio:actual-size", handleActualSizeEvent);
-			window.addEventListener("artstudio:toggle-grid", handleToggleGridEvent);
-			window.addEventListener("artstudio:toggle-rulers", handleToggleRulersEvent);
-			window.addEventListener("artstudio:toggle-guides", handleToggleGuidesEvent);
-			window.addEventListener("artstudio:merge-layers", handleMergeLayersEvent);
-			window.addEventListener("artstudio:merge-visible", handleMergeVisibleEvent);
-			window.addEventListener("artstudio:bring-forward", handleBringForwardEvent);
-			window.addEventListener("artstudio:send-backward", handleSendBackwardEvent);
-			window.addEventListener(
+			window.removeEventListener(
+				"artstudio:delete-selection",
+				handleDeleteEvent,
+			);
+			window.removeEventListener(
+				"artstudio:global-delete",
+				handleGlobalDeleteEvent,
+			);
+			window.removeEventListener("artstudio:zoom-in", handleZoomInEvent);
+			window.removeEventListener("artstudio:zoom-out", handleZoomOutEvent);
+			window.removeEventListener(
+				"artstudio:fit-to-screen",
+				handleFitToScreenEvent,
+			);
+			window.removeEventListener(
+				"artstudio:actual-size",
+				handleActualSizeEvent,
+			);
+			window.removeEventListener(
+				"artstudio:toggle-grid",
+				handleToggleGridEvent,
+			);
+			window.removeEventListener(
+				"artstudio:toggle-rulers",
+				handleToggleRulersEvent,
+			);
+			window.removeEventListener(
+				"artstudio:toggle-guides",
+				handleToggleGuidesEvent,
+			);
+			window.removeEventListener(
+				"artstudio:merge-layers",
+				handleMergeLayersEvent,
+			);
+			window.removeEventListener(
+				"artstudio:merge-visible",
+				handleMergeVisibleEvent,
+			);
+			window.removeEventListener(
+				"artstudio:bring-forward",
+				handleBringForwardEvent,
+			);
+			window.removeEventListener(
+				"artstudio:send-backward",
+				handleSendBackwardEvent,
+			);
+			window.removeEventListener(
 				"artstudio:bring-to-front",
 				handleBringToFrontEvent,
 			);
-			window.addEventListener("artstudio:send-to-back", handleSendToBackEvent);
-			window.addEventListener("artstudio:show-shortcuts", handleShowShortcuts);
-
-			return () => {
-				window.removeEventListener("artstudio:new-canvas", handleNewCanvasEvent);
-				window.removeEventListener("artstudio:open-file", handleOpenFileEvent);
-				window.removeEventListener("artstudio:save", handleSaveEvent);
-				window.removeEventListener("artstudio:save-as", handleSaveAsEvent);
-				window.removeEventListener("artstudio:print", handlePrintEvent);
-				window.removeEventListener("artstudio:undo", handleUndoEvent);
-				window.removeEventListener("artstudio:redo", handleRedoEvent);
-				window.removeEventListener("artstudio:cut-selection", handleCutEvent);
-				window.removeEventListener("artstudio:copy-selection", handleCopyEvent);
-				window.removeEventListener(
-					"artstudio:paste",
-					handlePasteEvent as EventListener,
-				);
-				window.removeEventListener(
-					"artstudio:delete-selection",
-					handleDeleteEvent,
-				);
-				window.removeEventListener(
-					"artstudio:global-delete",
-					handleGlobalDeleteEvent,
-				);
-				window.removeEventListener("artstudio:zoom-in", handleZoomInEvent);
-				window.removeEventListener("artstudio:zoom-out", handleZoomOutEvent);
-				window.removeEventListener(
-					"artstudio:fit-to-screen",
-					handleFitToScreenEvent,
-				);
-				window.removeEventListener(
-					"artstudio:actual-size",
-					handleActualSizeEvent,
-				);
-				window.removeEventListener(
-					"artstudio:toggle-grid",
-					handleToggleGridEvent,
-				);
-				window.removeEventListener(
-					"artstudio:toggle-rulers",
-					handleToggleRulersEvent,
-				);
-				window.removeEventListener(
-					"artstudio:toggle-guides",
-					handleToggleGuidesEvent,
-				);
-				window.removeEventListener(
-					"artstudio:merge-layers",
-					handleMergeLayersEvent,
-				);
-				window.removeEventListener(
-					"artstudio:merge-visible",
-					handleMergeVisibleEvent,
-				);
-				window.removeEventListener(
-					"artstudio:bring-forward",
-					handleBringForwardEvent,
-				);
-				window.removeEventListener(
-					"artstudio:send-backward",
-					handleSendBackwardEvent,
-				);
-				window.removeEventListener(
-					"artstudio:bring-to-front",
-					handleBringToFrontEvent,
-				);
-				window.removeEventListener(
-					"artstudio:send-to-back",
-					handleSendToBackEvent,
-				);
-				window.removeEventListener(
-					"artstudio:show-shortcuts",
-					handleShowShortcuts,
-				);
-			};
-		}, [
-			showGrid,
-			showRulers,
-			showGuides,
-			handleUndo,
-			handleRedo,
-			handleZoomIn,
-			handleZoomOut,
-			handleFitToScreen,
-		]);
-
-		const renderMenuItems = (items: MenuItemConfig[]) => {
-			return items.map((item, index) => {
-				if (item.separator) {
-					return <DropdownMenuSeparator key={`sep-${index}`} />;
-				}
-
-				if (item.submenu) {
-					return (
-						<DropdownMenuSub key={item.label}>
-							<DropdownMenuSubTrigger className="flex items-center gap-2">
-								{item.icon && (
-									<item.icon className="w-4 h-4 text-muted-foreground" />
-								)}
-								<span>{item.label}</span>
-							</DropdownMenuSubTrigger>
-							<DropdownMenuSubContent className="min-w-50">
-								{renderMenuItems(item.submenu)}
-							</DropdownMenuSubContent>
-						</DropdownMenuSub>
-					);
-				}
-
-				return (
-					<DropdownMenuItem
-						key={item.label}
-						onClick={item.action}
-						disabled={item.disabled}
-						className="flex items-center gap-2"
-					>
-						{item.icon && <item.icon className="w-4 h-4 text-muted-foreground" />}
-						<span className="flex-1">{item.label}</span>
-						{item.shortcut && (
-							<DropdownMenuShortcut>{item.shortcut}</DropdownMenuShortcut>
-						)}
-					</DropdownMenuItem>
-				);
-			});
+			window.removeEventListener(
+				"artstudio:send-to-back",
+				handleSendToBackEvent,
+			);
+			window.removeEventListener(
+				"artstudio:show-shortcuts",
+				handleShowShortcuts,
+			);
 		};
+	}, [
+		showGrid,
+		showRulers,
+		showGuides,
+		handleUndo,
+		handleRedo,
+		handleZoomIn,
+		handleZoomOut,
+		handleFitToScreen,
+	]);
 
-		return (
-			<div className="h-10 bg-card border-b border-border flex items-center justify-between px-2 animate-fade-in">
-				{/* Left: Logo & Menu */}
-				<div className="flex items-center gap-1">
-					{/* Logo */}
-					<div className="flex items-center gap-2 px-3">
-						<div className="w-6 h-6 rounded-md bg-linear-to-br from-primary to-primary/50 flex items-center justify-center">
-							<Palette className="w-4 h-4 text-primary-foreground" />
-						</div>
-						<span className="font-semibold text-sm text-foreground">
-							ArtStudio
-						</span>
-					</div>
+	const renderMenuItems = (items: MenuItemConfig[]) => {
+		return items.map((item, index) => {
+			if (item.separator) {
+				return <DropdownMenuSeparator key={`sep-${index}`} />;
+			}
 
-					<div className="w-px h-5 bg-border mx-2" />
+			if (item.submenu) {
+				return (
+					<DropdownMenuSub key={item.label}>
+						<DropdownMenuSubTrigger className="flex items-center gap-2">
+							{item.icon && (
+								<item.icon className="w-4 h-4 text-muted-foreground" />
+							)}
+							<span>{item.label}</span>
+						</DropdownMenuSubTrigger>
+						<DropdownMenuSubContent className="min-w-50">
+							{renderMenuItems(item.submenu)}
+						</DropdownMenuSubContent>
+					</DropdownMenuSub>
+				);
+			}
 
-					{/* Menu Items */}
-					{menus.map((menu) => (
-						<DropdownMenu key={menu.label}>
-							<DropdownMenuTrigger asChild>
-								<button className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded transition-colors outline-none">
-									{menu.label}
-								</button>
-							</DropdownMenuTrigger>
-							<DropdownMenuContent align="start" className="min-w-55">
-								{renderMenuItems(menu.items)}
-							</DropdownMenuContent>
-						</DropdownMenu>
-					))}
-				</div>
-
-				{/* Right: Quick Actions */}
-				<div className="flex items-center gap-1">
-					<Tooltip>
-						<TooltipTrigger asChild>
-							<button onClick={handleNewCanvas} className="tool-button w-8 h-8">
-								<FileIcon className="w-4 h-4" />
-							</button>
-						</TooltipTrigger>
-						<TooltipContent>New Canvas</TooltipContent>
-					</Tooltip>
-
-					<Tooltip>
-						<TooltipTrigger asChild>
-							<button onClick={handleOpenFile} className="tool-button w-8 h-8">
-								<FolderOpen className="w-4 h-4" />
-							</button>
-						</TooltipTrigger>
-						<TooltipContent>Open File (⌘O)</TooltipContent>
-					</Tooltip>
-
-					<Tooltip>
-						<TooltipTrigger asChild>
-							<button onClick={handleSave} className="tool-button w-8 h-8">
-								<Save className="w-4 h-4" />
-							</button>
-						</TooltipTrigger>
-						<TooltipContent>Save</TooltipContent>
-					</Tooltip>
-
-					<Tooltip>
-						<TooltipTrigger asChild>
-							<button
-								onClick={() => handleExport("PNG")}
-								className="tool-button w-8 h-8"
-							>
-								<Download className="w-4 h-4" />
-							</button>
-						</TooltipTrigger>
-						<TooltipContent>Export</TooltipContent>
-					</Tooltip>
-
-					<div className="w-px h-5 bg-border mx-1" />
-
-					<Tooltip>
-						<TooltipTrigger asChild>
-							<button
-								onClick={() => setShowGrid(!showGrid)}
-								className={`tool-button w-8 h-8 ${showGrid ? "bg-primary/20" : ""}`}
-							>
-								<Grid3X3 className="w-4 h-4" />
-							</button>
-						</TooltipTrigger>
-						<TooltipContent>Toggle Grid</TooltipContent>
-					</Tooltip>
-
-					<Tooltip>
-						<TooltipTrigger asChild>
-							<button
-								onClick={() => setShowShortcuts(true)}
-								className="tool-button w-8 h-8"
-							>
-								<Keyboard className="w-4 h-4" />
-							</button>
-						</TooltipTrigger>
-						<TooltipContent>Keyboard Shortcuts (⌘/)</TooltipContent>
-					</Tooltip>
-				</div>
-
-				{/* Templates Dialog */}
-				<TemplatesDialog open={showTemplates} onOpenChange={setShowTemplates} />
-
-				{/* Keyboard Shortcuts Dialog */}
-				<KeyboardShortcutsDialog
-					open={showShortcuts}
-					onOpenChange={setShowShortcuts}
-				/>
-			</div>
-		);
+			return (
+				<DropdownMenuItem
+					key={item.label}
+					onClick={item.action}
+					disabled={item.disabled}
+					className="flex items-center gap-2"
+				>
+					{item.icon && <item.icon className="w-4 h-4 text-muted-foreground" />}
+					<span className="flex-1">{item.label}</span>
+					{item.shortcut && (
+						<DropdownMenuShortcut>{item.shortcut}</DropdownMenuShortcut>
+					)}
+				</DropdownMenuItem>
+			);
+		});
 	};
+
+	return (
+		<div className="h-10 bg-card border-b border-border flex items-center justify-between px-2 animate-fade-in">
+			{/* Left: Logo & Menu */}
+			<div className="flex items-center gap-1">
+				{/* Logo */}
+				<div className="flex items-center gap-2 px-3">
+					<div className="w-6 h-6 rounded-md bg-linear-to-br from-primary to-primary/50 flex items-center justify-center">
+						<Palette className="w-4 h-4 text-primary-foreground" />
+					</div>
+					<span className="font-semibold text-sm text-foreground">
+						ArtStudio
+					</span>
+				</div>
+
+				<div className="w-px h-5 bg-border mx-2" />
+
+				{/* Menu Items */}
+				{menus.map((menu) => (
+					<DropdownMenu key={menu.label}>
+						<DropdownMenuTrigger asChild>
+							<button className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded transition-colors outline-none">
+								{menu.label}
+							</button>
+						</DropdownMenuTrigger>
+						<DropdownMenuContent align="start" className="min-w-55">
+							{renderMenuItems(menu.items)}
+						</DropdownMenuContent>
+					</DropdownMenu>
+				))}
+			</div>
+
+			{/* Right: Quick Actions */}
+			<div className="flex items-center gap-1">
+				<Tooltip>
+					<TooltipTrigger asChild>
+						<button onClick={handleNewCanvas} className="tool-button w-8 h-8">
+							<FileIcon className="w-4 h-4" />
+						</button>
+					</TooltipTrigger>
+					<TooltipContent>New Canvas</TooltipContent>
+				</Tooltip>
+
+				<Tooltip>
+					<TooltipTrigger asChild>
+						<button onClick={handleOpenFile} className="tool-button w-8 h-8">
+							<FolderOpen className="w-4 h-4" />
+						</button>
+					</TooltipTrigger>
+					<TooltipContent>Open File (⌘O)</TooltipContent>
+				</Tooltip>
+
+				<Tooltip>
+					<TooltipTrigger asChild>
+						<button onClick={handleSave} className="tool-button w-8 h-8">
+							<Save className="w-4 h-4" />
+						</button>
+					</TooltipTrigger>
+					<TooltipContent>Save</TooltipContent>
+				</Tooltip>
+
+				<Tooltip>
+					<TooltipTrigger asChild>
+						<button
+							onClick={() => handleExport("PNG")}
+							className="tool-button w-8 h-8"
+						>
+							<Download className="w-4 h-4" />
+						</button>
+					</TooltipTrigger>
+					<TooltipContent>Export</TooltipContent>
+				</Tooltip>
+
+				<div className="w-px h-5 bg-border mx-1" />
+
+				<Tooltip>
+					<TooltipTrigger asChild>
+						<button
+							onClick={() => setShowGrid(!showGrid)}
+							className={`tool-button w-8 h-8 ${showGrid ? "bg-primary/20" : ""}`}
+						>
+							<Grid3X3 className="w-4 h-4" />
+						</button>
+					</TooltipTrigger>
+					<TooltipContent>Toggle Grid</TooltipContent>
+				</Tooltip>
+
+				<Tooltip>
+					<TooltipTrigger asChild>
+						<button
+							onClick={() => setShowShortcuts(true)}
+							className="tool-button w-8 h-8"
+						>
+							<Keyboard className="w-4 h-4" />
+						</button>
+					</TooltipTrigger>
+					<TooltipContent>Keyboard Shortcuts (⌘/)</TooltipContent>
+				</Tooltip>
+			</div>
+
+			{/* Templates Dialog */}
+			<TemplatesDialog open={showTemplates} onOpenChange={setShowTemplates} />
+
+			{/* Keyboard Shortcuts Dialog */}
+			<KeyboardShortcutsDialog
+				open={showShortcuts}
+				onOpenChange={setShowShortcuts}
+			/>
+		</div>
+	);
+};
