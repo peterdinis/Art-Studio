@@ -1666,11 +1666,6 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				</div>
 			)}
 
-			{/* Debug info */}
-			<div className="absolute top-2 left-2 bg-black/50 text-white text-xs px-2 py-1 rounded pointer-events-none z-50">
-				Canvas ID: {sessionId?.substring(0, 8) || 'no-session'}
-			</div>
-
 			<div
 				className="relative shadow-2xl rounded-sm overflow-hidden"
 				style={{
