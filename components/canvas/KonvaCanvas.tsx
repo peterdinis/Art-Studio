@@ -1,3 +1,5 @@
+"use client"
+
 import React, { useRef, useEffect, useState, useCallback } from "react";
 import {
 	Stage,
@@ -161,7 +163,7 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 	const [isLoadingSession, setIsLoadingSession] = useState(true);
 	const [hasRestoredState, setHasRestoredState] = useState(false);
 	const [lastSessionId, setLastSessionId] = useState<string | null>(null);
-	const [showSessionNotification, setShowSessionNotification] = useState(false); // Pridané
+	const [showSessionNotification, setShowSessionNotification] = useState(false);
 
 	const {
 		activeTool,
@@ -192,6 +194,83 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 	const actualWidth = canvasSize?.width || width;
 	const actualHeight = canvasSize?.height || height;
 	const actualBackground = canvasSize?.backgroundColor || backgroundColor;
+
+	// DÔLEŽITÉ: Cleanup efekt pre prevenciu viacerých instancií
+	useEffect(() => {
+		console.log("KonvaCanvas mounting...");
+		
+		// Skontroluj existujúce Konva inštancie
+		const existingCanvas = document.querySelector('.konvajs-content');
+		if (existingCanvas) {
+			console.warn('Detekovaný existujúci Konva canvas, čistím...');
+			// Pokús sa zničiť predchádzajúcu stage
+			if ((window as any).konvaStage) {
+				try {
+					(window as any).konvaStage.destroy();
+					delete (window as any).konvaStage;
+				} catch (error) {
+					console.error('Chyba pri ničení predchádzajúcej stage:', error);
+				}
+			}
+		}
+
+		return () => {
+			console.log("KonvaCanvas unmounting, vykonávam cleanup...");
+			
+			// Znič stage ak existuje
+			if (stageRef.current) {
+				try {
+					stageRef.current.destroy();
+					console.log("Stage úspešne zničená");
+				} catch (error) {
+					console.error("Chyba pri ničení stage:", error);
+				}
+			}
+			
+			// Vyčisti globálnu referenciu
+			if ((window as any).konvaStage === stageRef.current) {
+				delete (window as any).konvaStage;
+			}
+			
+			// Vyčisti referencie na canvasy
+			floodFillCanvas.current = null;
+			eyedropperCanvas.current = null;
+			healingCanvas.current = null;
+			blurCanvas.current = null;
+			floodFillContext.current = null;
+			eyedropperContext.current = null;
+			healingContext.current = null;
+			blurContext.current = null;
+		};
+	}, []);
+
+	// Nastav globálnu referenciu len raz
+	useEffect(() => {
+		if (stageRef.current && !(window as any).konvaStage) {
+			(window as any).konvaStage = stageRef.current;
+			console.log("Globálna Konva stage referencia nastavená");
+		}
+	}, []);
+
+	// Monitor viacerých instancií
+	useEffect(() => {
+		const checkForMultipleInstances = () => {
+			const konvaElements = document.querySelectorAll('.konvajs-content');
+			if (konvaElements.length > 1) {
+				console.warn(`VAROVANIE: Detekované viacero Konva instancií: ${konvaElements.length}`);
+				// Odstráň extra inštancie
+				for (let i = 1; i < konvaElements.length; i++) {
+					const parent = konvaElements[i].parentElement;
+					if (parent) {
+						parent.remove();
+					}
+				}
+			}
+		};
+
+		const interval = setInterval(checkForMultipleInstances, 2000);
+		return () => clearInterval(interval);
+	}, []);
 
 	// Inicializácia session a načítanie stavu
 	useEffect(() => {
@@ -258,15 +337,6 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 
 		loadSessionAndState();
 	}, [sessionId, initializeSession, setGradients]);
-
-	useEffect(() => {
-		if (stageRef.current) {
-			(window as any).konvaStage = stageRef.current;
-		}
-		return () => {
-			delete (window as any).konvaStage;
-		};
-	}, []);
 
 	useEffect(() => {
 		const canvas = document.createElement("canvas");
@@ -1595,6 +1665,11 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 					<span>Session restored • Auto-save active</span>
 				</div>
 			)}
+
+			{/* Debug info */}
+			<div className="absolute top-2 left-2 bg-black/50 text-white text-xs px-2 py-1 rounded pointer-events-none z-50">
+				Canvas ID: {sessionId?.substring(0, 8) || 'no-session'}
+			</div>
 
 			<div
 				className="relative shadow-2xl rounded-sm overflow-hidden"
