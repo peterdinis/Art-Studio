@@ -16,10 +16,10 @@
 		"biome:lint": "biome lint .",
 		"biome:lint-fix": "biome lint --apply .",
 		"biome:lint-unsafe": "biome lint --apply-unsafe .",
-		"format": "npm run biome:format-fix && npm run biome:check-fix",
-		"lint:all": "npm run biome:lint && npm run biome:check",
-		"lint:fix": "npm run biome:lint-fix && npm run biome:check-fix",
-		"lint:ci": "npm run biome:ci",
+		"format": "bun run biome:format-fix && bun run biome:check-fix",
+		"lint:all": "bun run biome:lint && bun run biome:check",
+		"lint:fix": "bun run biome:lint-fix && bun run biome:check-fix",
+		"lint:ci": "bun run biome:ci",
 		"test": "vitest run"
 	},
 	"dependencies": {
