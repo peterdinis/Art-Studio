@@ -327,6 +327,253 @@ export const TopMenuBar: React.FC = () => {
 		}
 	};
 
+	const handleExportPDF = async () => {
+		const canvas = getCanvas();
+		if (!canvas) {
+			toast.error("No canvas to export");
+			return;
+		}
+
+		try {
+			// For PDF, we'll use jsPDF library
+			const { jsPDF } = await import("jspdf");
+			
+			const dataURL = isFabric()
+				? canvas.toDataURL({
+						format: "png",
+						quality: 1,
+						multiplier: 2,
+					})
+				: canvas.toDataURL({ pixelRatio: 2 });
+			
+			const pdf = new jsPDF({
+				orientation: "landscape",
+				unit: "px",
+				format: [canvas.width!, canvas.height!],
+			});
+			
+			pdf.addImage(dataURL, "PNG", 0, 0, canvas.width!, canvas.height!);
+			pdf.save("artwork.pdf");
+			toast.success("Exported as PDF");
+		} catch (error) {
+			console.error("Error exporting PDF:", error);
+			toast.error("Failed to export PDF");
+		}
+	};
+
+	const handleExportWithTransparentBackground = () => {
+		const canvas = getCanvas();
+		if (!canvas) {
+			toast.error("No canvas to export");
+			return;
+		}
+
+		// Store original background
+		const originalBackground = canvas.backgroundColor;
+		
+		// Set transparent background
+		canvas.backgroundColor = "transparent";
+		
+		const dataURL = isFabric()
+			? canvas.toDataURL({
+					format: "png",
+					quality: 1,
+					multiplier: 2,
+				})
+			: canvas.toDataURL({ pixelRatio: 2 });
+		
+		// Restore original background
+		canvas.backgroundColor = originalBackground;
+		canvas.renderAll();
+		
+		const a = document.createElement("a");
+		a.href = dataURL;
+		a.download = "artwork-transparent.png";
+		a.click();
+		toast.success("Exported with transparent background");
+	};
+
+	const handleExportFaviconPackage = () => {
+		const canvas = getCanvas();
+		if (!canvas) {
+			toast.error("No canvas to export");
+			return;
+		}
+
+		// Favicon sizes
+		const sizes = [
+			{ size: 16, name: "favicon-16x16.png" },
+			{ size: 32, name: "favicon-32x32.png" },
+			{ size: 48, name: "favicon-48x48.png" },
+			{ size: 64, name: "favicon-64x64.png" },
+			{ size: 128, name: "favicon-128x128.png" },
+			{ size: 256, name: "favicon-256x256.png" },
+			{ size: 512, name: "favicon-512x512.png" },
+		];
+
+		// Create a zip file with all favicon sizes
+		import("jszip").then((JSZipModule) => {
+			// Oprava: JSZip je default export
+			const JSZip = JSZipModule.default || JSZipModule;
+			const zip = new JSZip();
+			const promises = sizes.map(({ size, name }) => {
+				return new Promise<void>((resolve) => {
+					const offscreenCanvas = document.createElement("canvas");
+					offscreenCanvas.width = size;
+					offscreenCanvas.height = size;
+					const ctx = offscreenCanvas.getContext("2d");
+					
+					if (ctx) {
+						// Draw scaled version of the canvas
+						ctx.drawImage(canvas.getElement(), 0, 0, size, size);
+						offscreenCanvas.toBlob((blob) => {
+							if (blob) {
+								zip.file(name, blob);
+							}
+							resolve();
+						}, "image/png");
+					} else {
+						resolve();
+					}
+				});
+			});
+
+			Promise.all(promises).then(() => {
+				zip.generateAsync({ type: "blob" }).then((content: Blob | MediaSource) => {
+					const url = URL.createObjectURL(content);
+					const a = document.createElement("a");
+					a.href = url;
+					a.download = "favicon-package.zip";
+					a.click();
+					URL.revokeObjectURL(url);
+					toast.success("Favicon package exported");
+				});
+			});
+		}).catch((error) => {
+			console.error("Error creating favicon package:", error);
+			toast.error("Failed to export favicon package");
+		});
+	};
+
+	const handleExportSocialMedia = (platform: string) => {
+		const canvas = getCanvas();
+		if (!canvas) {
+			toast.error("No canvas to export");
+			return;
+		}
+
+		const dimensions: Record<string, { width: number; height: number }> = {
+			instagram: { width: 1080, height: 1080 },
+			twitter: { width: 1200, height: 675 },
+			facebook: { width: 1200, height: 630 },
+			linkedin: { width: 1200, height: 627 },
+		};
+
+		const dim = dimensions[platform];
+		if (!dim) {
+			toast.error("Invalid platform");
+			return;
+		}
+
+		const offscreenCanvas = document.createElement("canvas");
+		offscreenCanvas.width = dim.width;
+		offscreenCanvas.height = dim.height;
+		const ctx = offscreenCanvas.getContext("2d");
+		
+		if (ctx) {
+			// Fill with white background
+			ctx.fillStyle = "#ffffff";
+			ctx.fillRect(0, 0, dim.width, dim.height);
+			
+			// Draw centered and scaled version of the canvas
+			const canvasElement = canvas.getElement();
+			const scale = Math.min(dim.width / canvas.width!, dim.height / canvas.height!);
+			const scaledWidth = canvas.width! * scale;
+			const scaledHeight = canvas.height! * scale;
+			const x = (dim.width - scaledWidth) / 2;
+			const y = (dim.height - scaledHeight) / 2;
+			
+			ctx.drawImage(canvasElement, x, y, scaledWidth, scaledHeight);
+			
+			const dataURL = offscreenCanvas.toDataURL("image/png", 1);
+			const a = document.createElement("a");
+			a.href = dataURL;
+			a.download = `artwork-${platform}.png`;
+			a.click();
+			toast.success(`Exported for ${platform}`);
+		}
+	};
+
+	const handleExportMultipleSizes = () => {
+		const canvas = getCanvas();
+		if (!canvas) {
+			toast.error("No canvas to export");
+			return;
+		}
+
+		const sizes = [
+			{ width: 1920, height: 1080, name: "HD" },
+			{ width: 1280, height: 720, name: "720p" },
+			{ width: 1024, height: 768, name: "XGA" },
+			{ width: 800, height: 600, name: "SVGA" },
+			{ width: 640, height: 480, name: "VGA" },
+		];
+
+		import("jszip").then((JSZipModule) => {
+			// Oprava: JSZip je default export
+			const JSZip = JSZipModule.default || JSZipModule;
+			const zip = new JSZip();
+			const promises = sizes.map(({ width, height, name }) => {
+				return new Promise<void>((resolve) => {
+					const offscreenCanvas = document.createElement("canvas");
+					offscreenCanvas.width = width;
+					offscreenCanvas.height = height;
+					const ctx = offscreenCanvas.getContext("2d");
+					
+					if (ctx) {
+						// Fill with white background
+						ctx.fillStyle = "#ffffff";
+						ctx.fillRect(0, 0, width, height);
+						
+						// Draw centered and scaled version of the canvas
+						const canvasElement = canvas.getElement();
+						const scale = Math.min(width / canvas.width!, height / canvas.height!);
+						const scaledWidth = canvas.width! * scale;
+						const scaledHeight = canvas.height! * scale;
+						const x = (width - scaledWidth) / 2;
+						const y = (height - scaledHeight) / 2;
+						
+						ctx.drawImage(canvasElement, x, y, scaledWidth, scaledHeight);
+						
+						offscreenCanvas.toBlob((blob) => {
+							if (blob) {
+								zip.file(`artwork-${name}-${width}x${height}.png`, blob);
+							}
+							resolve();
+						}, "image/png");
+					} else {
+						resolve();
+					}
+				});
+			});
+
+			Promise.all(promises).then(() => {
+				zip.generateAsync({ type: "blob" }).then((content: Blob | MediaSource) => {
+					const url = URL.createObjectURL(content);
+					const a = document.createElement("a");
+					a.href = url;
+					a.download = "artwork-multiple-sizes.zip";
+					a.click();
+					URL.revokeObjectURL(url);
+					toast.success("Multiple sizes exported");
+				});
+			});
+		}).catch((error) => {
+			console.error("Error creating multiple sizes package:", error);
+			toast.error("Failed to export multiple sizes");
+		});
+	};
+
 	const handleShare = () => {
 		const canvas = getCanvas();
 		if (canvas) {
@@ -1301,6 +1548,49 @@ export const TopMenuBar: React.FC = () => {
 				{ label: "JPEG", icon: FileImage, action: () => handleExport("JPEG") },
 				{ label: "WebP", icon: FileImage, action: () => handleExport("WebP") },
 				{ label: "SVG", icon: FileImage, action: () => handleExport("SVG") },
+				{ label: "PDF", icon: FileImage, action: () => handleExportPDF() },
+				{ label: "TIFF", icon: FileImage, action: () => handleExport("TIFF") },
+				{ label: "BMP", icon: FileImage, action: () => handleExport("BMP") },
+				{ label: "GIF", icon: FileImage, action: () => handleExport("GIF") },
+				{ label: "ICO", icon: FileImage, action: () => handleExport("ICO") },
+				{ separator: true, label: "" },
+				{
+					label: "Export with Transparent Background",
+					icon: FileImage,
+					action: () => handleExportWithTransparentBackground(),
+				},
+				{
+					label: "Export as Favicon Package",
+					icon: FileImage,
+					action: () => handleExportFaviconPackage(),
+				},
+				{
+					label: "Export for Social Media",
+					icon: Share2,
+					submenu: [
+						{
+							label: "Instagram (1080x1080)",
+							action: () => handleExportSocialMedia("instagram"),
+						},
+						{
+							label: "Twitter (1200x675)",
+							action: () => handleExportSocialMedia("twitter"),
+						},
+						{
+							label: "Facebook (1200x630)",
+							action: () => handleExportSocialMedia("facebook"),
+						},
+						{
+							label: "LinkedIn (1200x627)",
+							action: () => handleExportSocialMedia("linkedin"),
+						},
+					],
+				},
+				{
+					label: "Export Multiple Sizes",
+					icon: Scale,
+					action: () => handleExportMultipleSizes(),
+				},
 				{ separator: true, label: "" },
 				{
 					label: "Project JSON",
