@@ -13,7 +13,6 @@ import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useEffect, useState } from "react";
 
 const HomeWrapper = () => {
-	// State pre sledovanie inicializácie session
 	const [isSessionInitialized, setIsSessionInitialized] = useState(false);
 	const [isClient, setIsClient] = useState(false);
 
@@ -27,22 +26,18 @@ const HomeWrapper = () => {
 		showColorsPanel,
 		showLayersPanel,
 		showHistoryPanel,
-		// Používame skutočné metódy z vášho store
 		initializeSession,
 		saveSession,
 		sessionId,
 		clearCurrentSession,
 	} = useArtStudioStore();
 
-	// Initialize global keyboard shortcuts - only on client
 	useKeyboardShortcuts();
 
-	// Mark when client-side rendering starts
 	useEffect(() => {
 		setIsClient(true);
 	}, []);
 
-	// Inicializácia session a načítanie dát - only on client
 	useEffect(() => {
 		if (!isClient) return;
 
@@ -54,7 +49,7 @@ const HomeWrapper = () => {
 				console.log("Session initialized successfully");
 			} catch (error) {
 				console.error("Failed to initialize session:", error);
-				setIsSessionInitialized(true); // Aj tak pokračujeme
+				setIsSessionInitialized(true);
 			}
 		};
 
