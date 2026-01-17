@@ -8,17 +8,13 @@ import {
 	TooltipContent,
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { toast } from "sonner";
 
 export const StatusBar: React.FC = () => {
 	const {
 		zoom,
 		setZoom,
-		setPanOffset,
 		activeTool,
 		brushSettings,
-		renderingEngine,
-		setRenderingEngine,
 	} = useArtStudioStore();
 
 	const zoomLevels = [25, 50, 75, 100, 150, 200, 300, 400];
