@@ -1,4 +1,4 @@
-"use client"
+"use client";
 
 import React, { useRef, useEffect, useState, useCallback } from "react";
 import {
@@ -198,25 +198,25 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 	// DÔLEŽITÉ: Cleanup efekt pre prevenciu viacerých instancií
 	useEffect(() => {
 		console.log("KonvaCanvas mounting...");
-		
+
 		// Skontroluj existujúce Konva inštancie
-		const existingCanvas = document.querySelector('.konvajs-content');
+		const existingCanvas = document.querySelector(".konvajs-content");
 		if (existingCanvas) {
-			console.warn('Detekovaný existujúci Konva canvas, čistím...');
+			console.warn("Detekovaný existujúci Konva canvas, čistím...");
 			// Pokús sa zničiť predchádzajúcu stage
 			if ((window as any).konvaStage) {
 				try {
 					(window as any).konvaStage.destroy();
 					delete (window as any).konvaStage;
 				} catch (error) {
-					console.error('Chyba pri ničení predchádzajúcej stage:', error);
+					console.error("Chyba pri ničení predchádzajúcej stage:", error);
 				}
 			}
 		}
 
 		return () => {
 			console.log("KonvaCanvas unmounting, vykonávam cleanup...");
-			
+
 			// Znič stage ak existuje
 			if (stageRef.current) {
 				try {
@@ -226,12 +226,12 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 					console.error("Chyba pri ničení stage:", error);
 				}
 			}
-			
+
 			// Vyčisti globálnu referenciu
 			if ((window as any).konvaStage === stageRef.current) {
 				delete (window as any).konvaStage;
 			}
-			
+
 			// Vyčisti referencie na canvasy
 			floodFillCanvas.current = null;
 			eyedropperCanvas.current = null;
@@ -255,9 +255,11 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 	// Monitor viacerých instancií
 	useEffect(() => {
 		const checkForMultipleInstances = () => {
-			const konvaElements = document.querySelectorAll('.konvajs-content');
+			const konvaElements = document.querySelectorAll(".konvajs-content");
 			if (konvaElements.length > 1) {
-				console.warn(`VAROVANIE: Detekované viacero Konva instancií: ${konvaElements.length}`);
+				console.warn(
+					`VAROVANIE: Detekované viacero Konva instancií: ${konvaElements.length}`,
+				);
 				// Odstráň extra inštancie
 				for (let i = 1; i < konvaElements.length; i++) {
 					const parent = konvaElements[i].parentElement;

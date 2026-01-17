@@ -337,7 +337,7 @@ export const TopMenuBar: React.FC = () => {
 		try {
 			// For PDF, we'll use jsPDF library
 			const { jsPDF } = await import("jspdf");
-			
+
 			const dataURL = isFabric()
 				? canvas.toDataURL({
 						format: "png",
@@ -345,13 +345,13 @@ export const TopMenuBar: React.FC = () => {
 						multiplier: 2,
 					})
 				: canvas.toDataURL({ pixelRatio: 2 });
-			
+
 			const pdf = new jsPDF({
 				orientation: "landscape",
 				unit: "px",
 				format: [canvas.width!, canvas.height!],
 			});
-			
+
 			pdf.addImage(dataURL, "PNG", 0, 0, canvas.width!, canvas.height!);
 			pdf.save("artwork.pdf");
 			toast.success("Exported as PDF");
@@ -370,10 +370,10 @@ export const TopMenuBar: React.FC = () => {
 
 		// Store original background
 		const originalBackground = canvas.backgroundColor;
-		
+
 		// Set transparent background
 		canvas.backgroundColor = "transparent";
-		
+
 		const dataURL = isFabric()
 			? canvas.toDataURL({
 					format: "png",
@@ -381,11 +381,11 @@ export const TopMenuBar: React.FC = () => {
 					multiplier: 2,
 				})
 			: canvas.toDataURL({ pixelRatio: 2 });
-		
+
 		// Restore original background
 		canvas.backgroundColor = originalBackground;
 		canvas.renderAll();
-		
+
 		const a = document.createElement("a");
 		a.href = dataURL;
 		a.download = "artwork-transparent.png";
@@ -412,47 +412,51 @@ export const TopMenuBar: React.FC = () => {
 		];
 
 		// Create a zip file with all favicon sizes
-		import("jszip").then((JSZipModule) => {
-			// Oprava: JSZip je default export
-			const JSZip = JSZipModule.default || JSZipModule;
-			const zip = new JSZip();
-			const promises = sizes.map(({ size, name }) => {
-				return new Promise<void>((resolve) => {
-					const offscreenCanvas = document.createElement("canvas");
-					offscreenCanvas.width = size;
-					offscreenCanvas.height = size;
-					const ctx = offscreenCanvas.getContext("2d");
-					
-					if (ctx) {
-						// Draw scaled version of the canvas
-						ctx.drawImage(canvas.getElement(), 0, 0, size, size);
-						offscreenCanvas.toBlob((blob) => {
-							if (blob) {
-								zip.file(name, blob);
-							}
-							resolve();
-						}, "image/png");
-					} else {
-						resolve();
-					}
-				});
-			});
+		import("jszip")
+			.then((JSZipModule) => {
+				// Oprava: JSZip je default export
+				const JSZip = JSZipModule.default || JSZipModule;
+				const zip = new JSZip();
+				const promises = sizes.map(({ size, name }) => {
+					return new Promise<void>((resolve) => {
+						const offscreenCanvas = document.createElement("canvas");
+						offscreenCanvas.width = size;
+						offscreenCanvas.height = size;
+						const ctx = offscreenCanvas.getContext("2d");
 
-			Promise.all(promises).then(() => {
-				zip.generateAsync({ type: "blob" }).then((content: Blob | MediaSource) => {
-					const url = URL.createObjectURL(content);
-					const a = document.createElement("a");
-					a.href = url;
-					a.download = "favicon-package.zip";
-					a.click();
-					URL.revokeObjectURL(url);
-					toast.success("Favicon package exported");
+						if (ctx) {
+							// Draw scaled version of the canvas
+							ctx.drawImage(canvas.getElement(), 0, 0, size, size);
+							offscreenCanvas.toBlob((blob) => {
+								if (blob) {
+									zip.file(name, blob);
+								}
+								resolve();
+							}, "image/png");
+						} else {
+							resolve();
+						}
+					});
 				});
+
+				Promise.all(promises).then(() => {
+					zip
+						.generateAsync({ type: "blob" })
+						.then((content: Blob | MediaSource) => {
+							const url = URL.createObjectURL(content);
+							const a = document.createElement("a");
+							a.href = url;
+							a.download = "favicon-package.zip";
+							a.click();
+							URL.revokeObjectURL(url);
+							toast.success("Favicon package exported");
+						});
+				});
+			})
+			.catch((error) => {
+				console.error("Error creating favicon package:", error);
+				toast.error("Failed to export favicon package");
 			});
-		}).catch((error) => {
-			console.error("Error creating favicon package:", error);
-			toast.error("Failed to export favicon package");
-		});
 	};
 
 	const handleExportSocialMedia = (platform: string) => {
@@ -479,22 +483,25 @@ export const TopMenuBar: React.FC = () => {
 		offscreenCanvas.width = dim.width;
 		offscreenCanvas.height = dim.height;
 		const ctx = offscreenCanvas.getContext("2d");
-		
+
 		if (ctx) {
 			// Fill with white background
 			ctx.fillStyle = "#ffffff";
 			ctx.fillRect(0, 0, dim.width, dim.height);
-			
+
 			// Draw centered and scaled version of the canvas
 			const canvasElement = canvas.getElement();
-			const scale = Math.min(dim.width / canvas.width!, dim.height / canvas.height!);
+			const scale = Math.min(
+				dim.width / canvas.width!,
+				dim.height / canvas.height!,
+			);
 			const scaledWidth = canvas.width! * scale;
 			const scaledHeight = canvas.height! * scale;
 			const x = (dim.width - scaledWidth) / 2;
 			const y = (dim.height - scaledHeight) / 2;
-			
+
 			ctx.drawImage(canvasElement, x, y, scaledWidth, scaledHeight);
-			
+
 			const dataURL = offscreenCanvas.toDataURL("image/png", 1);
 			const a = document.createElement("a");
 			a.href = dataURL;
@@ -519,59 +526,66 @@ export const TopMenuBar: React.FC = () => {
 			{ width: 640, height: 480, name: "VGA" },
 		];
 
-		import("jszip").then((JSZipModule) => {
-			// Oprava: JSZip je default export
-			const JSZip = JSZipModule.default || JSZipModule;
-			const zip = new JSZip();
-			const promises = sizes.map(({ width, height, name }) => {
-				return new Promise<void>((resolve) => {
-					const offscreenCanvas = document.createElement("canvas");
-					offscreenCanvas.width = width;
-					offscreenCanvas.height = height;
-					const ctx = offscreenCanvas.getContext("2d");
-					
-					if (ctx) {
-						// Fill with white background
-						ctx.fillStyle = "#ffffff";
-						ctx.fillRect(0, 0, width, height);
-						
-						// Draw centered and scaled version of the canvas
-						const canvasElement = canvas.getElement();
-						const scale = Math.min(width / canvas.width!, height / canvas.height!);
-						const scaledWidth = canvas.width! * scale;
-						const scaledHeight = canvas.height! * scale;
-						const x = (width - scaledWidth) / 2;
-						const y = (height - scaledHeight) / 2;
-						
-						ctx.drawImage(canvasElement, x, y, scaledWidth, scaledHeight);
-						
-						offscreenCanvas.toBlob((blob) => {
-							if (blob) {
-								zip.file(`artwork-${name}-${width}x${height}.png`, blob);
-							}
-							resolve();
-						}, "image/png");
-					} else {
-						resolve();
-					}
-				});
-			});
+		import("jszip")
+			.then((JSZipModule) => {
+				// Oprava: JSZip je default export
+				const JSZip = JSZipModule.default || JSZipModule;
+				const zip = new JSZip();
+				const promises = sizes.map(({ width, height, name }) => {
+					return new Promise<void>((resolve) => {
+						const offscreenCanvas = document.createElement("canvas");
+						offscreenCanvas.width = width;
+						offscreenCanvas.height = height;
+						const ctx = offscreenCanvas.getContext("2d");
 
-			Promise.all(promises).then(() => {
-				zip.generateAsync({ type: "blob" }).then((content: Blob | MediaSource) => {
-					const url = URL.createObjectURL(content);
-					const a = document.createElement("a");
-					a.href = url;
-					a.download = "artwork-multiple-sizes.zip";
-					a.click();
-					URL.revokeObjectURL(url);
-					toast.success("Multiple sizes exported");
+						if (ctx) {
+							// Fill with white background
+							ctx.fillStyle = "#ffffff";
+							ctx.fillRect(0, 0, width, height);
+
+							// Draw centered and scaled version of the canvas
+							const canvasElement = canvas.getElement();
+							const scale = Math.min(
+								width / canvas.width!,
+								height / canvas.height!,
+							);
+							const scaledWidth = canvas.width! * scale;
+							const scaledHeight = canvas.height! * scale;
+							const x = (width - scaledWidth) / 2;
+							const y = (height - scaledHeight) / 2;
+
+							ctx.drawImage(canvasElement, x, y, scaledWidth, scaledHeight);
+
+							offscreenCanvas.toBlob((blob) => {
+								if (blob) {
+									zip.file(`artwork-${name}-${width}x${height}.png`, blob);
+								}
+								resolve();
+							}, "image/png");
+						} else {
+							resolve();
+						}
+					});
 				});
+
+				Promise.all(promises).then(() => {
+					zip
+						.generateAsync({ type: "blob" })
+						.then((content: Blob | MediaSource) => {
+							const url = URL.createObjectURL(content);
+							const a = document.createElement("a");
+							a.href = url;
+							a.download = "artwork-multiple-sizes.zip";
+							a.click();
+							URL.revokeObjectURL(url);
+							toast.success("Multiple sizes exported");
+						});
+				});
+			})
+			.catch((error) => {
+				console.error("Error creating multiple sizes package:", error);
+				toast.error("Failed to export multiple sizes");
 			});
-		}).catch((error) => {
-			console.error("Error creating multiple sizes package:", error);
-			toast.error("Failed to export multiple sizes");
-		});
 	};
 
 	const handleShare = () => {
