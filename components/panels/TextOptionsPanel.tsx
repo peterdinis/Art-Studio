@@ -50,6 +50,19 @@ export const TextOptionsPanel: React.FC = () => {
 	const { brushSettings, setBrushSettings } = useArtStudioStore();
 	const [customFonts, setCustomFonts] = useState<string[]>([]);
 
+	// Bezpečné získanie hodnôt s predvolenými hodnotami
+	const safeBrushSettings = {
+		...brushSettings,
+		lineHeight: brushSettings.lineHeight ?? 1.2,
+		letterSpacing: brushSettings.letterSpacing ?? 0,
+		fontFamily: brushSettings.fontFamily ?? "Arial",
+		fontSize: brushSettings.fontSize ?? 16,
+		fontWeight: brushSettings.fontWeight ?? "normal",
+		fontStyle: brushSettings.fontStyle ?? "normal",
+		textDecoration: brushSettings.textDecoration ?? "none",
+		textAlign: brushSettings.textAlign ?? "left",
+	};
+
 	const loadCustomFont = () => {
 		const input = document.createElement("input");
 		input.type = "file";
@@ -86,7 +99,7 @@ export const TextOptionsPanel: React.FC = () => {
 			<div className="space-y-2">
 				<Label className="text-xs text-muted-foreground">Font</Label>
 				<Select
-					value={brushSettings.fontFamily}
+					value={safeBrushSettings.fontFamily}
 					onValueChange={(value) => setBrushSettings({ fontFamily: value })}
 				>
 					<SelectTrigger className="w-full h-8 text-xs">
@@ -124,7 +137,7 @@ export const TextOptionsPanel: React.FC = () => {
 				<Label className="text-xs text-muted-foreground">Font Size</Label>
 				<div className="flex items-center gap-2">
 					<Select
-						value={brushSettings.fontSize.toString()}
+						value={safeBrushSettings.fontSize.toString()}
 						onValueChange={(value) =>
 							setBrushSettings({ fontSize: parseInt(value) })
 						}
@@ -148,7 +161,7 @@ export const TextOptionsPanel: React.FC = () => {
 						<button
 							onClick={() =>
 								setBrushSettings({
-									fontSize: Math.max(1, brushSettings.fontSize - 1),
+									fontSize: Math.max(1, safeBrushSettings.fontSize - 1),
 								})
 							}
 							className="w-7 h-7 flex items-center justify-center rounded border border-input hover:bg-accent transition-colors"
@@ -159,7 +172,7 @@ export const TextOptionsPanel: React.FC = () => {
 						<button
 							onClick={() =>
 								setBrushSettings({
-									fontSize: Math.min(200, brushSettings.fontSize + 1),
+									fontSize: Math.min(200, safeBrushSettings.fontSize + 1),
 								})
 							}
 							className="w-7 h-7 flex items-center justify-center rounded border border-input hover:bg-accent transition-colors"
@@ -176,7 +189,7 @@ export const TextOptionsPanel: React.FC = () => {
 				<Label className="text-xs text-muted-foreground">Style</Label>
 				<div className="flex gap-1">
 					<Toggle
-						pressed={brushSettings.fontWeight === "bold"}
+						pressed={safeBrushSettings.fontWeight === "bold"}
 						onPressedChange={(pressed) =>
 							setBrushSettings({ fontWeight: pressed ? "bold" : "normal" })
 						}
@@ -187,7 +200,7 @@ export const TextOptionsPanel: React.FC = () => {
 						<Bold className="w-4 h-4" />
 					</Toggle>
 					<Toggle
-						pressed={brushSettings.fontStyle === "italic"}
+						pressed={safeBrushSettings.fontStyle === "italic"}
 						onPressedChange={(pressed) =>
 							setBrushSettings({ fontStyle: pressed ? "italic" : "normal" })
 						}
@@ -198,7 +211,7 @@ export const TextOptionsPanel: React.FC = () => {
 						<Italic className="w-4 h-4" />
 					</Toggle>
 					<Toggle
-						pressed={brushSettings.textDecoration === "underline"}
+						pressed={safeBrushSettings.textDecoration === "underline"}
 						onPressedChange={(pressed) =>
 							setBrushSettings({
 								textDecoration: pressed ? "underline" : "none",
@@ -218,7 +231,7 @@ export const TextOptionsPanel: React.FC = () => {
 				<Label className="text-xs text-muted-foreground">Alignment</Label>
 				<div className="flex gap-1">
 					<Toggle
-						pressed={brushSettings.textAlign === "left"}
+						pressed={safeBrushSettings.textAlign === "left"}
 						onPressedChange={(pressed) =>
 							pressed && setBrushSettings({ textAlign: "left" })
 						}
@@ -229,7 +242,7 @@ export const TextOptionsPanel: React.FC = () => {
 						<AlignLeft className="w-4 h-4" />
 					</Toggle>
 					<Toggle
-						pressed={brushSettings.textAlign === "center"}
+						pressed={safeBrushSettings.textAlign === "center"}
 						onPressedChange={(pressed) =>
 							pressed && setBrushSettings({ textAlign: "center" })
 						}
@@ -240,7 +253,7 @@ export const TextOptionsPanel: React.FC = () => {
 						<AlignCenter className="w-4 h-4" />
 					</Toggle>
 					<Toggle
-						pressed={brushSettings.textAlign === "right"}
+						pressed={safeBrushSettings.textAlign === "right"}
 						onPressedChange={(pressed) =>
 							pressed && setBrushSettings({ textAlign: "right" })
 						}
@@ -251,7 +264,7 @@ export const TextOptionsPanel: React.FC = () => {
 						<AlignRight className="w-4 h-4" />
 					</Toggle>
 					<Toggle
-						pressed={brushSettings.textAlign === "justify"}
+						pressed={safeBrushSettings.textAlign === "justify"}
 						onPressedChange={(pressed) =>
 							pressed && setBrushSettings({ textAlign: "justify" })
 						}
@@ -270,11 +283,11 @@ export const TextOptionsPanel: React.FC = () => {
 					<div className="flex justify-between items-center">
 						<Label className="text-xs text-muted-foreground">Line Height</Label>
 						<span className="text-xs font-mono">
-							{brushSettings.lineHeight.toFixed(1)}
+							{safeBrushSettings.lineHeight.toFixed(1)}
 						</span>
 					</div>
 					<Slider
-						value={[brushSettings.lineHeight]}
+						value={[safeBrushSettings.lineHeight]}
 						onValueChange={([value]) => setBrushSettings({ lineHeight: value })}
 						min={0.5}
 						max={3}
@@ -289,11 +302,11 @@ export const TextOptionsPanel: React.FC = () => {
 							Letter Spacing
 						</Label>
 						<span className="text-xs font-mono">
-							{brushSettings.letterSpacing}px
+							{safeBrushSettings.letterSpacing}px
 						</span>
 					</div>
 					<Slider
-						value={[brushSettings.letterSpacing]}
+						value={[safeBrushSettings.letterSpacing]}
 						onValueChange={([value]) =>
 							setBrushSettings({ letterSpacing: value })
 						}
@@ -314,20 +327,20 @@ export const TextOptionsPanel: React.FC = () => {
 					<div
 						className="text-foreground"
 						style={{
-							fontFamily: brushSettings.fontFamily,
-							fontSize: `${brushSettings.fontSize}px`,
-							fontWeight: brushSettings.fontWeight,
-							fontStyle: brushSettings.fontStyle,
-							textDecoration: brushSettings.textDecoration,
-							textAlign: brushSettings.textAlign,
-							lineHeight: brushSettings.lineHeight,
-							letterSpacing: `${brushSettings.letterSpacing}px`,
+							fontFamily: safeBrushSettings.fontFamily,
+							fontSize: `${safeBrushSettings.fontSize}px`,
+							fontWeight: safeBrushSettings.fontWeight,
+							fontStyle: safeBrushSettings.fontStyle,
+							textDecoration: safeBrushSettings.textDecoration,
+							textAlign: safeBrushSettings.textAlign,
+							lineHeight: safeBrushSettings.lineHeight,
+							letterSpacing: `${safeBrushSettings.letterSpacing}px`,
 						}}
 					>
 						The quick brown fox jumps over the lazy dog
 						<br />
 						<span className="opacity-70 text-xs">
-							Font: {brushSettings.fontFamily} | Size: {brushSettings.fontSize}
+							Font: {safeBrushSettings.fontFamily} | Size: {safeBrushSettings.fontSize}
 							px
 						</span>
 					</div>

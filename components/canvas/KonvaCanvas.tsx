@@ -299,6 +299,7 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 
 						console.log("Canvas state restored from session");
 						setHasRestoredState(true);
+						setShowSessionNotification(true);
 
 						// Upozornime, že canvas je načítaný
 						setTimeout(() => {
@@ -306,6 +307,11 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 								description: "Your previous work has been loaded",
 							});
 						}, 1000);
+
+						// Skry oznámenie po 5 sekundách
+						setTimeout(() => {
+							setShowSessionNotification(false);
+						}, 5000);
 					} else {
 						console.log("No saved session data found");
 						setHasRestoredState(false);
@@ -1748,7 +1754,8 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 	const isLayerVisible = useCallback(
 		(layerId?: string) => {
 			if (!layerId) return true;
-			return layers.find((l) => l.id === layerId)?.visible ?? true;
+			const layer = layers.find((l) => l.id === layerId);
+			return layer ? layer.visible : true;
 		},
 		[layers],
 	);
@@ -2413,6 +2420,16 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 					</div>
 				</div>
 			)}
+
+			{/* Zoom level indicator */}
+			<div className="absolute bottom-4 right-4 bg-black/50 text-white text-xs px-3 py-1.5 rounded pointer-events-none z-10">
+				Zoom: {zoom}%
+			</div>
+
+			{/* Canvas dimensions */}
+			<div className="absolute top-4 right-4 bg-black/50 text-white text-xs px-3 py-1.5 rounded pointer-events-none z-10">
+				{actualWidth} × {actualHeight}px
+			</div>
 
 			{/* Hidden canvases */}
 			<canvas ref={floodFillCanvas} style={{ display: "none" }} />
