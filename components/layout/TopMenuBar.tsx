@@ -2187,13 +2187,6 @@ export const TopMenuBar: React.FC = () => {
 			checked: showInfoPanel,
 		},
 		{ separator: true, label: "" },
-		{
-			label: "Reset Workspace",
-			action: () => {
-				resetWorkspace();
-				toast.success("Workspace reset");
-			},
-		},
 	];
 
 	const menus = [
