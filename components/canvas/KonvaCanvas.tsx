@@ -26,13 +26,13 @@ interface DrawingLine {
 	points: number[];
 	stroke: string;
 	strokeWidth: number;
-	tool: "brush" | "pencil" | "eraser" | "healing" | "blur";
+	tool: "brush" | "pencil" | "eraser" | "healing" | "blur" | "pen";
 	layerId?: string;
 }
 
 interface ShapeObject {
 	id: string;
-	type: "rect" | "ellipse" | "circle" | "line" | "text";
+	type: "rect" | "ellipse" | "circle" | "line" | "text" | "polygon";
 	x: number;
 	y: number;
 	width?: number;
@@ -74,11 +74,6 @@ interface GradientObject {
 	y1: number;
 	colorStops: { offset: number; color: string }[];
 	layerId?: string;
-}
-
-interface FloodFillPoint {
-	x: number;
-	y: number;
 }
 
 interface HealingData {
@@ -128,6 +123,12 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 	const [currentShape, setCurrentShape] = useState<ShapeObject | null>(null);
 	const shapeStartPoint = useRef<{ x: number; y: number } | null>(null);
 
+	// Nové stavy pre Pen a Polygon nástroje
+	const [isDrawingPolygon, setIsDrawingPolygon] = useState(false);
+	const [polygonPoints, setPolygonPoints] = useState<number[]>([]);
+	const [currentPenLine, setCurrentPenLine] = useState<DrawingLine | null>(null);
+	const [penPoints, setPenPoints] = useState<number[]>([]);
+
 	const isPanning = useRef(false);
 	const lastPanPos = useRef({ x: 0, y: 0 });
 
@@ -159,11 +160,20 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 	const eyedropperCanvas = useRef<HTMLCanvasElement | null>(null);
 	const eyedropperContext = useRef<CanvasRenderingContext2D | null>(null);
 
-	// Pridané stavy pre správu session
+	// Stavy pre správu session
 	const [isLoadingSession, setIsLoadingSession] = useState(true);
 	const [hasRestoredState, setHasRestoredState] = useState(false);
 	const [lastSessionId, setLastSessionId] = useState<string | null>(null);
 	const [showSessionNotification, setShowSessionNotification] = useState(false);
+
+	// Nové stavy pre správu kreslenia
+	const [activeDrawingLine, setActiveDrawingLine] = useState<DrawingLine | null>(
+		null,
+	);
+	const [tempCanvas, setTempCanvas] = useState<HTMLCanvasElement | null>(null);
+	const [tempContext, setTempContext] = useState<CanvasRenderingContext2D | null>(
+		null,
+	);
 
 	const {
 		activeTool,
@@ -195,23 +205,18 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 	const actualHeight = canvasSize?.height || height;
 	const actualBackground = canvasSize?.backgroundColor || backgroundColor;
 
-	// DÔLEŽITÉ: Cleanup efekt pre prevenciu viacerých instancií
+	// Cleanup efekt
 	useEffect(() => {
 		console.log("KonvaCanvas mounting...");
 
-		// Skontroluj existujúce Konva inštancie
-		const existingCanvas = document.querySelector(".konvajs-content");
-		if (existingCanvas) {
-			console.warn("Detekovaný existujúci Konva canvas, čistím...");
-			// Pokús sa zničiť predchádzajúcu stage
-			if ((window as any).konvaStage) {
-				try {
-					(window as any).konvaStage.destroy();
-					delete (window as any).konvaStage;
-				} catch (error) {
-					console.error("Chyba pri ničení predchádzajúcej stage:", error);
-				}
-			}
+		// Inicializácia temporary canvasu pre kreslenie
+		const tempCanvasEl = document.createElement("canvas");
+		tempCanvasEl.width = actualWidth;
+		tempCanvasEl.height = actualHeight;
+		const tempCtx = tempCanvasEl.getContext("2d");
+		if (tempCtx) {
+			setTempCanvas(tempCanvasEl);
+			setTempContext(tempCtx);
 		}
 
 		return () => {
@@ -241,8 +246,9 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			eyedropperContext.current = null;
 			healingContext.current = null;
 			blurContext.current = null;
+			if (tempCanvasEl) tempCanvasEl.remove();
 		};
-	}, []);
+	}, [actualWidth, actualHeight]);
 
 	// Nastav globálnu referenciu len raz
 	useEffect(() => {
@@ -250,28 +256,6 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			(window as any).konvaStage = stageRef.current;
 			console.log("Globálna Konva stage referencia nastavená");
 		}
-	}, []);
-
-	// Monitor viacerých instancií
-	useEffect(() => {
-		const checkForMultipleInstances = () => {
-			const konvaElements = document.querySelectorAll(".konvajs-content");
-			if (konvaElements.length > 1) {
-				console.warn(
-					`VAROVANIE: Detekované viacero Konva instancií: ${konvaElements.length}`,
-				);
-				// Odstráň extra inštancie
-				for (let i = 1; i < konvaElements.length; i++) {
-					const parent = konvaElements[i].parentElement;
-					if (parent) {
-						parent.remove();
-					}
-				}
-			}
-		};
-
-		const interval = setInterval(checkForMultipleInstances, 2000);
-		return () => clearInterval(interval);
 	}, []);
 
 	// Inicializácia session a načítanie stavu
@@ -340,49 +324,83 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		loadSessionAndState();
 	}, [sessionId, initializeSession, setGradients]);
 
+	// Inicializácia pomocných canvasov
 	useEffect(() => {
-		const canvas = document.createElement("canvas");
-		canvas.width = actualWidth;
-		canvas.height = actualHeight;
-		floodFillCanvas.current = canvas;
-		const ctx = canvas.getContext("2d");
-		if (ctx) {
-			floodFillContext.current = ctx;
+		// Flood fill canvas
+		const floodCanvas = document.createElement("canvas");
+		floodCanvas.width = actualWidth;
+		floodCanvas.height = actualHeight;
+		floodFillCanvas.current = floodCanvas;
+		const floodCtx = floodCanvas.getContext("2d");
+		if (floodCtx) {
+			floodFillContext.current = floodCtx;
 		}
+
+		// Eyedropper canvas
+		const eyedropperCanvasEl = document.createElement("canvas");
+		eyedropperCanvasEl.width = actualWidth;
+		eyedropperCanvasEl.height = actualHeight;
+		eyedropperCanvas.current = eyedropperCanvasEl;
+		const eyedropperCtx = eyedropperCanvasEl.getContext("2d", {
+			willReadFrequently: true,
+		});
+		if (eyedropperCtx) {
+			eyedropperContext.current = eyedropperCtx;
+		}
+
+		// Healing canvas
+		const healingCanvasEl = document.createElement("canvas");
+		healingCanvasEl.width = actualWidth;
+		healingCanvasEl.height = actualHeight;
+		healingCanvas.current = healingCanvasEl;
+		const healingCtx = healingCanvasEl.getContext("2d", {
+			willReadFrequently: true,
+		});
+		if (healingCtx) {
+			healingContext.current = healingCtx;
+		}
+
+		// Blur canvas
+		const blurCanvasEl = document.createElement("canvas");
+		blurCanvasEl.width = actualWidth;
+		blurCanvasEl.height = actualHeight;
+		blurCanvas.current = blurCanvasEl;
+		const blurCtx = blurCanvasEl.getContext("2d", { willReadFrequently: true });
+		if (blurCtx) {
+			blurContext.current = blurCtx;
+		}
+
+		return () => {
+			if (floodCanvas) floodCanvas.remove();
+			if (eyedropperCanvasEl) eyedropperCanvasEl.remove();
+			if (healingCanvasEl) healingCanvasEl.remove();
+			if (blurCanvasEl) blurCanvasEl.remove();
+		};
 	}, [actualWidth, actualHeight]);
 
-	useEffect(() => {
-		const canvas = document.createElement("canvas");
-		canvas.width = actualWidth;
-		canvas.height = actualHeight;
-		eyedropperCanvas.current = canvas;
-		const ctx = canvas.getContext("2d", { willReadFrequently: true });
-		if (ctx) {
-			eyedropperContext.current = ctx;
-		}
-	}, [actualWidth, actualHeight]);
+	// Hlavná funkcia pre získanie pozície na canvase
+	const getCanvasPosition = useCallback(
+		(clientX: number, clientY: number) => {
+			if (!stageRef.current) return null;
 
-	useEffect(() => {
-		const canvas = document.createElement("canvas");
-		canvas.width = actualWidth;
-		canvas.height = actualHeight;
-		healingCanvas.current = canvas;
-		const ctx = canvas.getContext("2d", { willReadFrequently: true });
-		if (ctx) {
-			healingContext.current = ctx;
-		}
-	}, [actualWidth, actualHeight]);
+			const stage = stageRef.current;
+			const stageRect = stage.container().getBoundingClientRect();
 
-	useEffect(() => {
-		const canvas = document.createElement("canvas");
-		canvas.width = actualWidth;
-		canvas.height = actualHeight;
-		blurCanvas.current = canvas;
-		const ctx = canvas.getContext("2d", { willReadFrequently: true });
-		if (ctx) {
-			blurContext.current = ctx;
-		}
-	}, [actualWidth, actualHeight]);
+			// Vypočítaj relatívnu pozíciu vzhľadom k stage
+			const x = (clientX - stageRect.left) * (actualWidth / stageRect.width);
+			const y = (clientY - stageRect.top) * (actualHeight / stageRect.height);
+
+			// Aplikuj zoom a pan offset
+			const transformedX = x / (zoom / 100) - panOffset.x;
+			const transformedY = y / (zoom / 100) - panOffset.y;
+
+			return {
+				x: Math.max(0, Math.min(actualWidth, transformedX)),
+				y: Math.max(0, Math.min(actualHeight, transformedY)),
+			};
+		},
+		[actualWidth, actualHeight, zoom, panOffset],
+	);
 
 	const updateEyedropperData = useCallback(() => {
 		if (!stageRef.current || !eyedropperContext.current) return;
@@ -467,7 +485,6 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		[lines, shapes, images, gradients, healingData, blurData, addToHistory],
 	);
 
-	// Zlepšená funkcia pre obnovu stavu z histórie
 	const restoreCanvasState = useCallback(
 		(stateString: string) => {
 			try {
@@ -480,7 +497,6 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				if (state.healingData) setHealingData(state.healingData);
 				if (state.blurData) setBlurData(state.blurData);
 
-				// Uložíme, že máme obnovený stav
 				setHasRestoredState(true);
 
 				console.log("Canvas state restored from history");
@@ -512,41 +528,7 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		};
 	}, [restoreCanvasState]);
 
-	// Auto-save effect - ukladanie pri zmene stavu
-	useEffect(() => {
-		if (!hasRestoredState || isLoadingSession) return;
-
-		const autoSave = setTimeout(() => {
-			if (lines.length > 0 || shapes.length > 0 || images.length > 0) {
-				console.log("Auto-saving canvas state...");
-				saveCanvasState("auto_save");
-			}
-		}, 10000); // Ukladá každých 10 sekúnd po zmene
-
-		return () => clearTimeout(autoSave);
-	}, [
-		lines,
-		shapes,
-		images,
-		hasRestoredState,
-		isLoadingSession,
-		saveCanvasState,
-	]);
-
-	// Effect pre zobrazenie a skrytie session notifikácie
-	useEffect(() => {
-		if (hasRestoredState) {
-			setShowSessionNotification(true);
-
-			// Skry oznámenie po 3 sekundách
-			const timer = setTimeout(() => {
-				setShowSessionNotification(false);
-			}, 3000);
-
-			return () => clearTimeout(timer);
-		}
-	}, [hasRestoredState]);
-
+	// Transformer update efekt
 	useEffect(() => {
 		if (!transformerRef.current || !stageRef.current) return;
 
@@ -561,15 +543,824 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		}
 	}, [selectedId]);
 
-	const handleStageClick = (e: Konva.KonvaEventObject<MouseEvent>) => {
-		const clickedOnEmpty =
-			e.target === e.target.getStage() || e.target.name() === "background";
+	// Hlavná funkcia pre kreslenie
+	const startDrawing = useCallback(
+		(pos: { x: number; y: number }) => {
+			const drawingTools = ["brush", "pencil", "eraser"];
+			if (!drawingTools.includes(activeTool)) return;
 
-		if (clickedOnEmpty) {
-			setSelectedId(null);
+			setIsDrawing(true);
+
+			const newLine: DrawingLine = {
+				id: `line-${Date.now()}`,
+				points: [pos.x, pos.y],
+				stroke: activeTool === "eraser" ? actualBackground : primaryColor,
+				strokeWidth: brushSettings.size,
+				tool: activeTool as "brush" | "pencil" | "eraser",
+				layerId: activeLayerId || undefined,
+			};
+
+			setActiveDrawingLine(newLine);
+			setLines((prev) => [...prev, newLine]);
+
+			// Aktualizuj temporary canvas
+			if (tempContext) {
+				tempContext.strokeStyle = newLine.stroke;
+				tempContext.lineWidth = newLine.strokeWidth;
+				tempContext.lineCap = "round";
+				tempContext.lineJoin = "round";
+				tempContext.beginPath();
+				tempContext.moveTo(pos.x, pos.y);
+			}
+		},
+		[
+			activeTool,
+			actualBackground,
+			primaryColor,
+			brushSettings.size,
+			activeLayerId,
+			tempContext,
+		],
+	);
+
+	const continueDrawing = useCallback(
+		(pos: { x: number; y: number }) => {
+			if (!isDrawing || !activeDrawingLine) return;
+
+			// Aktualizuj temporary canvas
+			if (tempContext) {
+				tempContext.lineTo(pos.x, pos.y);
+				tempContext.stroke();
+			}
+
+			// Aktualizuj líniu v stave
+			setLines((prev) =>
+				prev.map((line) =>
+					line.id === activeDrawingLine.id
+						? {
+								...line,
+								points: [...line.points, pos.x, pos.y],
+							}
+						: line,
+				),
+			);
+		},
+		[isDrawing, activeDrawingLine, tempContext],
+	);
+
+	const stopDrawing = useCallback(() => {
+		if (isDrawing) {
+			setIsDrawing(false);
+			setActiveDrawingLine(null);
+			if (tempContext) {
+				tempContext.closePath();
+			}
+			saveCanvasState("Stroke added");
+		}
+	}, [isDrawing, tempContext, saveCanvasState]);
+
+	// PEN NÁSTROJ - Začiatok kreslenia krivky
+	const startPenDrawing = useCallback(
+		(pos: { x: number; y: number }) => {
+			if (activeTool !== "pen") return;
+
+			const newPenLine: DrawingLine = {
+				id: `pen-${Date.now()}`,
+				points: [pos.x, pos.y],
+				stroke: primaryColor,
+				strokeWidth: brushSettings.strokeWidth || 2,
+				tool: "pen",
+				layerId: activeLayerId || undefined,
+			};
+			setCurrentPenLine(newPenLine);
+			setPenPoints([pos.x, pos.y]);
+			setIsDrawing(true);
+		},
+		[activeTool, primaryColor, brushSettings.strokeWidth, activeLayerId],
+	);
+
+	// PEN NÁSTROJ - Pridanie bodu
+	const addPenPoint = useCallback(
+		(pos: { x: number; y: number }) => {
+			if (!currentPenLine) return;
+
+			setPenPoints((prev) => [...prev, pos.x, pos.y]);
+			setCurrentPenLine((prev) =>
+				prev
+					? {
+							...prev,
+							points: [...prev.points, pos.x, pos.y],
+						}
+					: prev,
+			);
+		},
+		[currentPenLine],
+	);
+
+	// PEN NÁSTROJ - Dokončenie krivky
+	const finishPenDrawing = useCallback(() => {
+		if (!currentPenLine) return;
+
+		if (currentPenLine.points.length >= 4) {
+			setLines((prev) => [...prev, currentPenLine]);
+			saveCanvasState("Pen curve completed");
+			toast.success("Pen curve completed");
+		} else {
+			toast.error("Pen curve needs at least 2 points");
+		}
+
+		setCurrentPenLine(null);
+		setPenPoints([]);
+		setIsDrawing(false);
+	}, [currentPenLine, saveCanvasState]);
+
+	// POLYGON NÁSTROJ - Začiatok
+	const startPolygonDrawing = useCallback(
+		(pos: { x: number; y: number }) => {
+			if (activeTool !== "polygon") return;
+
+			setIsDrawingPolygon(true);
+			setPolygonPoints([pos.x, pos.y]);
+		},
+		[activeTool],
+	);
+
+	// POLYGON NÁSTROJ - Pridanie vrcholu
+	const addPolygonPoint = useCallback((pos: { x: number; y: number }) => {
+		setPolygonPoints((prev) => [...prev, pos.x, pos.y]);
+	}, []);
+
+	// POLYGON NÁSTROJ - Dokončenie
+	const finishPolygonDrawing = useCallback(() => {
+		if (polygonPoints.length >= 6) {
+			const polygonShape: ShapeObject = {
+				id: `polygon-${Date.now()}`,
+				type: "polygon",
+				points: [...polygonPoints],
+				x: 0,
+				y: 0,
+				stroke: primaryColor,
+				strokeWidth: brushSettings.strokeWidth || 2,
+				fill: `${primaryColor}40`,
+				layerId: activeLayerId || undefined,
+			};
+			setShapes((prev) => [...prev, polygonShape]);
+			saveCanvasState("Polygon created");
+			toast.success(`Polygon with ${polygonPoints.length / 2} sides created`);
+		} else {
+			toast.error("Polygon needs at least 3 points");
+		}
+
+		setIsDrawingPolygon(false);
+		setPolygonPoints([]);
+		setCurrentShape(null);
+	}, [polygonPoints, primaryColor, brushSettings.strokeWidth, activeLayerId, saveCanvasState]);
+
+	// LINE NÁSTROJ - Začiatok
+	const startLineDrawing = useCallback(
+		(pos: { x: number; y: number }) => {
+			if (activeTool !== "line") return;
+
+			shapeStartPoint.current = pos;
+
+			const newLine: ShapeObject = {
+				id: `line-${Date.now()}`,
+				type: "line",
+				x: pos.x,
+				y: pos.y,
+				points: [pos.x, pos.y, pos.x, pos.y],
+				stroke: primaryColor,
+				strokeWidth: brushSettings.strokeWidth || 2,
+				fill: primaryColor,
+				layerId: activeLayerId || undefined,
+			};
+
+			setCurrentShape(newLine);
+		},
+		[activeTool, primaryColor, brushSettings.strokeWidth, activeLayerId],
+	);
+
+	// LINE NÁSTROJ - Aktualizácia
+	const updateLineDrawing = useCallback(
+		(pos: { x: number; y: number }) => {
+			if (!currentShape || !shapeStartPoint.current) return;
+
+			const startX = shapeStartPoint.current.x;
+			const startY = shapeStartPoint.current.y;
+
+			setCurrentShape({
+				...currentShape,
+				points: [startX, startY, pos.x, pos.y],
+			});
+		},
+		[currentShape],
+	);
+
+	// LINE NÁSTROJ - Dokončenie
+	const finishLineDrawing = useCallback(() => {
+		if (currentShape && currentShape.type === "line") {
+			setShapes((prev) => [...prev, currentShape]);
+			setCurrentShape(null);
+			shapeStartPoint.current = null;
+			saveCanvasState("Line created");
+		}
+	}, [currentShape, saveCanvasState]);
+
+	const handleMouseDown = (e: Konva.KonvaEventObject<MouseEvent>) => {
+		const pos = getCanvasPosition(e.evt.clientX, e.evt.clientY);
+		if (!pos) return;
+
+		const drawingTools = ["brush", "pencil", "eraser", "healing", "blur"];
+		const shapeTools = ["rectangle", "ellipse"];
+
+		// PEN NÁSTROJ
+		if (activeTool === "pen") {
+			if (e.evt.button !== 0) return;
+			
+			if (!currentPenLine) {
+				startPenDrawing(pos);
+			} else {
+				addPenPoint(pos);
+			}
+			return;
+		}
+
+		// POLYGON NÁSTROJ
+		if (activeTool === "polygon") {
+			if (e.evt.button !== 0) return;
+
+			if (!isDrawingPolygon) {
+				startPolygonDrawing(pos);
+			} else {
+				addPolygonPoint(pos);
+			}
+			return;
+		}
+
+		// LINE NÁSTROJ
+		if (activeTool === "line") {
+			if (e.evt.button !== 0) return;
+
+			startLineDrawing(pos);
+			return;
+		}
+
+		// Kreslenie (brush, pencil, eraser)
+		if (drawingTools.includes(activeTool)) {
+			if (activeTool === "healing") {
+				updateHealingData();
+
+				if (e.evt.altKey) {
+					setHealingData((prev) => ({
+						...prev,
+						sourceX: pos.x,
+						sourceY: pos.y,
+						isActive: true,
+						brushSize: brushSettings.size,
+					}));
+					setHealingSource({ x: pos.x, y: pos.y });
+					toast.success("Healing source set (click to heal)");
+					return;
+				} else {
+					if (!healingData.isActive) {
+						toast.error("Alt+click to set healing source first");
+						return;
+					}
+					applyHealingBrush(pos.x, pos.y);
+					return;
+				}
+			}
+
+			if (activeTool === "blur") {
+				updateBlurData();
+				applyBlurBrush(pos.x, pos.y);
+				return;
+			}
+
+			// Normálne kreslenie
+			startDrawing(pos);
+			return;
+		}
+
+		// Eyedropper
+		if (activeTool === "eyedropper" || e.evt.ctrlKey) {
+			const isCtrlPressed = e.evt.ctrlKey || e.evt.metaKey;
+			handleEyedropper(pos.x, pos.y, isCtrlPressed);
+			return;
+		}
+
+		// Tvary (rectangle, ellipse)
+		if (shapeTools.includes(activeTool)) {
+			shapeStartPoint.current = pos;
+
+			const newShape: ShapeObject = {
+				id: `shape-${Date.now()}`,
+				type: activeTool === "rectangle" ? "rect" : "ellipse",
+				x: pos.x,
+				y: pos.y,
+				width: 1,
+				height: 1,
+				fill: primaryColor,
+				stroke: secondaryColor,
+				strokeWidth: 2,
+				layerId: activeLayerId || undefined,
+			};
+			setCurrentShape(newShape);
+			return;
+		}
+
+		// Text
+		if (activeTool === "text") {
+			const newTextShape: ShapeObject = {
+				id: `text-${Date.now()}`,
+				type: "text",
+				x: pos.x,
+				y: pos.y,
+				text: "Type here",
+				fontSize: brushSettings.fontSize || 20,
+				fill: primaryColor,
+				layerId: activeLayerId || undefined,
+			};
+			setShapes((prev) => [...prev, newTextShape]);
+			setSelectedId(newTextShape.id);
+			saveCanvasState("Text added");
+			toast.success("Text added - double click to edit");
+			return;
+		}
+
+		// Fill
+		if (activeTool === "fill") {
+			setIsFilling(true);
+
+			updateFloodFillData();
+
+			if (floodFillContext.current) {
+				try {
+					const pixelData = floodFillContext.current.getImageData(
+						Math.floor(pos.x),
+						Math.floor(pos.y),
+						1,
+						1,
+					).data;
+
+					const targetColor = `rgb(${pixelData[0]}, ${pixelData[1]}, ${pixelData[2]})`;
+
+					const success = floodFill(
+						pos.x,
+						pos.y,
+						targetColor,
+						primaryColor,
+						brushSettings.tolerance,
+					);
+
+					if (!success) {
+						toast.error("No area to fill or same color");
+					}
+				} catch (error) {
+					console.error("Fill error:", error);
+					toast.error("Failed to fill area");
+				}
+			} else {
+				toast.error("Fill context not available");
+			}
+			return;
+		}
+
+		// Gradient
+		if (activeTool === "gradient") {
+			setIsDrawingGradient(true);
+			gradientStartPoint.current = pos;
+
+			const newGradient: GradientObject = {
+				id: `gradient-${Date.now()}`,
+				type: brushSettings.gradientType as "linear" | "radial",
+				x0: pos.x,
+				y0: pos.y,
+				x1: pos.x + 100,
+				y1: pos.y,
+				colorStops: brushSettings.gradientStops.map((stop) => ({
+					offset: stop.position,
+					color: stop.color,
+				})),
+				layerId: activeLayerId || undefined,
+			};
+
+			setCurrentGradient(newGradient);
+			return;
+		}
+
+		// Zoom
+		if (activeTool === "zoom") {
+			if (e.evt.altKey) {
+				setZoom(Math.max(10, zoom - 25));
+			} else {
+				setZoom(Math.min(500, zoom + 25));
+			}
+			return;
+		}
+
+		// Hand (panning)
+		if (activeTool === "hand") {
+			isPanning.current = true;
+			lastPanPos.current = { x: e.evt.clientX, y: e.evt.clientY };
+			return;
+		}
+
+		// Clone
+		if (activeTool === "clone") {
+			if (e.evt.altKey) {
+				cloneSourcePoint.current = pos;
+				toast.success("Clone source set");
+				return;
+			}
+
+			if (!cloneSourcePoint.current) {
+				toast.error("Alt+click to set clone source first");
+				return;
+			}
 		}
 	};
 
+	const handleMouseMove = (e: Konva.KonvaEventObject<MouseEvent>) => {
+		const pos = getCanvasPosition(e.evt.clientX, e.evt.clientY);
+		if (!pos) return;
+
+		// PEN NÁSTROJ - Ukážka krivky
+		if (activeTool === "pen" && currentPenLine) {
+			// Pri pohybe myšou ukážeme preview posledného segmentu
+			const previewPoints = [...currentPenLine.points, pos.x, pos.y];
+			setCurrentPenLine({
+				...currentPenLine,
+				points: previewPoints,
+			});
+			return;
+		}
+
+		// POLYGON NÁSTROJ - Ukážka
+		if (activeTool === "polygon" && isDrawingPolygon && polygonPoints.length > 0) {
+			// Ukážeme preview posledného segmentu
+			const previewPoints = [...polygonPoints, pos.x, pos.y];
+			setCurrentShape({
+				id: `polygon-preview-${Date.now()}`,
+				type: "polygon",
+				points: previewPoints,
+				x: 0,
+				y: 0,
+				stroke: primaryColor,
+				strokeWidth: brushSettings.strokeWidth || 2,
+				fill: `${primaryColor}40`,
+				layerId: activeLayerId || undefined,
+			});
+			return;
+		}
+
+		// LINE NÁSTROJ
+		if (activeTool === "line" && currentShape) {
+			updateLineDrawing(pos);
+			return;
+		}
+
+		// Kreslenie
+		if (isDrawing && activeDrawingLine) {
+			continueDrawing(pos);
+			return;
+		}
+
+		// Tvary (rectangle, ellipse)
+		if (currentShape && shapeStartPoint.current) {
+			const startX = shapeStartPoint.current.x;
+			const startY = shapeStartPoint.current.y;
+
+			if (currentShape.type === "rect") {
+				const width = pos.x - startX;
+				const height = pos.y - startY;
+
+				setCurrentShape({
+					...currentShape,
+					x: width > 0 ? startX : pos.x,
+					y: height > 0 ? startY : pos.y,
+					width: Math.abs(width),
+					height: Math.abs(height),
+				});
+			} else if (currentShape.type === "ellipse") {
+				const radiusX = Math.abs(pos.x - startX) / 2;
+				const radiusY = Math.abs(pos.y - startY) / 2;
+
+				setCurrentShape({
+					...currentShape,
+					x: (startX + pos.x) / 2,
+					y: (startY + pos.y) / 2,
+					radiusX,
+					radiusY,
+				});
+			}
+			return;
+		}
+
+		// Gradient
+		if (isDrawingGradient && currentGradient && gradientStartPoint.current) {
+			setCurrentGradient({
+				...currentGradient,
+				x1: pos.x,
+				y1: pos.y,
+			});
+			return;
+		}
+
+		// Panning
+		if (isPanning.current && activeTool === "hand") {
+			const deltaX = e.evt.clientX - lastPanPos.current.x;
+			const deltaY = e.evt.clientY - lastPanPos.current.y;
+
+			setPanOffset({
+				x: panOffset.x + deltaX / (zoom / 100),
+				y: panOffset.y + deltaY / (zoom / 100),
+			});
+
+			lastPanPos.current = { x: e.evt.clientX, y: e.evt.clientY };
+		}
+	};
+
+	const handleMouseUp = (e: Konva.KonvaEventObject<MouseEvent>) => {
+		// PEN NÁSTROJ - Dokončenie krivky pravým tlačidlom
+		if (activeTool === "pen" && currentPenLine) {
+			if (e.evt.button === 2) {
+				finishPenDrawing();
+			}
+			return;
+		}
+
+		// POLYGON NÁSTROJ - Dokončenie pravým tlačidlom
+		if (activeTool === "polygon" && isDrawingPolygon) {
+			if (e.evt.button === 2) {
+				finishPolygonDrawing();
+			}
+			return;
+		}
+
+		// LINE NÁSTROJ - Dokončenie čiary
+		if (activeTool === "line" && currentShape) {
+			finishLineDrawing();
+			return;
+		}
+
+		// Dokonči kreslenie
+		if (isDrawing) {
+			stopDrawing();
+		}
+
+		// Dokonči tvar (rectangle, ellipse)
+		if (currentShape && (currentShape.type === "rect" || currentShape.type === "ellipse")) {
+			setShapes((prev) => [...prev, currentShape]);
+			setCurrentShape(null);
+			shapeStartPoint.current = null;
+			saveCanvasState(`${currentShape.type} created`);
+			return;
+		}
+
+		// Dokonči gradient
+		if (isDrawingGradient && currentGradient) {
+			addGradient(currentGradient);
+			setCurrentGradient(null);
+			setIsDrawingGradient(false);
+			gradientStartPoint.current = null;
+			saveCanvasState("Gradient added");
+			toast.success("Gradient created");
+			return;
+		}
+
+		// Dokonči fill
+		if (isFilling) {
+			setIsFilling(false);
+		}
+
+		// Dokonči panning
+		if (isPanning.current) {
+			isPanning.current = false;
+		}
+	};
+
+	const handleDblClick = (e: Konva.KonvaEventObject<MouseEvent>) => {
+		// Pre Polygon nástroj - dokonči polygon dvojklikom
+		if (activeTool === "polygon" && isDrawingPolygon) {
+			finishPolygonDrawing();
+			return;
+		}
+
+		// Pre Pen nástroj - dokonči krivku dvojklikom
+		if (activeTool === "pen" && currentPenLine) {
+			finishPenDrawing();
+			return;
+		}
+	};
+
+	const handleWheel = useCallback(
+		(e: WheelEvent) => {
+			e.preventDefault();
+
+			if (e.ctrlKey || e.metaKey) {
+				// Zoom
+				const delta = e.deltaY > 0 ? -10 : 10;
+				setZoom(Math.max(10, Math.min(500, zoom + delta)));
+			} else if (e.shiftKey) {
+				// Horizontálny posun
+				setPanOffset({
+					x: panOffset.x - e.deltaY / (zoom / 100),
+					y: panOffset.y,
+				});
+			} else {
+				// Vertikálny posun
+				setPanOffset({
+					x: panOffset.x - e.deltaX / (zoom / 100),
+					y: panOffset.y - e.deltaY / (zoom / 100),
+				});
+			}
+		},
+		[zoom, panOffset, setZoom, setPanOffset],
+	);
+
+	// Event listener pre wheel
+	useEffect(() => {
+		const container = containerRef.current;
+		if (!container) return;
+
+		container.addEventListener("wheel", handleWheel, { passive: false });
+		return () => container.removeEventListener("wheel", handleWheel);
+	}, [handleWheel]);
+
+	// Key handler pre klávesové skratky
+	useEffect(() => {
+		const handleKeyDown = (e: KeyboardEvent) => {
+			if (
+				e.target instanceof HTMLInputElement ||
+				e.target instanceof HTMLTextAreaElement
+			)
+				return;
+
+			// Escape pre zrušenie všetkého kreslenia
+			if (e.key === "Escape") {
+				// Zruš pen kreslenie
+				if (activeTool === "pen" && currentPenLine) {
+					setCurrentPenLine(null);
+					setPenPoints([]);
+					setIsDrawing(false);
+					toast.info("Pen drawing cancelled");
+				}
+
+				// Zruš polygon kreslenie
+				if (activeTool === "polygon" && isDrawingPolygon) {
+					setIsDrawingPolygon(false);
+					setPolygonPoints([]);
+					setCurrentShape(null);
+					toast.info("Polygon drawing cancelled");
+				}
+
+				// Zruš line kreslenie
+				if (activeTool === "line" && currentShape) {
+					setCurrentShape(null);
+					shapeStartPoint.current = null;
+					toast.info("Line drawing cancelled");
+				}
+
+				// Zruš healing source
+				if (healingData.isActive) {
+					setHealingData((prev) => ({ ...prev, isActive: false }));
+					setHealingSource(null);
+					toast.info("Healing source cleared");
+				}
+			}
+
+			// Enter pre dokončenie polygonu
+			if (e.key === "Enter" && activeTool === "polygon" && isDrawingPolygon) {
+				finishPolygonDrawing();
+			}
+
+			// Delete/Backspace pre vymazanie vybraného
+			if ((e.key === "Delete" || e.key === "Backspace") && selectedId) {
+				e.preventDefault();
+				deleteSelected();
+			}
+		};
+
+		const deleteSelected = () => {
+			if (selectedId) {
+				setShapes((prev) => prev.filter((s) => s.id !== selectedId));
+				setLines((prev) => prev.filter((l) => l.id !== selectedId));
+				setImages((prev) => prev.filter((i) => i.id !== selectedId));
+				setSelectedId(null);
+				saveCanvasState("Object deleted");
+				toast.success("Selection deleted");
+			}
+		};
+
+		const handleClearCanvas = () => {
+			setShapes([]);
+			setLines([]);
+			setImages([]);
+			setSelectedId(null);
+			setHealingData({
+				sourceX: 0,
+				sourceY: 0,
+				isActive: false,
+				brushSize: 20,
+			});
+			setBlurData({
+				isActive: false,
+				brushSize: 20,
+				intensity: 10,
+			});
+			setHealingSource(null);
+			saveCanvasState("Canvas cleared");
+			toast.success("Canvas cleared");
+		};
+
+		window.addEventListener("keydown", handleKeyDown);
+		window.addEventListener("artstudio:delete-selection", deleteSelected);
+		window.addEventListener("artstudio:clear-canvas", handleClearCanvas);
+
+		return () => {
+			window.removeEventListener("keydown", handleKeyDown);
+			window.removeEventListener("artstudio:delete-selection", deleteSelected);
+			window.removeEventListener("artstudio:clear-canvas", handleClearCanvas);
+		};
+	}, [
+		selectedId,
+		shapes,
+		lines,
+		images,
+		saveCanvasState,
+		activeTool,
+		currentPenLine,
+		isDrawingPolygon,
+		currentShape,
+		healingData,
+		setHealingSource,
+	]);
+
+	// Načítanie obrázkov
+	useEffect(() => {
+		if (loadedImages.length === 0) return;
+
+		const latestImage = loadedImages[loadedImages.length - 1];
+		const alreadyLoaded = images.some((img) => img.id === latestImage.id);
+		if (alreadyLoaded) return;
+
+		const img = new window.Image();
+		img.src = latestImage.src;
+		img.onload = () => {
+			const scale = Math.min(
+				(actualWidth * 0.8) / img.width,
+				(actualHeight * 0.8) / img.height,
+				1,
+			);
+
+			const newImage: ImageObject = {
+				id: latestImage.id,
+				src: latestImage.src,
+				x: (actualWidth - img.width * scale) / 2,
+				y: (actualHeight - img.height * scale) / 2,
+				width: img.width * scale,
+				height: img.height * scale,
+				layerId: activeLayerId || undefined,
+			};
+
+			setImages([...images, newImage]);
+			setSelectedId(newImage.id);
+			toast.success(`Image loaded: ${latestImage.name}`);
+			saveCanvasState("Image added");
+		};
+	}, [
+		loadedImages,
+		images,
+		actualWidth,
+		actualHeight,
+		saveCanvasState,
+		activeLayerId,
+	]);
+
+	// Update pomocných canvasov
+	useEffect(() => {
+		if (activeTool === "fill") {
+			updateFloodFillData();
+		}
+		if (activeTool === "eyedropper") {
+			updateEyedropperData();
+		}
+		if (activeTool === "healing") {
+			updateHealingData();
+		}
+		if (activeTool === "blur") {
+			updateBlurData();
+		}
+	}, [
+		activeTool,
+		updateFloodFillData,
+		updateEyedropperData,
+		updateHealingData,
+		updateBlurData,
+	]);
+
+	// Eyedropper funkcie
 	const parseColorToRgb = (color: string) => {
 		if (color.startsWith("#")) {
 			const hex = color.replace("#", "");
@@ -591,17 +1382,6 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 
 		if (color.startsWith("rgb")) {
 			const match = color.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
-			if (match) {
-				return {
-					r: parseInt(match[1]),
-					g: parseInt(match[2]),
-					b: parseInt(match[3]),
-				};
-			}
-		}
-
-		if (color.startsWith("rgba")) {
-			const match = color.match(/rgba\((\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\)/);
 			if (match) {
 				return {
 					r: parseInt(match[1]),
@@ -644,7 +1424,7 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 
 			const color = getColorFromCanvas(x, y);
 			if (color) {
-				if (isCtrlPressed || activeTool === "eyedropper") {
+				if (isCtrlPressed) {
 					setSecondaryColor(color);
 					toast.success(`Secondary color set to ${color}`);
 				} else {
@@ -660,10 +1440,10 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			getColorFromCanvas,
 			setPrimaryColor,
 			setSecondaryColor,
-			activeTool,
 		],
 	);
 
+	// Flood fill funkcie
 	const floodFill = useCallback(
 		(
 			startX: number,
@@ -673,7 +1453,6 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			tolerance: number = brushSettings.tolerance,
 		) => {
 			if (!floodFillImageData.current || !floodFillContext.current) {
-				console.error("Flood fill data not initialized");
 				return false;
 			}
 
@@ -692,7 +1471,6 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			const startR = imageData.data[startIndex];
 			const startG = imageData.data[startIndex + 1];
 			const startB = imageData.data[startIndex + 2];
-			const startA = imageData.data[startIndex + 3];
 
 			const colorDistance = Math.sqrt(
 				Math.pow(startR - replacementRgb.r, 2) +
@@ -701,17 +1479,13 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			);
 
 			if (colorDistance <= tolerance) {
-				console.log("Same color, no fill needed");
 				return false;
 			}
 
 			const visited = new Uint8Array(width * height);
-
-			const queue: FloodFillPoint[] = [];
-			queue.push({ x, y });
+			const queue = [{ x, y }];
 			visited[y * width + x] = 1;
-
-			const processedPixels: FloodFillPoint[] = [];
+			const processedPixels: { x: number; y: number }[] = [];
 
 			while (queue.length > 0) {
 				const point = queue.shift()!;
@@ -758,8 +1532,6 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				}
 			}
 
-			console.log(`Filled ${processedPixels.length} pixels`);
-
 			if (processedPixels.length === 0) {
 				return false;
 			}
@@ -774,34 +1546,20 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			if (floodFillContext.current) {
 				floodFillContext.current.putImageData(imageData, 0, 0);
 
-				const tempCanvas = floodFillCanvas.current;
-				if (tempCanvas) {
-					let minX = width,
-						maxX = 0,
-						minY = height,
-						maxY = 0;
-					for (const pixel of processedPixels) {
-						if (pixel.x < minX) minX = pixel.x;
-						if (pixel.x > maxX) maxX = pixel.x;
-						if (pixel.y < minY) minY = pixel.y;
-						if (pixel.y > maxY) maxY = pixel.y;
-					}
+				const fillShape: ShapeObject = {
+					id: `fill-${Date.now()}`,
+					type: "rect",
+					x: Math.min(...processedPixels.map((p) => p.x)),
+					y: Math.min(...processedPixels.map((p) => p.y)),
+					width: Math.max(1, Math.max(...processedPixels.map((p) => p.x)) - Math.min(...processedPixels.map((p) => p.x))),
+					height: Math.max(1, Math.max(...processedPixels.map((p) => p.y)) - Math.min(...processedPixels.map((p) => p.y))),
+					fill: replacementColor,
+					layerId: activeLayerId || undefined,
+				};
 
-					const fillShape: ShapeObject = {
-						id: `fill-${Date.now()}`,
-						type: "rect",
-						x: minX,
-						y: minY,
-						width: Math.max(1, maxX - minX),
-						height: Math.max(1, maxY - minY),
-						fill: replacementColor,
-						layerId: activeLayerId || undefined,
-					};
-
-					setShapes((prev) => [...prev, fillShape]);
-					saveCanvasState("Fill applied");
-					toast.success(`Area filled with ${replacementColor}`);
-				}
+				setShapes((prev) => [...prev, fillShape]);
+				saveCanvasState("Fill applied");
+				toast.success(`Area filled with ${replacementColor}`);
 			}
 
 			return true;
@@ -809,6 +1567,7 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		[brushSettings.tolerance, activeLayerId, saveCanvasState],
 	);
 
+	// Healing brush funkcie
 	const applyHealingBrush = useCallback(
 		(targetX: number, targetY: number) => {
 			if (!healingContext.current || !healingData.isActive) {
@@ -883,8 +1642,6 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				width: brushSize,
 				height: brushSize,
 				fill: `rgba(255, 255, 255, 0.3)`,
-				stroke: "none",
-				strokeWidth: 0,
 				layerId: activeLayerId || undefined,
 			};
 
@@ -895,6 +1652,7 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		[healingData, brushSettings.size, activeLayerId, saveCanvasState],
 	);
 
+	// Blur brush funkcie
 	const applyBlurBrush = useCallback(
 		(targetX: number, targetY: number) => {
 			if (!blurContext.current) {
@@ -920,50 +1678,39 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			);
 
 			const radius = Math.floor(intensity / 2);
-			const diameter = radius * 2 + 1;
 
-			for (let pass = 0; pass < 2; pass++) {
-				for (let y = 0; y < brushSize; y++) {
-					for (let x = 0; x < brushSize; x++) {
-						let r = 0,
-							g = 0,
-							b = 0,
-							a = 0;
-						let count = 0;
+			for (let y = 0; y < brushSize; y++) {
+				for (let x = 0; x < brushSize; x++) {
+					let r = 0,
+						g = 0,
+						b = 0,
+						a = 0;
+					let count = 0;
 
-						for (let ky = -radius; ky <= radius; ky++) {
-							const ny = y + ky;
-							if (ny < 0 || ny >= brushSize) continue;
+					for (let ky = -radius; ky <= radius; ky++) {
+						const ny = y + ky;
+						if (ny < 0 || ny >= brushSize) continue;
 
-							for (let kx = -radius; kx <= radius; kx++) {
-								const nx = x + kx;
-								if (nx < 0 || nx >= brushSize) continue;
+						for (let kx = -radius; kx <= radius; kx++) {
+							const nx = x + kx;
+							if (nx < 0 || nx >= brushSize) continue;
 
-								const idx = (ny * brushSize + nx) * 4;
-
-								if (pass === 0) {
-									r += targetImageData.data[idx];
-									g += targetImageData.data[idx + 1];
-									b += targetImageData.data[idx + 2];
-									a += targetImageData.data[idx + 3];
-								} else {
-									r += blurredData.data[idx];
-									g += blurredData.data[idx + 1];
-									b += blurredData.data[idx + 2];
-									a += blurredData.data[idx + 3];
-								}
-								count++;
-							}
+							const idx = (ny * brushSize + nx) * 4;
+							r += targetImageData.data[idx];
+							g += targetImageData.data[idx + 1];
+							b += targetImageData.data[idx + 2];
+							a += targetImageData.data[idx + 3];
+							count++;
 						}
+					}
 
-						const targetIdx = (y * brushSize + x) * 4;
+					const targetIdx = (y * brushSize + x) * 4;
 
-						if (count > 0) {
-							blurredData.data[targetIdx] = Math.round(r / count);
-							blurredData.data[targetIdx + 1] = Math.round(g / count);
-							blurredData.data[targetIdx + 2] = Math.round(b / count);
-							blurredData.data[targetIdx + 3] = Math.round(a / count);
-						}
+					if (count > 0) {
+						blurredData.data[targetIdx] = Math.round(r / count);
+						blurredData.data[targetIdx + 1] = Math.round(g / count);
+						blurredData.data[targetIdx + 2] = Math.round(b / count);
+						blurredData.data[targetIdx + 3] = Math.round(a / count);
 					}
 				}
 			}
@@ -982,8 +1729,6 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				width: brushSize,
 				height: brushSize,
 				fill: `rgba(128, 128, 128, 0.1)`,
-				stroke: "none",
-				strokeWidth: 0,
 				layerId: activeLayerId || undefined,
 			};
 
@@ -999,7 +1744,7 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		],
 	);
 
-	// FIX: Presunutý isLayerVisible pred ostatné hooky, aby sa stabilizovalo poradie
+	// Funkcia pre kontrolu viditeľnosti vrstvy
 	const isLayerVisible = useCallback(
 		(layerId?: string) => {
 			if (!layerId) return true;
@@ -1007,513 +1752,6 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		},
 		[layers],
 	);
-
-	const handleMouseDown = (e: Konva.KonvaEventObject<MouseEvent>) => {
-		const stage = stageRef.current;
-		if (!stage) return;
-
-		const pos = stage.getPointerPosition();
-		if (!pos) return;
-
-		const transformedPos = {
-			x: pos.x / (zoom / 100) - panOffset.x,
-			y: pos.y / (zoom / 100) - panOffset.y,
-		};
-
-		const drawingTools = ["brush", "pencil", "eraser", "healing", "blur"];
-		const selectionTools = ["select", "move"];
-		const shapeTools = ["rectangle", "ellipse", "line"];
-
-		// DÔLEŽITÉ: Kresliace nástroje majú prioritu
-		if (drawingTools.includes(activeTool)) {
-			// Zabrániť výberu objektu, keď kreslíme
-			e.evt.preventDefault();
-			setIsDrawing(true);
-
-			if (activeTool === "healing") {
-				updateHealingData();
-
-				if (e.evt.altKey) {
-					setHealingData((prev) => ({
-						...prev,
-						sourceX: transformedPos.x,
-						sourceY: transformedPos.y,
-						isActive: true,
-						brushSize: brushSettings.size,
-					}));
-					setHealingSource({ x: transformedPos.x, y: transformedPos.y });
-					toast.success("Healing source set (click to heal)");
-					return;
-				} else {
-					if (!healingData.isActive) {
-						toast.error("Alt+click to set healing source first");
-						return;
-					}
-					applyHealingBrush(transformedPos.x, transformedPos.y);
-					return;
-				}
-			}
-
-			if (activeTool === "blur") {
-				updateBlurData();
-
-				applyBlurBrush(transformedPos.x, transformedPos.y);
-				return;
-			}
-
-			const newLine: DrawingLine = {
-				id: `line-${Date.now()}`,
-				points: [transformedPos.x, transformedPos.y],
-				stroke: activeTool === "eraser" ? actualBackground : primaryColor,
-				strokeWidth: brushSettings.size,
-				tool: activeTool as "brush" | "pencil" | "eraser" | "healing" | "blur",
-				layerId: activeLayerId || undefined,
-			};
-			setLines([...lines, newLine]);
-			return;
-		}
-
-		if (activeTool === "eyedropper" || e.evt.ctrlKey) {
-			const isCtrlPressed = e.evt.ctrlKey || e.evt.metaKey;
-			handleEyedropper(transformedPos.x, transformedPos.y, isCtrlPressed);
-
-			if (activeTool === "eyedropper") return;
-		}
-
-		if (selectionTools.includes(activeTool)) {
-			return;
-		}
-
-		if (shapeTools.includes(activeTool)) {
-			shapeStartPoint.current = transformedPos;
-
-			const newShape: ShapeObject = {
-				id: `shape-${Date.now()}`,
-				type:
-					activeTool === "rectangle"
-						? "rect"
-						: activeTool === "ellipse"
-							? "ellipse"
-							: "line",
-				x: transformedPos.x,
-				y: transformedPos.y,
-				width: 1,
-				height: 1,
-				fill: primaryColor,
-				stroke: secondaryColor,
-				strokeWidth: 2,
-				layerId: activeLayerId || undefined,
-				points:
-					activeTool === "line"
-						? [
-								transformedPos.x,
-								transformedPos.y,
-								transformedPos.x,
-								transformedPos.y,
-							]
-						: undefined,
-			};
-			setCurrentShape(newShape);
-			return;
-		}
-
-		if (activeTool === "text") {
-			const newTextShape: ShapeObject = {
-				id: `text-${Date.now()}`,
-				type: "text",
-				x: transformedPos.x,
-				y: transformedPos.y,
-				text: "Type here",
-				fontSize: brushSettings.size || 20,
-				fill: primaryColor,
-				layerId: activeLayerId || undefined,
-			};
-			setShapes([...shapes, newTextShape]);
-			setSelectedId(newTextShape.id);
-			saveCanvasState("Text added");
-			toast.success("Text added - double click to edit");
-			return;
-		}
-
-		if (activeTool === "fill") {
-			setIsFilling(true);
-
-			updateFloodFillData();
-
-			if (floodFillContext.current) {
-				try {
-					const pixelData = floodFillContext.current.getImageData(
-						Math.floor(transformedPos.x),
-						Math.floor(transformedPos.y),
-						1,
-						1,
-					).data;
-
-					const targetColor = `rgb(${pixelData[0]}, ${pixelData[1]}, ${pixelData[2]})`;
-
-					const success = floodFill(
-						transformedPos.x,
-						transformedPos.y,
-						targetColor,
-						primaryColor,
-						brushSettings.tolerance,
-					);
-
-					if (!success) {
-						toast.error("No area to fill or same color");
-					}
-				} catch (error) {
-					console.error("Fill error:", error);
-					toast.error("Failed to fill area");
-				}
-			} else {
-				toast.error("Fill context not available");
-			}
-			return;
-		}
-
-		if (activeTool === "gradient") {
-			setIsDrawingGradient(true);
-			gradientStartPoint.current = transformedPos;
-
-			const newGradient: GradientObject = {
-				id: `gradient-${Date.now()}`,
-				type: brushSettings.gradientType,
-				x0: transformedPos.x,
-				y0: transformedPos.y,
-				x1: transformedPos.x + 100,
-				y1: transformedPos.y,
-				colorStops: brushSettings.gradientStops.map((stop) => ({
-					offset: stop.position,
-					color: stop.color,
-				})),
-				layerId: activeLayerId || undefined,
-			};
-
-			setCurrentGradient(newGradient);
-			return;
-		}
-
-		if (activeTool === "zoom") {
-			if (e.evt.altKey) {
-				setZoom(Math.max(10, zoom - 25));
-			} else {
-				setZoom(Math.min(500, zoom + 25));
-			}
-			return;
-		}
-
-		if (activeTool === "hand") {
-			isPanning.current = true;
-			lastPanPos.current = { x: e.evt.clientX, y: e.evt.clientY };
-			return;
-		}
-
-		if (activeTool === "clone") {
-			if (e.evt.altKey) {
-				cloneSourcePoint.current = transformedPos;
-				toast.success("Clone source set");
-				return;
-			}
-
-			if (!cloneSourcePoint.current) {
-				toast.error("Alt+click to set clone source first");
-				return;
-			}
-		}
-	};
-
-	const handleMouseMove = (e: Konva.KonvaEventObject<MouseEvent>) => {
-		const stage = stageRef.current;
-		if (!stage) return;
-
-		const pos = stage.getPointerPosition();
-		if (!pos) return;
-
-		const transformedPos = {
-			x: pos.x / (zoom / 100) - panOffset.x,
-			y: pos.y / (zoom / 100) - panOffset.y,
-		};
-
-		if (isDrawing && lines.length > 0) {
-			const lastLine = lines[lines.length - 1];
-			const newPoints = [
-				...lastLine.points,
-				transformedPos.x,
-				transformedPos.y,
-			];
-
-			setLines(
-				lines.map((line, i) =>
-					i === lines.length - 1 ? { ...line, points: newPoints } : line,
-				),
-			);
-			return;
-		}
-
-		if (currentShape && shapeStartPoint.current) {
-			const startX = shapeStartPoint.current.x;
-			const startY = shapeStartPoint.current.y;
-
-			if (currentShape.type === "rect") {
-				const width = transformedPos.x - startX;
-				const height = transformedPos.y - startY;
-
-				setCurrentShape({
-					...currentShape,
-					x: width > 0 ? startX : transformedPos.x,
-					y: height > 0 ? startY : transformedPos.y,
-					width: Math.abs(width),
-					height: Math.abs(height),
-				});
-			} else if (currentShape.type === "ellipse") {
-				const radiusX = Math.abs(transformedPos.x - startX) / 2;
-				const radiusY = Math.abs(transformedPos.y - startY) / 2;
-
-				setCurrentShape({
-					...currentShape,
-					x: (startX + transformedPos.x) / 2,
-					y: (startY + transformedPos.y) / 2,
-					radiusX,
-					radiusY,
-				});
-			} else if (currentShape.type === "line") {
-				setCurrentShape({
-					...currentShape,
-					points: [startX, startY, transformedPos.x, transformedPos.y],
-				});
-			}
-			return;
-		}
-
-		if (isDrawingGradient && currentGradient && gradientStartPoint.current) {
-			setCurrentGradient({
-				...currentGradient,
-				x1: transformedPos.x,
-				y1: transformedPos.y,
-			});
-			return;
-		}
-
-		if (isPanning.current && activeTool === "hand") {
-			const deltaX = e.evt.clientX - lastPanPos.current.x;
-			const deltaY = e.evt.clientY - lastPanPos.current.y;
-
-			setPanOffset({
-				x: panOffset.x + deltaX / (zoom / 100),
-				y: panOffset.y + deltaY / (zoom / 100),
-			});
-
-			lastPanPos.current = { x: e.evt.clientX, y: e.evt.clientY };
-		}
-	};
-
-	const handleMouseUp = () => {
-		if (isDrawing) {
-			setIsDrawing(false);
-			saveCanvasState("Stroke added");
-			return;
-		}
-
-		if (currentShape) {
-			setShapes([...shapes, currentShape]);
-			setCurrentShape(null);
-			shapeStartPoint.current = null;
-			saveCanvasState(`${currentShape.type} created`);
-			return;
-		}
-
-		if (isDrawingGradient && currentGradient) {
-			addGradient(currentGradient);
-			setCurrentGradient(null);
-			setIsDrawingGradient(false);
-			gradientStartPoint.current = null;
-			saveCanvasState("Gradient added");
-			toast.success("Gradient created");
-			return;
-		}
-
-		if (isFilling) {
-			setIsFilling(false);
-		}
-
-		if (isPanning.current) {
-			isPanning.current = false;
-		}
-	};
-
-	const handleWheel = useCallback(
-		(e: WheelEvent) => {
-			if (e.ctrlKey || e.metaKey) {
-				e.preventDefault();
-				const delta = e.deltaY > 0 ? -10 : 10;
-				setZoom(Math.max(10, Math.min(500, zoom + delta)));
-			} else {
-				setPanOffset({
-					x: panOffset.x - e.deltaX / (zoom / 100),
-					y: panOffset.y - e.deltaY / (zoom / 100),
-				});
-			}
-		},
-		[zoom, panOffset, setZoom, setPanOffset],
-	);
-
-	// FIX: Presunutý useEffect pre handleWheel pred ostatné hooky
-	useEffect(() => {
-		const container = containerRef.current;
-		if (!container) return;
-
-		container.addEventListener("wheel", handleWheel, { passive: false });
-		return () => container.removeEventListener("wheel", handleWheel);
-	}, [handleWheel]);
-
-	const clearAll = useCallback(() => {
-		setShapes([]);
-		setLines([]);
-		setImages([]);
-		setSelectedId(null);
-		setHealingData({
-			sourceX: 0,
-			sourceY: 0,
-			isActive: false,
-			brushSize: 20,
-		});
-		setBlurData({
-			isActive: false,
-			brushSize: 20,
-			intensity: 10,
-		});
-		setHealingSource(null);
-		saveCanvasState("Canvas cleared");
-		toast.success("Canvas cleared");
-	}, [saveCanvasState, setHealingSource]);
-
-	useEffect(() => {
-		const handleKeyDown = (e: KeyboardEvent) => {
-			if (
-				e.target instanceof HTMLInputElement ||
-				e.target instanceof HTMLTextAreaElement
-			)
-				return;
-
-			if ((e.key === "Delete" || e.key === "Backspace") && selectedId) {
-				deleteSelected();
-			}
-
-			if (e.key === "Escape" && activeTool === "healing") {
-				setHealingData((prev) => ({ ...prev, isActive: false }));
-				setHealingSource(null);
-				toast.info("Healing source cleared");
-			}
-
-			if (activeTool === "blur") {
-				if (e.key === "[" && !e.ctrlKey && !e.metaKey) {
-					e.preventDefault();
-					const store = useArtStudioStore.getState();
-					const newIntensity = Math.max(1, brushSettings.blurIntensity - 1);
-					store.setBrushSettings({ blurIntensity: newIntensity });
-					toast.info(`Blur intensity: ${newIntensity}`);
-				} else if (e.key === "]" && !e.ctrlKey && !e.metaKey) {
-					e.preventDefault();
-					const store = useArtStudioStore.getState();
-					const newIntensity = Math.min(50, brushSettings.blurIntensity + 1);
-					store.setBrushSettings({ blurIntensity: newIntensity });
-					toast.info(`Blur intensity: ${newIntensity}`);
-				}
-			}
-		};
-
-		const deleteSelected = () => {
-			if (selectedId) {
-				setShapes((prev) => prev.filter((s) => s.id !== selectedId));
-				setLines((prev) => prev.filter((l) => l.id !== selectedId));
-				setImages((prev) => prev.filter((i) => i.id !== selectedId));
-				setSelectedId(null);
-				saveCanvasState("Object deleted");
-				toast.success("Selection deleted");
-			}
-		};
-
-		window.addEventListener("keydown", handleKeyDown);
-		window.addEventListener("artstudio:delete-selection", deleteSelected);
-		window.addEventListener("artstudio:clear-canvas", clearAll);
-		return () => {
-			window.removeEventListener("keydown", handleKeyDown);
-			window.removeEventListener("artstudio:delete-selection", deleteSelected);
-			window.removeEventListener("artstudio:clear-canvas", clearAll);
-		};
-	}, [
-		selectedId,
-		shapes,
-		lines,
-		images,
-		saveCanvasState,
-		clearAll,
-		activeTool,
-		setHealingSource,
-		brushSettings.blurIntensity,
-	]);
-
-	useEffect(() => {
-		if (loadedImages.length === 0) return;
-
-		const latestImage = loadedImages[loadedImages.length - 1];
-		const alreadyLoaded = images.some((img) => img.id === latestImage.id);
-		if (alreadyLoaded) return;
-
-		const img = new window.Image();
-		img.src = latestImage.src;
-		img.onload = () => {
-			const scale = Math.min(
-				(actualWidth * 0.8) / img.width,
-				(actualHeight * 0.8) / img.height,
-				1,
-			);
-
-			const newImage: ImageObject = {
-				id: latestImage.id,
-				src: latestImage.src,
-				x: (actualWidth - img.width * scale) / 2,
-				y: (actualHeight - img.height * scale) / 2,
-				width: img.width * scale,
-				height: img.height * scale,
-				layerId: activeLayerId || undefined,
-			};
-
-			setImages([...images, newImage]);
-			setSelectedId(newImage.id);
-			toast.success(`Image loaded: ${latestImage.name}`);
-			saveCanvasState("Image added");
-		};
-	}, [
-		loadedImages,
-		images,
-		actualWidth,
-		actualHeight,
-		saveCanvasState,
-		activeLayerId,
-	]);
-
-	useEffect(() => {
-		if (activeTool === "fill") {
-			updateFloodFillData();
-		}
-		if (activeTool === "eyedropper") {
-			updateEyedropperData();
-		}
-		if (activeTool === "healing") {
-			updateHealingData();
-		}
-		if (activeTool === "blur") {
-			updateBlurData();
-		}
-	}, [
-		activeTool,
-		updateFloodFillData,
-		updateEyedropperData,
-		updateHealingData,
-		updateBlurData,
-	]);
 
 	// Loading indicator
 	if (isLoadingSession) {
@@ -1539,6 +1777,7 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			case "healing":
 			case "blur":
 			case "gradient":
+			case "pen":
 				return "crosshair";
 			case "hand":
 				return isPanning.current ? "grabbing" : "grab";
@@ -1554,7 +1793,6 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			case "ellipse":
 			case "polygon":
 			case "line":
-			case "pen":
 				return "crosshair";
 			default:
 				return "default";
@@ -1573,7 +1811,7 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			loadedImg.onload = () => setImg(loadedImg);
 		}, [image.src]);
 
-		const drawingTools = ["brush", "pencil", "eraser", "healing", "blur"];
+		const drawingTools = ["brush", "pencil", "eraser", "healing", "blur", "pen"];
 
 		if (!img) return null;
 
@@ -1632,13 +1870,47 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 	};
 
 	const handleObjectClick = (id: string) => {
-		const drawingTools = ["brush", "pencil", "eraser", "healing", "blur"];
+		const drawingTools = ["brush", "pencil", "eraser", "healing", "blur", "pen"];
 		if (!drawingTools.includes(activeTool)) {
 			setSelectedId(id);
 		}
 	};
 
-	const drawingTools = ["brush", "pencil", "eraser", "healing", "blur"];
+	const renderPolygon = (shape: ShapeObject) => {
+		if (shape.points && shape.points.length >= 6) {
+			return (
+				<Line
+					key={shape.id}
+					id={shape.id}
+					points={shape.points}
+					closed={true}
+					fill={shape.fill}
+					stroke={shape.stroke}
+					strokeWidth={shape.strokeWidth}
+					draggable={activeTool === "select" || activeTool === "move"}
+					listening={false}
+					onClick={() => handleObjectClick(shape.id)}
+					onTap={() => handleObjectClick(shape.id)}
+					onDragEnd={(e) => {
+						const deltaX = e.target.x();
+						const deltaY = e.target.y();
+						const newPoints = shape.points?.map((point, index) =>
+							index % 2 === 0 ? point + deltaX : point + deltaY,
+						);
+						setShapes((prev) =>
+							prev.map((s) =>
+								s.id === shape.id
+									? { ...s, points: newPoints, x: s.x + deltaX, y: s.y + deltaY }
+									: s,
+							),
+						);
+						saveCanvasState("Polygon moved");
+					}}
+				/>
+			);
+		}
+		return null;
+	};
 
 	return (
 		<div
@@ -1684,15 +1956,7 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 					onMouseMove={handleMouseMove}
 					onMouseUp={handleMouseUp}
 					onMouseLeave={handleMouseUp}
-					onClick={(e) => {
-						const clickedOnEmpty =
-							e.target === e.target.getStage() ||
-							e.target.name() === "background";
-
-						if (clickedOnEmpty) {
-							setSelectedId(null);
-						}
-					}}
+					onDblClick={handleDblClick}
 					onTouchStart={(e) => {
 						const touch = e.evt.touches[0];
 						if (touch) {
@@ -1702,7 +1966,6 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 							}
 						}
 					}}
-					onTouchEnd={handleMouseUp}
 				>
 					<Layer ref={layerRef}>
 						<Rect
@@ -1734,12 +1997,7 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 									globalCompositeOperation={
 										line.tool === "eraser" ? "destination-out" : "source-over"
 									}
-									listening={!drawingTools.includes(activeTool)}
-									onClick={() => {
-										if (!drawingTools.includes(activeTool)) {
-											handleObjectClick(line.id);
-										}
-									}}
+									listening={false}
 								/>
 							))}
 
@@ -1770,17 +2028,9 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 										width={width}
 										height={height}
 										draggable={activeTool === "select" || activeTool === "move"}
-										listening={!drawingTools.includes(activeTool)}
-										onClick={() => {
-											if (!drawingTools.includes(activeTool)) {
-												handleObjectClick(gradient.id);
-											}
-										}}
-										onTap={() => {
-											if (!drawingTools.includes(activeTool)) {
-												handleObjectClick(gradient.id);
-											}
-										}}
+										listening={false}
+										onClick={() => handleObjectClick(gradient.id)}
+										onTap={() => handleObjectClick(gradient.id)}
 										onDragEnd={(e) => {
 											const deltaX = e.target.x() - x;
 											const deltaY = e.target.y() - y;
@@ -1811,6 +2061,10 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 						{shapes
 							.filter((shape) => isLayerVisible(shape.layerId))
 							.map((shape) => {
+								if (shape.type === "polygon") {
+									return renderPolygon(shape);
+								}
+
 								if (shape.type === "rect") {
 									return (
 										<Rect
@@ -1826,17 +2080,9 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 											draggable={
 												activeTool === "select" || activeTool === "move"
 											}
-											listening={!drawingTools.includes(activeTool)}
-											onClick={() => {
-												if (!drawingTools.includes(activeTool)) {
-													handleObjectClick(shape.id);
-												}
-											}}
-											onTap={() => {
-												if (!drawingTools.includes(activeTool)) {
-													handleObjectClick(shape.id);
-												}
-											}}
+											listening={false}
+											onClick={() => handleObjectClick(shape.id)}
+											onTap={() => handleObjectClick(shape.id)}
 											onDragEnd={(e) => {
 												setShapes(
 													shapes.map((s) =>
@@ -1866,17 +2112,9 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 											draggable={
 												activeTool === "select" || activeTool === "move"
 											}
-											listening={!drawingTools.includes(activeTool)}
-											onClick={() => {
-												if (!drawingTools.includes(activeTool)) {
-													handleObjectClick(shape.id);
-												}
-											}}
-											onTap={() => {
-												if (!drawingTools.includes(activeTool)) {
-													handleObjectClick(shape.id);
-												}
-											}}
+											listening={false}
+											onClick={() => handleObjectClick(shape.id)}
+											onTap={() => handleObjectClick(shape.id)}
 											onDragEnd={(e) => {
 												setShapes(
 													shapes.map((s) =>
@@ -1903,17 +2141,9 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 											draggable={
 												activeTool === "select" || activeTool === "move"
 											}
-											listening={!drawingTools.includes(activeTool)}
-											onClick={() => {
-												if (!drawingTools.includes(activeTool)) {
-													handleObjectClick(shape.id);
-												}
-											}}
-											onTap={() => {
-												if (!drawingTools.includes(activeTool)) {
-													handleObjectClick(shape.id);
-												}
-											}}
+											listening={false}
+											onClick={() => handleObjectClick(shape.id)}
+											onTap={() => handleObjectClick(shape.id)}
 										/>
 									);
 								}
@@ -1931,23 +2161,10 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 											draggable={
 												activeTool === "select" || activeTool === "move"
 											}
-											listening={!drawingTools.includes(activeTool)}
-											onClick={() => {
-												if (!drawingTools.includes(activeTool)) {
-													handleObjectClick(shape.id);
-												}
-											}}
-											onTap={() => {
-												if (!drawingTools.includes(activeTool)) {
-													handleObjectClick(shape.id);
-												}
-											}}
+											listening={false}
+											onClick={() => handleObjectClick(shape.id)}
+											onTap={() => handleObjectClick(shape.id)}
 											onDblClick={(e) => {
-												if (drawingTools.includes(activeTool)) {
-													e.cancelBubble = true;
-													return;
-												}
-
 												const textNode = e.target as Konva.Text;
 												const stage = textNode.getStage();
 												if (!stage) return;
@@ -2009,6 +2226,7 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 								return null;
 							})}
 
+						{/* Aktívny gradient pri kreslení */}
 						{currentGradient && activeTool === "gradient" && (
 							<Rect
 								x={Math.min(currentGradient.x0, currentGradient.x1)}
@@ -2041,6 +2259,7 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 							/>
 						)}
 
+						{/* Aktívny tvar pri kreslení */}
 						{currentShape && currentShape.type === "rect" && (
 							<Rect
 								x={currentShape.x}
@@ -2077,6 +2296,31 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 							/>
 						)}
 
+						{/* Polygon preview while drawing */}
+						{isDrawingPolygon && polygonPoints.length > 0 && currentShape && currentShape.type === "polygon" && (
+							<Line
+								points={currentShape.points || []}
+								closed={true}
+								fill={currentShape.fill}
+								stroke={currentShape.stroke}
+								strokeWidth={currentShape.strokeWidth}
+								listening={false}
+							/>
+						)}
+
+						{/* Pen preview while drawing */}
+						{currentPenLine && (
+							<Line
+								points={currentPenLine.points}
+								stroke={currentPenLine.stroke}
+								strokeWidth={currentPenLine.strokeWidth}
+								tension={0.5}
+								lineCap="round"
+								lineJoin="round"
+								listening={false}
+							/>
+						)}
+
 						<Transformer
 							ref={transformerRef}
 							boundBoxFunc={(oldBox, newBox) => {
@@ -2108,6 +2352,7 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				</Stage>
 			</div>
 
+			{/* Healing source indicator */}
 			{healingData.isActive && activeTool === "healing" && (
 				<div
 					className="absolute border-2 border-blue-500 pointer-events-none z-10 rounded-full"
@@ -2127,6 +2372,38 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				</div>
 			)}
 
+			{/* Tool instructions */}
+			{activeTool === "pen" && (
+				<div className="absolute bottom-4 left-4 bg-black/70 text-white text-xs px-3 py-2 rounded pointer-events-none z-10">
+					<div>Pen Tool</div>
+					<div className="text-gray-300">
+						Click to add points, right-click or double-click to finish
+					</div>
+					<div className="text-gray-400 text-[10px] mt-1">
+						Press ESC to cancel
+					</div>
+				</div>
+			)}
+
+			{activeTool === "polygon" && (
+				<div className="absolute bottom-4 left-4 bg-black/70 text-white text-xs px-3 py-2 rounded pointer-events-none z-10">
+					<div>Polygon Tool</div>
+					<div className="text-gray-300">
+						Click to add vertices, right-click, double-click or press Enter to finish
+					</div>
+					<div className="text-gray-400 text-[10px] mt-1">
+						Press ESC to cancel
+					</div>
+				</div>
+			)}
+
+			{activeTool === "line" && (
+				<div className="absolute bottom-4 left-4 bg-black/70 text-white text-xs px-3 py-2 rounded pointer-events-none z-10">
+					<div>Line Tool</div>
+					<div className="text-gray-300">Click and drag to draw a line</div>
+				</div>
+			)}
+
 			{activeTool === "blur" && (
 				<div className="absolute bottom-4 left-4 bg-black/70 text-white text-xs px-3 py-2 rounded pointer-events-none z-10">
 					<div>Blur Tool</div>
@@ -2134,47 +2411,14 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 						Size: {brushSettings.size}px | Intensity:{" "}
 						{brushSettings.blurIntensity}
 					</div>
-					<div className="text-gray-400 text-[10px] mt-1">
-						Use [ and ] to adjust intensity
-					</div>
 				</div>
 			)}
 
-			<canvas
-				ref={(el) => {
-					if (el) floodFillCanvas.current = el;
-				}}
-				width={actualWidth}
-				height={actualHeight}
-				style={{ display: "none" }}
-			/>
-
-			<canvas
-				ref={(el) => {
-					if (el) eyedropperCanvas.current = el;
-				}}
-				width={actualWidth}
-				height={actualHeight}
-				style={{ display: "none" }}
-			/>
-
-			<canvas
-				ref={(el) => {
-					if (el) healingCanvas.current = el;
-				}}
-				width={actualWidth}
-				height={actualHeight}
-				style={{ display: "none" }}
-			/>
-
-			<canvas
-				ref={(el) => {
-					if (el) blurCanvas.current = el;
-				}}
-				width={actualWidth}
-				height={actualHeight}
-				style={{ display: "none" }}
-			/>
+			{/* Hidden canvases */}
+			<canvas ref={floodFillCanvas} style={{ display: "none" }} />
+			<canvas ref={eyedropperCanvas} style={{ display: "none" }} />
+			<canvas ref={healingCanvas} style={{ display: "none" }} />
+			<canvas ref={blurCanvas} style={{ display: "none" }} />
 		</div>
 	);
 };
