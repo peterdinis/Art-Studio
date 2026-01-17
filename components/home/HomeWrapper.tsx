@@ -13,11 +13,8 @@ import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useEffect, useState } from "react";
 
 const HomeWrapper = () => {
-	// Initialize global keyboard shortcuts
-	useKeyboardShortcuts();
-
-	// State pre sledovanie inicializácie session
 	const [isSessionInitialized, setIsSessionInitialized] = useState(false);
+	const [isClient, setIsClient] = useState(false);
 
 	const {
 		showGrid,
@@ -29,15 +26,21 @@ const HomeWrapper = () => {
 		showColorsPanel,
 		showLayersPanel,
 		showHistoryPanel,
-		// Používame skutočné metódy z vášho store
 		initializeSession,
 		saveSession,
 		sessionId,
 		clearCurrentSession,
 	} = useArtStudioStore();
 
-	// Inicializácia session a načítanie dát
+	useKeyboardShortcuts();
+
 	useEffect(() => {
+		setIsClient(true);
+	}, []);
+
+	useEffect(() => {
+		if (!isClient) return;
+
 		const initSession = async () => {
 			try {
 				console.log("Initializing session...");
@@ -46,16 +49,16 @@ const HomeWrapper = () => {
 				console.log("Session initialized successfully");
 			} catch (error) {
 				console.error("Failed to initialize session:", error);
-				setIsSessionInitialized(true); // Aj tak pokračujeme
+				setIsSessionInitialized(true);
 			}
 		};
 
 		initSession();
-	}, [initializeSession]);
+	}, [initializeSession, isClient]);
 
 	// Auto-save effect - periodické ukladanie
 	useEffect(() => {
-		if (!isSessionInitialized || !sessionId) return;
+		if (!isClient || !isSessionInitialized || !sessionId) return;
 
 		const autoSaveInterval = setInterval(async () => {
 			try {
@@ -77,15 +80,17 @@ const HomeWrapper = () => {
 			clearInterval(autoSaveInterval);
 			window.removeEventListener("beforeunload", handleBeforeUnload);
 		};
-	}, [isSessionInitialized, sessionId, saveSession]);
+	}, [isClient, isSessionInitialized, sessionId, saveSession]);
 
 	// Handle session expiry
 	useEffect(() => {
+		if (!isClient || !isSessionInitialized) return;
+
 		const checkSessionExpiry = async () => {
 			if (!sessionId) return;
 
 			// Môžete pridať logiku na kontrolu expirácie session
-			// Napríklad, ak sessionId začína na 'temp-' a je staršia ako 1 hodinu
+			// Napríklad, ak sessionId začína na 'temp-' a je staršia ako 1 hodina
 			if (sessionId.startsWith("temp-")) {
 				const timestamp = parseInt(sessionId.split("-")[1]);
 				const age = Date.now() - timestamp;
@@ -98,12 +103,22 @@ const HomeWrapper = () => {
 			}
 		};
 
-		if (isSessionInitialized) {
-			checkSessionExpiry();
-		}
-	}, [isSessionInitialized, sessionId, clearCurrentSession]);
+		checkSessionExpiry();
+	}, [isClient, isSessionInitialized, sessionId, clearCurrentSession]);
 
-	// Loading stav
+	// Loading stav - show minimal loading on server
+	if (!isClient) {
+		return (
+			<div className="h-screen w-full flex items-center justify-center bg-background">
+				<div className="text-center">
+					<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+					<p className="text-muted-foreground">Loading workspace...</p>
+				</div>
+			</div>
+		);
+	}
+
+	// Loading stav - show proper loading after client init
 	if (!isSessionInitialized) {
 		return (
 			<div className="h-screen w-full flex items-center justify-center bg-background">
