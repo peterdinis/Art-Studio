@@ -126,7 +126,9 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 	// Nové stavy pre Pen a Polygon nástroje
 	const [isDrawingPolygon, setIsDrawingPolygon] = useState(false);
 	const [polygonPoints, setPolygonPoints] = useState<number[]>([]);
-	const [currentPenLine, setCurrentPenLine] = useState<DrawingLine | null>(null);
+	const [currentPenLine, setCurrentPenLine] = useState<DrawingLine | null>(
+		null,
+	);
 	const [penPoints, setPenPoints] = useState<number[]>([]);
 
 	const isPanning = useRef(false);
@@ -167,13 +169,11 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 	const [showSessionNotification, setShowSessionNotification] = useState(false);
 
 	// Nové stavy pre správu kreslenia
-	const [activeDrawingLine, setActiveDrawingLine] = useState<DrawingLine | null>(
-		null,
-	);
+	const [activeDrawingLine, setActiveDrawingLine] =
+		useState<DrawingLine | null>(null);
 	const [tempCanvas, setTempCanvas] = useState<HTMLCanvasElement | null>(null);
-	const [tempContext, setTempContext] = useState<CanvasRenderingContext2D | null>(
-		null,
-	);
+	const [tempContext, setTempContext] =
+		useState<CanvasRenderingContext2D | null>(null);
 
 	const {
 		activeTool,
@@ -720,7 +720,13 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		setIsDrawingPolygon(false);
 		setPolygonPoints([]);
 		setCurrentShape(null);
-	}, [polygonPoints, primaryColor, brushSettings.strokeWidth, activeLayerId, saveCanvasState]);
+	}, [
+		polygonPoints,
+		primaryColor,
+		brushSettings.strokeWidth,
+		activeLayerId,
+		saveCanvasState,
+	]);
 
 	// LINE NÁSTROJ - Začiatok
 	const startLineDrawing = useCallback(
@@ -782,7 +788,7 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		// PEN NÁSTROJ
 		if (activeTool === "pen") {
 			if (e.evt.button !== 0) return;
-			
+
 			if (!currentPenLine) {
 				startPenDrawing(pos);
 			} else {
@@ -1003,7 +1009,11 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		}
 
 		// POLYGON NÁSTROJ - Ukážka
-		if (activeTool === "polygon" && isDrawingPolygon && polygonPoints.length > 0) {
+		if (
+			activeTool === "polygon" &&
+			isDrawingPolygon &&
+			polygonPoints.length > 0
+		) {
 			// Ukážeme preview posledného segmentu
 			const previewPoints = [...polygonPoints, pos.x, pos.y];
 			setCurrentShape({
@@ -1116,7 +1126,10 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		}
 
 		// Dokonči tvar (rectangle, ellipse)
-		if (currentShape && (currentShape.type === "rect" || currentShape.type === "ellipse")) {
+		if (
+			currentShape &&
+			(currentShape.type === "rect" || currentShape.type === "ellipse")
+		) {
 			setShapes((prev) => [...prev, currentShape]);
 			setCurrentShape(null);
 			shapeStartPoint.current = null;
@@ -1557,8 +1570,16 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 					type: "rect",
 					x: Math.min(...processedPixels.map((p) => p.x)),
 					y: Math.min(...processedPixels.map((p) => p.y)),
-					width: Math.max(1, Math.max(...processedPixels.map((p) => p.x)) - Math.min(...processedPixels.map((p) => p.x))),
-					height: Math.max(1, Math.max(...processedPixels.map((p) => p.y)) - Math.min(...processedPixels.map((p) => p.y))),
+					width: Math.max(
+						1,
+						Math.max(...processedPixels.map((p) => p.x)) -
+							Math.min(...processedPixels.map((p) => p.x)),
+					),
+					height: Math.max(
+						1,
+						Math.max(...processedPixels.map((p) => p.y)) -
+							Math.min(...processedPixels.map((p) => p.y)),
+					),
 					fill: replacementColor,
 					layerId: activeLayerId || undefined,
 				};
@@ -1818,7 +1839,14 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			loadedImg.onload = () => setImg(loadedImg);
 		}, [image.src]);
 
-		const drawingTools = ["brush", "pencil", "eraser", "healing", "blur", "pen"];
+		const drawingTools = [
+			"brush",
+			"pencil",
+			"eraser",
+			"healing",
+			"blur",
+			"pen",
+		];
 
 		if (!img) return null;
 
@@ -1877,7 +1905,14 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 	};
 
 	const handleObjectClick = (id: string) => {
-		const drawingTools = ["brush", "pencil", "eraser", "healing", "blur", "pen"];
+		const drawingTools = [
+			"brush",
+			"pencil",
+			"eraser",
+			"healing",
+			"blur",
+			"pen",
+		];
 		if (!drawingTools.includes(activeTool)) {
 			setSelectedId(id);
 		}
@@ -1907,7 +1942,12 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 						setShapes((prev) =>
 							prev.map((s) =>
 								s.id === shape.id
-									? { ...s, points: newPoints, x: s.x + deltaX, y: s.y + deltaY }
+									? {
+											...s,
+											points: newPoints,
+											x: s.x + deltaX,
+											y: s.y + deltaY,
+										}
 									: s,
 							),
 						);
@@ -2304,16 +2344,19 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 						)}
 
 						{/* Polygon preview while drawing */}
-						{isDrawingPolygon && polygonPoints.length > 0 && currentShape && currentShape.type === "polygon" && (
-							<Line
-								points={currentShape.points || []}
-								closed={true}
-								fill={currentShape.fill}
-								stroke={currentShape.stroke}
-								strokeWidth={currentShape.strokeWidth}
-								listening={false}
-							/>
-						)}
+						{isDrawingPolygon &&
+							polygonPoints.length > 0 &&
+							currentShape &&
+							currentShape.type === "polygon" && (
+								<Line
+									points={currentShape.points || []}
+									closed={true}
+									fill={currentShape.fill}
+									stroke={currentShape.stroke}
+									strokeWidth={currentShape.strokeWidth}
+									listening={false}
+								/>
+							)}
 
 						{/* Pen preview while drawing */}
 						{currentPenLine && (
@@ -2396,7 +2439,8 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				<div className="absolute bottom-4 left-4 bg-black/70 text-white text-xs px-3 py-2 rounded pointer-events-none z-10">
 					<div>Polygon Tool</div>
 					<div className="text-gray-300">
-						Click to add vertices, right-click, double-click or press Enter to finish
+						Click to add vertices, right-click, double-click or press Enter to
+						finish
 					</div>
 					<div className="text-gray-400 text-[10px] mt-1">
 						Press ESC to cancel

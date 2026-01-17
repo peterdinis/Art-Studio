@@ -340,7 +340,8 @@ export const TextOptionsPanel: React.FC = () => {
 						The quick brown fox jumps over the lazy dog
 						<br />
 						<span className="opacity-70 text-xs">
-							Font: {safeBrushSettings.fontFamily} | Size: {safeBrushSettings.fontSize}
+							Font: {safeBrushSettings.fontFamily} | Size:{" "}
+							{safeBrushSettings.fontSize}
 							px
 						</span>
 					</div>
