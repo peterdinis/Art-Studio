@@ -559,7 +559,7 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 
 			// Kľúčová zmena: pre eraser používame transparentnú farbu, nie background
 			let strokeColor = primaryColor;
-			
+
 			if (activeTool === "eraser") {
 				// Pre eraser používame "transparent" namiesto background farby
 				// Toto vytvorí "dieru" v objektoch na aktuálnej vrstve
@@ -580,7 +580,8 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 
 			// Aktualizuj temporary canvas
 			if (tempContext) {
-				tempContext.strokeStyle = activeTool === "eraser" ? "rgba(0,0,0,0)" : newLine.stroke;
+				tempContext.strokeStyle =
+					activeTool === "eraser" ? "rgba(0,0,0,0)" : newLine.stroke;
 				tempContext.lineWidth = newLine.strokeWidth;
 				tempContext.lineCap = "round";
 				tempContext.lineJoin = "round";
@@ -588,13 +589,7 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				tempContext.moveTo(pos.x, pos.y);
 			}
 		},
-		[
-			activeTool,
-			primaryColor,
-			brushSettings.size,
-			activeLayerId,
-			tempContext,
-		],
+		[activeTool, primaryColor, brushSettings.size, activeLayerId, tempContext],
 	);
 
 	const continueDrawing = useCallback(
@@ -629,7 +624,7 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			if (tempContext) {
 				tempContext.closePath();
 			}
-			saveCanvasState(`${activeTool === 'eraser' ? 'Erased' : 'Stroke added'}`);
+			saveCanvasState(`${activeTool === "eraser" ? "Erased" : "Stroke added"}`);
 		}
 	}, [isDrawing, tempContext, saveCanvasState, activeTool]);
 
@@ -1471,158 +1466,158 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 	);
 
 	const floodFill = useCallback(
-  (
-    startX: number,
-    startY: number,
-    targetColor: string,
-    replacementColor: string,
-    tolerance: number = brushSettings.tolerance,
-  ) => {
-    if (!floodFillImageData.current || !floodFillContext.current) {
-      return false;
-    }
+		(
+			startX: number,
+			startY: number,
+			targetColor: string,
+			replacementColor: string,
+			tolerance: number = brushSettings.tolerance,
+		) => {
+			if (!floodFillImageData.current || !floodFillContext.current) {
+				return false;
+			}
 
-    const imageData = floodFillImageData.current;
-    const width = imageData.width;
-    const height = imageData.height;
+			const imageData = floodFillImageData.current;
+			const width = imageData.width;
+			const height = imageData.height;
 
-    const targetRgb = parseColorToRgb(targetColor);
-    const replacementRgb = parseColorToRgb(replacementColor);
+			const targetRgb = parseColorToRgb(targetColor);
+			const replacementRgb = parseColorToRgb(replacementColor);
 
-    const x = Math.floor(Math.max(0, Math.min(width - 1, startX)));
-    const y = Math.floor(Math.max(0, Math.min(height - 1, startY)));
+			const x = Math.floor(Math.max(0, Math.min(width - 1, startX)));
+			const y = Math.floor(Math.max(0, Math.min(height - 1, startY)));
 
-    const startIndex = (y * width + x) * 4;
+			const startIndex = (y * width + x) * 4;
 
-    const startR = imageData.data[startIndex];
-    const startG = imageData.data[startIndex + 1];
-    const startB = imageData.data[startIndex + 2];
+			const startR = imageData.data[startIndex];
+			const startG = imageData.data[startIndex + 1];
+			const startB = imageData.data[startIndex + 2];
 
-    // Zisti, či farba východiskového bodu je rovnaká ako cieľová farba
-    const startDistance = Math.sqrt(
-      Math.pow(startR - targetRgb.r, 2) +
-        Math.pow(startG - targetRgb.g, 2) +
-        Math.pow(startB - targetRgb.b, 2),
-    );
+			// Zisti, či farba východiskového bodu je rovnaká ako cieľová farba
+			const startDistance = Math.sqrt(
+				Math.pow(startR - targetRgb.r, 2) +
+					Math.pow(startG - targetRgb.g, 2) +
+					Math.pow(startB - targetRgb.b, 2),
+			);
 
-    // Ak je farba už rovnaká, nevykonávaj vyplnenie
-    if (startDistance <= tolerance) {
-      return false;
-    }
+			// Ak je farba už rovnaká, nevykonávaj vyplnenie
+			if (startDistance <= tolerance) {
+				return false;
+			}
 
-    // Použite boolean pole namiesto Uint8Array pre jednoduchšiu správu
-    const visited = new Array(width * height).fill(false);
-    const queue: Array<{ x: number; y: number }> = [{ x, y }];
-    visited[y * width + x] = true;
-    const processedPixels: { x: number; y: number }[] = [];
+			// Použite boolean pole namiesto Uint8Array pre jednoduchšiu správu
+			const visited = new Array(width * height).fill(false);
+			const queue: Array<{ x: number; y: number }> = [{ x, y }];
+			visited[y * width + x] = true;
+			const processedPixels: { x: number; y: number }[] = [];
 
-    while (queue.length > 0) {
-      const point = queue.shift()!;
-      const px = point.x;
-      const py = point.y;
+			while (queue.length > 0) {
+				const point = queue.shift()!;
+				const px = point.x;
+				const py = point.y;
 
-      processedPixels.push({ x: px, y: py });
+				processedPixels.push({ x: px, y: py });
 
-      // Skontroluj susedné pixely
-      const directions = [
-        { dx: 1, dy: 0 },
-        { dx: -1, dy: 0 },
-        { dx: 0, dy: 1 },
-        { dx: 0, dy: -1 },
-      ];
+				// Skontroluj susedné pixely
+				const directions = [
+					{ dx: 1, dy: 0 },
+					{ dx: -1, dy: 0 },
+					{ dx: 0, dy: 1 },
+					{ dx: 0, dy: -1 },
+				];
 
-      for (const dir of directions) {
-        const nx = px + dir.dx;
-        const ny = py + dir.dy;
+				for (const dir of directions) {
+					const nx = px + dir.dx;
+					const ny = py + dir.dy;
 
-        // Skontroluj hranice
-        if (nx < 0 || nx >= width || ny < 0 || ny >= height) {
-          continue;
-        }
+					// Skontroluj hranice
+					if (nx < 0 || nx >= width || ny < 0 || ny >= height) {
+						continue;
+					}
 
-        // Skontroluj, či už bol pixel navštívený
-        if (visited[ny * width + nx]) {
-          continue;
-        }
+					// Skontroluj, či už bol pixel navštívený
+					if (visited[ny * width + nx]) {
+						continue;
+					}
 
-        const index = (ny * width + nx) * 4;
-        const r = imageData.data[index];
-        const g = imageData.data[index + 1];
-        const b = imageData.data[index + 2];
-        const a = imageData.data[index + 3];
+					const index = (ny * width + nx) * 4;
+					const r = imageData.data[index];
+					const g = imageData.data[index + 1];
+					const b = imageData.data[index + 2];
+					const a = imageData.data[index + 3];
 
-        // Ignoruj priehľadné pixely
-        if (a === 0) {
-          continue;
-        }
+					// Ignoruj priehľadné pixely
+					if (a === 0) {
+						continue;
+					}
 
-        // Vypočítaj vzdialenosť farby od farby východiskového bodu
-        const pixelColorDistance = Math.sqrt(
-          Math.pow(r - startR, 2) +
-            Math.pow(g - startG, 2) +
-            Math.pow(b - startB, 2),
-        );
+					// Vypočítaj vzdialenosť farby od farby východiskového bodu
+					const pixelColorDistance = Math.sqrt(
+						Math.pow(r - startR, 2) +
+							Math.pow(g - startG, 2) +
+							Math.pow(b - startB, 2),
+					);
 
-        // Ak je farba podobná (v rámci tolerance)
-        if (pixelColorDistance <= tolerance) {
-          visited[ny * width + nx] = true;
-          queue.push({ x: nx, y: ny });
-        }
-      }
-    }
+					// Ak je farba podobná (v rámci tolerance)
+					if (pixelColorDistance <= tolerance) {
+						visited[ny * width + nx] = true;
+						queue.push({ x: nx, y: ny });
+					}
+				}
+			}
 
-    // Ak nebolo spracovaných žiadnych pixelov, vráť false
-    if (processedPixels.length === 0) {
-      return false;
-    }
+			// Ak nebolo spracovaných žiadnych pixelov, vráť false
+			if (processedPixels.length === 0) {
+				return false;
+			}
 
-    // Ulož pôvodné dáta pre historiu (voliteľné)
-    const originalData = new Uint8ClampedArray(imageData.data);
+			// Ulož pôvodné dáta pre historiu (voliteľné)
+			const originalData = new Uint8ClampedArray(imageData.data);
 
-    // Aplikuj novú farbu na všetky spracované pixely
-    for (const pixel of processedPixels) {
-      const index = (pixel.y * width + pixel.x) * 4;
-      imageData.data[index] = replacementRgb.r;
-      imageData.data[index + 1] = replacementRgb.g;
-      imageData.data[index + 2] = replacementRgb.b;
-      // Zachovaj alfa kanál
-      imageData.data[index + 3] = originalData[index + 3];
-    }
+			// Aplikuj novú farbu na všetky spracované pixely
+			for (const pixel of processedPixels) {
+				const index = (pixel.y * width + pixel.x) * 4;
+				imageData.data[index] = replacementRgb.r;
+				imageData.data[index + 1] = replacementRgb.g;
+				imageData.data[index + 2] = replacementRgb.b;
+				// Zachovaj alfa kanál
+				imageData.data[index + 3] = originalData[index + 3];
+			}
 
-    // Aktualizuj canvas
-    if (floodFillContext.current) {
-      floodFillContext.current.putImageData(imageData, 0, 0);
+			// Aktualizuj canvas
+			if (floodFillContext.current) {
+				floodFillContext.current.putImageData(imageData, 0, 0);
 
-      // Vytvor tvar vyplnenia (voliteľné, ak chcete mať vyplnenie ako samostatný objekt)
-      const minX = Math.min(...processedPixels.map((p) => p.x));
-      const minY = Math.min(...processedPixels.map((p) => p.y));
-      const maxX = Math.max(...processedPixels.map((p) => p.x));
-      const maxY = Math.max(...processedPixels.map((p) => p.y));
+				// Vytvor tvar vyplnenia (voliteľné, ak chcete mať vyplnenie ako samostatný objekt)
+				const minX = Math.min(...processedPixels.map((p) => p.x));
+				const minY = Math.min(...processedPixels.map((p) => p.y));
+				const maxX = Math.max(...processedPixels.map((p) => p.x));
+				const maxY = Math.max(...processedPixels.map((p) => p.y));
 
-      // Skontroluj, či sú rozsahy platné
-      if (minX <= maxX && minY <= maxY) {
-        const fillShape: ShapeObject = {
-          id: `fill-${Date.now()}`,
-          type: "rect",
-          x: minX,
-          y: minY,
-          width: Math.max(1, maxX - minX),
-          height: Math.max(1, maxY - minY),
-          fill: replacementColor,
-          layerId: activeLayerId || "layer-1",
-        };
+				// Skontroluj, či sú rozsahy platné
+				if (minX <= maxX && minY <= maxY) {
+					const fillShape: ShapeObject = {
+						id: `fill-${Date.now()}`,
+						type: "rect",
+						x: minX,
+						y: minY,
+						width: Math.max(1, maxX - minX),
+						height: Math.max(1, maxY - minY),
+						fill: replacementColor,
+						layerId: activeLayerId || "layer-1",
+					};
 
-        setShapes((prev) => [...prev, fillShape]);
-      }
+					setShapes((prev) => [...prev, fillShape]);
+				}
 
-      saveCanvasState("Fill applied");
-      toast.success(`Area filled with ${replacementColor}`);
-    }
+				saveCanvasState("Fill applied");
+				toast.success(`Area filled with ${replacementColor}`);
+			}
 
-    return true;
-  },
-  [brushSettings.tolerance, activeLayerId, saveCanvasState],
-);
+			return true;
+		},
+		[brushSettings.tolerance, activeLayerId, saveCanvasState],
+	);
 
 	// Healing brush funkcie
 	const applyHealingBrush = useCallback(

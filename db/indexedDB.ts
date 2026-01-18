@@ -32,26 +32,29 @@ class SessionDBManager {
 	private isNewSession = false;
 	private isInitialized = false;
 	private isBrowser: boolean;
-	
+
 	// Memory storage fallback for non-browser environments
 	private memoryStore: {
-		'current-session': Map<string, any>;
-		'session-history': Map<string, any>;
+		"current-session": Map<string, any>;
+		"session-history": Map<string, any>;
 	} = {
-		'current-session': new Map(),
-		'session-history': new Map()
+		"current-session": new Map(),
+		"session-history": new Map(),
 	};
 
 	constructor() {
 		// Check if we're in a browser environment
-		this.isBrowser = typeof window !== 'undefined' && typeof indexedDB !== 'undefined';
+		this.isBrowser =
+			typeof window !== "undefined" && typeof indexedDB !== "undefined";
 	}
 
 	async init(): Promise<void> {
 		if (this.isInitialized) return;
-		
+
 		if (!this.isBrowser) {
-			console.warn('IndexedDB is not available (non-browser environment), using memory storage');
+			console.warn(
+				"IndexedDB is not available (non-browser environment), using memory storage",
+			);
 			this.isInitialized = true;
 			return;
 		}
@@ -74,7 +77,7 @@ class SessionDBManager {
 			});
 			this.isInitialized = true;
 		} catch (error) {
-			console.error('Failed to initialize IndexedDB:', error);
+			console.error("Failed to initialize IndexedDB:", error);
 			this.isInitialized = true;
 		}
 	}
@@ -93,7 +96,7 @@ class SessionDBManager {
 		this.isNewSession = true;
 
 		const db = await this.getDB();
-		
+
 		if (db) {
 			// Ulož pod fixný kľúč 'current'
 			await db.put(
@@ -108,7 +111,7 @@ class SessionDBManager {
 			);
 		} else {
 			// Memory storage fallback
-			this.memoryStore['current-session'].set('current', {
+			this.memoryStore["current-session"].set("current", {
 				sessionId,
 				data: null,
 				created: Date.now(),
@@ -122,13 +125,13 @@ class SessionDBManager {
 		if (this.currentSessionId) return this.currentSessionId;
 
 		const db = await this.getDB();
-		
+
 		let session: any = null;
-		
+
 		if (db) {
 			session = await db.get("current-session", "current");
 		} else {
-			session = this.memoryStore['current-session'].get('current');
+			session = this.memoryStore["current-session"].get("current");
 		}
 
 		if (session) {
@@ -156,7 +159,7 @@ class SessionDBManager {
 		}
 
 		const db = await this.getDB();
-		
+
 		if (db) {
 			const existing = await db.get("current-session", "current");
 
@@ -172,23 +175,26 @@ class SessionDBManager {
 			);
 		} else {
 			// Memory storage fallback
-			const existing = this.memoryStore['current-session'].get('current');
-			this.memoryStore['current-session'].set('current', {
+			const existing = this.memoryStore["current-session"].get("current");
+			this.memoryStore["current-session"].set("current", {
 				sessionId: this.currentSessionId!,
 				data,
 				created: existing?.created || Date.now(),
 				lastModified: Date.now(),
 			});
-			
+
 			// Also save to localStorage if available for persistence
-			if (typeof window !== 'undefined' && window.localStorage) {
+			if (typeof window !== "undefined" && window.localStorage) {
 				try {
-					localStorage.setItem('artstudio-session-fallback', JSON.stringify({
-						sessionId: this.currentSessionId,
-						data,
-						created: existing?.created || Date.now(),
-						lastModified: Date.now(),
-					}));
+					localStorage.setItem(
+						"artstudio-session-fallback",
+						JSON.stringify({
+							sessionId: this.currentSessionId,
+							data,
+							created: existing?.created || Date.now(),
+							lastModified: Date.now(),
+						}),
+					);
 				} catch (e) {
 					// localStorage might be full or not available
 				}
@@ -202,28 +208,28 @@ class SessionDBManager {
 		}
 
 		const db = await this.getDB();
-		
+
 		if (db) {
 			const session = await db.get("current-session", "current");
 			return session?.data || null;
 		} else {
 			// Memory storage fallback
-			const session = this.memoryStore['current-session'].get('current');
-			
+			const session = this.memoryStore["current-session"].get("current");
+
 			// Try to load from localStorage if memory storage is empty
-			if (!session && typeof window !== 'undefined' && window.localStorage) {
+			if (!session && typeof window !== "undefined" && window.localStorage) {
 				try {
-					const fallback = localStorage.getItem('artstudio-session-fallback');
+					const fallback = localStorage.getItem("artstudio-session-fallback");
 					if (fallback) {
 						const parsed = JSON.parse(fallback);
-						this.memoryStore['current-session'].set('current', parsed);
+						this.memoryStore["current-session"].set("current", parsed);
 						return parsed.data;
 					}
 				} catch (e) {
 					// Ignore localStorage errors
 				}
 			}
-			
+
 			return session?.data || null;
 		}
 	}
@@ -255,7 +261,7 @@ class SessionDBManager {
 			await this.trimHistory();
 		} else {
 			// Memory storage fallback
-			this.memoryStore['session-history'].set(id, historyEntry);
+			this.memoryStore["session-history"].set(id, historyEntry);
 			// Trim memory storage
 			await this.trimMemoryHistory();
 		}
@@ -267,7 +273,7 @@ class SessionDBManager {
 		}
 
 		const db = await this.getDB();
-		
+
 		if (db) {
 			const transaction = db.transaction("session-history", "readonly");
 			const store = transaction.objectStore("session-history");
@@ -279,11 +285,11 @@ class SessionDBManager {
 			return entries.sort((a, b) => b.timestamp - a.timestamp).slice(0, limit);
 		} else {
 			// Memory storage fallback
-			const entries = Array.from(this.memoryStore['session-history'].values())
-				.filter(entry => entry.sessionId === this.currentSessionId)
+			const entries = Array.from(this.memoryStore["session-history"].values())
+				.filter((entry) => entry.sessionId === this.currentSessionId)
 				.sort((a, b) => b.timestamp - a.timestamp)
 				.slice(0, limit);
-				
+
 			return entries;
 		}
 	}
@@ -316,8 +322,9 @@ class SessionDBManager {
 	}
 
 	private async trimMemoryHistory(): Promise<void> {
-		const entries = Array.from(this.memoryStore['session-history'].values())
-			.filter(entry => entry.sessionId === this.currentSessionId);
+		const entries = Array.from(
+			this.memoryStore["session-history"].values(),
+		).filter((entry) => entry.sessionId === this.currentSessionId);
 
 		if (entries.length > 50) {
 			const entriesToDelete = entries
@@ -325,7 +332,7 @@ class SessionDBManager {
 				.slice(50);
 
 			for (const entry of entriesToDelete) {
-				this.memoryStore['session-history'].delete(entry.id);
+				this.memoryStore["session-history"].delete(entry.id);
 			}
 		}
 	}
@@ -335,7 +342,7 @@ class SessionDBManager {
 		if (!targetSessionId) return;
 
 		const db = await this.getDB();
-		
+
 		if (db) {
 			// Delete session data
 			await db.delete("current-session", "current");
@@ -354,18 +361,20 @@ class SessionDBManager {
 			await transaction.done;
 		} else {
 			// Memory storage cleanup
-			this.memoryStore['current-session'].delete('current');
-			
+			this.memoryStore["current-session"].delete("current");
+
 			// Remove all history entries for this session
-			for (const [key, entry] of this.memoryStore['session-history'].entries()) {
+			for (const [key, entry] of this.memoryStore[
+				"session-history"
+			].entries()) {
 				if (entry.sessionId === targetSessionId) {
-					this.memoryStore['session-history'].delete(key);
+					this.memoryStore["session-history"].delete(key);
 				}
 			}
-			
+
 			// Clear localStorage fallback
-			if (typeof window !== 'undefined' && window.localStorage) {
-				localStorage.removeItem('artstudio-session-fallback');
+			if (typeof window !== "undefined" && window.localStorage) {
+				localStorage.removeItem("artstudio-session-fallback");
 			}
 		}
 
@@ -377,31 +386,31 @@ class SessionDBManager {
 
 	async clearAllSessions(): Promise<void> {
 		const db = await this.getDB();
-		
+
 		if (db) {
 			await db.clear("current-session");
 			await db.clear("session-history");
 		} else {
 			// Clear memory storage
-			this.memoryStore['current-session'].clear();
-			this.memoryStore['session-history'].clear();
-			
+			this.memoryStore["current-session"].clear();
+			this.memoryStore["session-history"].clear();
+
 			// Clear localStorage fallback
-			if (typeof window !== 'undefined' && window.localStorage) {
-				localStorage.removeItem('artstudio-session-fallback');
+			if (typeof window !== "undefined" && window.localStorage) {
+				localStorage.removeItem("artstudio-session-fallback");
 			}
 		}
-		
+
 		this.currentSessionId = null;
 		this.isNewSession = false;
 	}
 
 	async cleanupOldSessions(): Promise<void> {
 		const db = await this.getDB();
-		
+
 		if (!db) {
 			// For memory storage, just clear everything on page refresh
-			this.memoryStore['session-history'].clear();
+			this.memoryStore["session-history"].clear();
 			return;
 		}
 
@@ -451,12 +460,12 @@ class SessionDBManager {
 	// Helper method to check if we have any saved data
 	async hasSavedData(): Promise<boolean> {
 		const db = await this.getDB();
-		
+
 		if (db) {
 			const session = await db.get("current-session", "current");
 			return !!session && !!session.data;
 		} else {
-			const session = this.memoryStore['current-session'].get('current');
+			const session = this.memoryStore["current-session"].get("current");
 			return !!session && !!session.data;
 		}
 	}
@@ -468,18 +477,18 @@ class SessionDBManager {
 		lastModified: number | null;
 	}> {
 		const db = await this.getDB();
-		
+
 		let session: any = null;
-		
+
 		if (db) {
 			session = await db.get("current-session", "current");
 		} else {
-			session = this.memoryStore['current-session'].get('current');
-			
+			session = this.memoryStore["current-session"].get("current");
+
 			// Try localStorage fallback
-			if (!session && typeof window !== 'undefined' && window.localStorage) {
+			if (!session && typeof window !== "undefined" && window.localStorage) {
 				try {
-					const fallback = localStorage.getItem('artstudio-session-fallback');
+					const fallback = localStorage.getItem("artstudio-session-fallback");
 					if (fallback) {
 						session = JSON.parse(fallback);
 					}
@@ -499,20 +508,20 @@ class SessionDBManager {
 			lastModified: session.lastModified,
 		};
 	}
-	
+
 	// Method to check if we're using IndexedDB
 	isUsingIndexedDB(): boolean {
 		return this.isBrowser && this.db !== null;
 	}
-	
+
 	// Method to get storage type for debugging
 	getStorageType(): string {
 		if (this.isBrowser && this.db) {
-			return 'IndexedDB';
+			return "IndexedDB";
 		} else if (this.isBrowser) {
-			return 'Memory + localStorage fallback';
+			return "Memory + localStorage fallback";
 		} else {
-			return 'Memory storage (non-browser)';
+			return "Memory storage (non-browser)";
 		}
 	}
 }
@@ -520,13 +529,16 @@ class SessionDBManager {
 export const sessionDB = new SessionDBManager();
 
 // Auto-cleanup only in browser environment
-if (typeof window !== 'undefined') {
+if (typeof window !== "undefined") {
 	// Initialize and cleanup on next tick to avoid blocking
 	setTimeout(() => {
-		sessionDB.init().then(() => {
-			if (sessionDB.isUsingIndexedDB()) {
-				sessionDB.cleanupOldSessions().catch(console.error);
-			}
-		}).catch(console.error);
+		sessionDB
+			.init()
+			.then(() => {
+				if (sessionDB.isUsingIndexedDB()) {
+					sessionDB.cleanupOldSessions().catch(console.error);
+				}
+			})
+			.catch(console.error);
 	}, 0);
 }
