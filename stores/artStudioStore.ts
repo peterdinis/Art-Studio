@@ -82,7 +82,7 @@ export interface GradientObject {
 	x1: number;
 	y1: number;
 	colorStops: { offset: number; color: string }[];
-	layerId?: string;
+	layerId: string;
 }
 
 export interface HistoryEntry {

@@ -27,7 +27,7 @@ interface DrawingLine {
 	stroke: string;
 	strokeWidth: number;
 	tool: "brush" | "pencil" | "eraser" | "healing" | "blur" | "pen";
-	layerId?: string;
+	layerId: string; // POVINNÉ pre všetky objekty
 }
 
 interface ShapeObject {
@@ -49,7 +49,7 @@ interface ShapeObject {
 	rotation?: number;
 	scaleX?: number;
 	scaleY?: number;
-	layerId?: string;
+	layerId: string; // POVINNÉ pre všetky objekty
 }
 
 interface ImageObject {
@@ -62,7 +62,7 @@ interface ImageObject {
 	rotation?: number;
 	scaleX?: number;
 	scaleY?: number;
-	layerId?: string;
+	layerId: string; // POVINNÉ pre všetky objekty
 }
 
 interface GradientObject {
@@ -73,7 +73,7 @@ interface GradientObject {
 	x1: number;
 	y1: number;
 	colorStops: { offset: number; color: string }[];
-	layerId?: string;
+	layerId: string; // POVINNÉ pre všetky objekty
 }
 
 interface HealingData {
@@ -549,7 +549,7 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		}
 	}, [selectedId]);
 
-	// Hlavná funkcia pre kreslenie
+	// Hlavná funkcia pre kreslenie - OPRAVENÁ PRE ERAZER
 	const startDrawing = useCallback(
 		(pos: { x: number; y: number }) => {
 			const drawingTools = ["brush", "pencil", "eraser"];
@@ -557,13 +557,22 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 
 			setIsDrawing(true);
 
+			// Kľúčová zmena: pre eraser používame transparentnú farbu, nie background
+			let strokeColor = primaryColor;
+			
+			if (activeTool === "eraser") {
+				// Pre eraser používame "transparent" namiesto background farby
+				// Toto vytvorí "dieru" v objektoch na aktuálnej vrstve
+				strokeColor = "transparent";
+			}
+
 			const newLine: DrawingLine = {
 				id: `line-${Date.now()}`,
 				points: [pos.x, pos.y],
-				stroke: activeTool === "eraser" ? actualBackground : primaryColor,
+				stroke: strokeColor,
 				strokeWidth: brushSettings.size,
 				tool: activeTool as "brush" | "pencil" | "eraser",
-				layerId: activeLayerId || undefined,
+				layerId: activeLayerId || "layer-1", // POVINNÉ
 			};
 
 			setActiveDrawingLine(newLine);
@@ -571,7 +580,7 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 
 			// Aktualizuj temporary canvas
 			if (tempContext) {
-				tempContext.strokeStyle = newLine.stroke;
+				tempContext.strokeStyle = activeTool === "eraser" ? "rgba(0,0,0,0)" : newLine.stroke;
 				tempContext.lineWidth = newLine.strokeWidth;
 				tempContext.lineCap = "round";
 				tempContext.lineJoin = "round";
@@ -581,7 +590,6 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		},
 		[
 			activeTool,
-			actualBackground,
 			primaryColor,
 			brushSettings.size,
 			activeLayerId,
@@ -621,9 +629,9 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			if (tempContext) {
 				tempContext.closePath();
 			}
-			saveCanvasState("Stroke added");
+			saveCanvasState(`${activeTool === 'eraser' ? 'Erased' : 'Stroke added'}`);
 		}
-	}, [isDrawing, tempContext, saveCanvasState]);
+	}, [isDrawing, tempContext, saveCanvasState, activeTool]);
 
 	// PEN NÁSTROJ - Začiatok kreslenia krivky
 	const startPenDrawing = useCallback(
@@ -636,7 +644,7 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				stroke: primaryColor,
 				strokeWidth: brushSettings.strokeWidth || 2,
 				tool: "pen",
-				layerId: activeLayerId || undefined,
+				layerId: activeLayerId || "layer-1", // POVINNÉ
 			};
 			setCurrentPenLine(newPenLine);
 			setPenPoints([pos.x, pos.y]);
@@ -708,7 +716,7 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				stroke: primaryColor,
 				strokeWidth: brushSettings.strokeWidth || 2,
 				fill: `${primaryColor}40`,
-				layerId: activeLayerId || undefined,
+				layerId: activeLayerId || "layer-1", // POVINNÉ
 			};
 			setShapes((prev) => [...prev, polygonShape]);
 			saveCanvasState("Polygon created");
@@ -744,7 +752,7 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				stroke: primaryColor,
 				strokeWidth: brushSettings.strokeWidth || 2,
 				fill: primaryColor,
-				layerId: activeLayerId || undefined,
+				layerId: activeLayerId || "layer-1", // POVINNÉ
 			};
 
 			setCurrentShape(newLine);
@@ -875,7 +883,7 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				fill: primaryColor,
 				stroke: secondaryColor,
 				strokeWidth: 2,
-				layerId: activeLayerId || undefined,
+				layerId: activeLayerId || "layer-1", // POVINNÉ
 			};
 			setCurrentShape(newShape);
 			return;
@@ -891,7 +899,7 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				text: "Type here",
 				fontSize: brushSettings.fontSize || 20,
 				fill: primaryColor,
-				layerId: activeLayerId || undefined,
+				layerId: activeLayerId || "layer-1", // POVINNÉ
 			};
 			setShapes((prev) => [...prev, newTextShape]);
 			setSelectedId(newTextShape.id);
@@ -954,7 +962,7 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 					offset: stop.position,
 					color: stop.color,
 				})),
-				layerId: activeLayerId || undefined,
+				layerId: activeLayerId || "layer-1", // POVINNÉ
 			};
 
 			setCurrentGradient(newGradient);
@@ -1025,7 +1033,7 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				stroke: primaryColor,
 				strokeWidth: brushSettings.strokeWidth || 2,
 				fill: `${primaryColor}40`,
-				layerId: activeLayerId || undefined,
+				layerId: activeLayerId || "layer-1", // POVINNÉ
 			});
 			return;
 		}
@@ -1340,7 +1348,7 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				y: (actualHeight - img.height * scale) / 2,
 				width: img.width * scale,
 				height: img.height * scale,
-				layerId: activeLayerId || undefined,
+				layerId: activeLayerId || "layer-1", // POVINNÉ
 			};
 
 			setImages([...images, newImage]);
@@ -1462,137 +1470,159 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		],
 	);
 
-	// Flood fill funkcie
 	const floodFill = useCallback(
-		(
-			startX: number,
-			startY: number,
-			targetColor: string,
-			replacementColor: string,
-			tolerance: number = brushSettings.tolerance,
-		) => {
-			if (!floodFillImageData.current || !floodFillContext.current) {
-				return false;
-			}
+  (
+    startX: number,
+    startY: number,
+    targetColor: string,
+    replacementColor: string,
+    tolerance: number = brushSettings.tolerance,
+  ) => {
+    if (!floodFillImageData.current || !floodFillContext.current) {
+      return false;
+    }
 
-			const imageData = floodFillImageData.current;
-			const width = imageData.width;
-			const height = imageData.height;
+    const imageData = floodFillImageData.current;
+    const width = imageData.width;
+    const height = imageData.height;
 
-			const targetRgb = parseColorToRgb(targetColor);
-			const replacementRgb = parseColorToRgb(replacementColor);
+    const targetRgb = parseColorToRgb(targetColor);
+    const replacementRgb = parseColorToRgb(replacementColor);
 
-			const x = Math.floor(Math.max(0, Math.min(width - 1, startX)));
-			const y = Math.floor(Math.max(0, Math.min(height - 1, startY)));
+    const x = Math.floor(Math.max(0, Math.min(width - 1, startX)));
+    const y = Math.floor(Math.max(0, Math.min(height - 1, startY)));
 
-			const startIndex = (y * width + x) * 4;
+    const startIndex = (y * width + x) * 4;
 
-			const startR = imageData.data[startIndex];
-			const startG = imageData.data[startIndex + 1];
-			const startB = imageData.data[startIndex + 2];
+    const startR = imageData.data[startIndex];
+    const startG = imageData.data[startIndex + 1];
+    const startB = imageData.data[startIndex + 2];
 
-			const colorDistance = Math.sqrt(
-				Math.pow(startR - replacementRgb.r, 2) +
-					Math.pow(startG - replacementRgb.g, 2) +
-					Math.pow(startB - replacementRgb.b, 2),
-			);
+    // Zisti, či farba východiskového bodu je rovnaká ako cieľová farba
+    const startDistance = Math.sqrt(
+      Math.pow(startR - targetRgb.r, 2) +
+        Math.pow(startG - targetRgb.g, 2) +
+        Math.pow(startB - targetRgb.b, 2),
+    );
 
-			if (colorDistance <= tolerance) {
-				return false;
-			}
+    // Ak je farba už rovnaká, nevykonávaj vyplnenie
+    if (startDistance <= tolerance) {
+      return false;
+    }
 
-			const visited = new Uint8Array(width * height);
-			const queue = [{ x, y }];
-			visited[y * width + x] = 1;
-			const processedPixels: { x: number; y: number }[] = [];
+    // Použite boolean pole namiesto Uint8Array pre jednoduchšiu správu
+    const visited = new Array(width * height).fill(false);
+    const queue: Array<{ x: number; y: number }> = [{ x, y }];
+    visited[y * width + x] = true;
+    const processedPixels: { x: number; y: number }[] = [];
 
-			while (queue.length > 0) {
-				const point = queue.shift()!;
-				const px = point.x;
-				const py = point.y;
+    while (queue.length > 0) {
+      const point = queue.shift()!;
+      const px = point.x;
+      const py = point.y;
 
-				processedPixels.push({ x: px, y: py });
+      processedPixels.push({ x: px, y: py });
 
-				const directions = [
-					{ dx: 1, dy: 0 },
-					{ dx: -1, dy: 0 },
-					{ dx: 0, dy: 1 },
-					{ dx: 0, dy: -1 },
-				];
+      // Skontroluj susedné pixely
+      const directions = [
+        { dx: 1, dy: 0 },
+        { dx: -1, dy: 0 },
+        { dx: 0, dy: 1 },
+        { dx: 0, dy: -1 },
+      ];
 
-				for (const dir of directions) {
-					const nx = px + dir.dx;
-					const ny = py + dir.dy;
+      for (const dir of directions) {
+        const nx = px + dir.dx;
+        const ny = py + dir.dy;
 
-					if (nx < 0 || nx >= width || ny < 0 || ny >= height) {
-						continue;
-					}
+        // Skontroluj hranice
+        if (nx < 0 || nx >= width || ny < 0 || ny >= height) {
+          continue;
+        }
 
-					if (visited[ny * width + nx]) {
-						continue;
-					}
+        // Skontroluj, či už bol pixel navštívený
+        if (visited[ny * width + nx]) {
+          continue;
+        }
 
-					const index = (ny * width + nx) * 4;
-					const r = imageData.data[index];
-					const g = imageData.data[index + 1];
-					const b = imageData.data[index + 2];
-					const a = imageData.data[index + 3];
+        const index = (ny * width + nx) * 4;
+        const r = imageData.data[index];
+        const g = imageData.data[index + 1];
+        const b = imageData.data[index + 2];
+        const a = imageData.data[index + 3];
 
-					const pixelColorDistance = Math.sqrt(
-						Math.pow(r - startR, 2) +
-							Math.pow(g - startG, 2) +
-							Math.pow(b - startB, 2),
-					);
+        // Ignoruj priehľadné pixely
+        if (a === 0) {
+          continue;
+        }
 
-					if (pixelColorDistance <= tolerance && a > 0) {
-						visited[ny * width + nx] = 1;
-						queue.push({ x: nx, y: ny });
-					}
-				}
-			}
+        // Vypočítaj vzdialenosť farby od farby východiskového bodu
+        const pixelColorDistance = Math.sqrt(
+          Math.pow(r - startR, 2) +
+            Math.pow(g - startG, 2) +
+            Math.pow(b - startB, 2),
+        );
 
-			if (processedPixels.length === 0) {
-				return false;
-			}
+        // Ak je farba podobná (v rámci tolerance)
+        if (pixelColorDistance <= tolerance) {
+          visited[ny * width + nx] = true;
+          queue.push({ x: nx, y: ny });
+        }
+      }
+    }
 
-			for (const pixel of processedPixels) {
-				const index = (pixel.y * width + pixel.x) * 4;
-				imageData.data[index] = replacementRgb.r;
-				imageData.data[index + 1] = replacementRgb.g;
-				imageData.data[index + 2] = replacementRgb.b;
-			}
+    // Ak nebolo spracovaných žiadnych pixelov, vráť false
+    if (processedPixels.length === 0) {
+      return false;
+    }
 
-			if (floodFillContext.current) {
-				floodFillContext.current.putImageData(imageData, 0, 0);
+    // Ulož pôvodné dáta pre historiu (voliteľné)
+    const originalData = new Uint8ClampedArray(imageData.data);
 
-				const fillShape: ShapeObject = {
-					id: `fill-${Date.now()}`,
-					type: "rect",
-					x: Math.min(...processedPixels.map((p) => p.x)),
-					y: Math.min(...processedPixels.map((p) => p.y)),
-					width: Math.max(
-						1,
-						Math.max(...processedPixels.map((p) => p.x)) -
-							Math.min(...processedPixels.map((p) => p.x)),
-					),
-					height: Math.max(
-						1,
-						Math.max(...processedPixels.map((p) => p.y)) -
-							Math.min(...processedPixels.map((p) => p.y)),
-					),
-					fill: replacementColor,
-					layerId: activeLayerId || undefined,
-				};
+    // Aplikuj novú farbu na všetky spracované pixely
+    for (const pixel of processedPixels) {
+      const index = (pixel.y * width + pixel.x) * 4;
+      imageData.data[index] = replacementRgb.r;
+      imageData.data[index + 1] = replacementRgb.g;
+      imageData.data[index + 2] = replacementRgb.b;
+      // Zachovaj alfa kanál
+      imageData.data[index + 3] = originalData[index + 3];
+    }
 
-				setShapes((prev) => [...prev, fillShape]);
-				saveCanvasState("Fill applied");
-				toast.success(`Area filled with ${replacementColor}`);
-			}
+    // Aktualizuj canvas
+    if (floodFillContext.current) {
+      floodFillContext.current.putImageData(imageData, 0, 0);
 
-			return true;
-		},
-		[brushSettings.tolerance, activeLayerId, saveCanvasState],
-	);
+      // Vytvor tvar vyplnenia (voliteľné, ak chcete mať vyplnenie ako samostatný objekt)
+      const minX = Math.min(...processedPixels.map((p) => p.x));
+      const minY = Math.min(...processedPixels.map((p) => p.y));
+      const maxX = Math.max(...processedPixels.map((p) => p.x));
+      const maxY = Math.max(...processedPixels.map((p) => p.y));
+
+      // Skontroluj, či sú rozsahy platné
+      if (minX <= maxX && minY <= maxY) {
+        const fillShape: ShapeObject = {
+          id: `fill-${Date.now()}`,
+          type: "rect",
+          x: minX,
+          y: minY,
+          width: Math.max(1, maxX - minX),
+          height: Math.max(1, maxY - minY),
+          fill: replacementColor,
+          layerId: activeLayerId || "layer-1",
+        };
+
+        setShapes((prev) => [...prev, fillShape]);
+      }
+
+      saveCanvasState("Fill applied");
+      toast.success(`Area filled with ${replacementColor}`);
+    }
+
+    return true;
+  },
+  [brushSettings.tolerance, activeLayerId, saveCanvasState],
+);
 
 	// Healing brush funkcie
 	const applyHealingBrush = useCallback(
@@ -1669,7 +1699,7 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				width: brushSize,
 				height: brushSize,
 				fill: `rgba(255, 255, 255, 0.3)`,
-				layerId: activeLayerId || undefined,
+				layerId: activeLayerId || "layer-1", // POVINNÉ
 			};
 
 			setShapes((prev) => [...prev, healedShape]);
@@ -1756,7 +1786,7 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				width: brushSize,
 				height: brushSize,
 				fill: `rgba(128, 128, 128, 0.1)`,
-				layerId: activeLayerId || undefined,
+				layerId: activeLayerId || "layer-1", // POVINNÉ
 			};
 
 			setShapes((prev) => [...prev, blurredShape]);
@@ -2041,9 +2071,11 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 									tension={line.tool === "brush" ? 0.5 : 0}
 									lineCap="round"
 									lineJoin="round"
+									// KĽÚČOVÁ ZMENA: Pre eraser používame destination-out
 									globalCompositeOperation={
 										line.tool === "eraser" ? "destination-out" : "source-over"
 									}
+									opacity={line.tool === "eraser" ? 1 : undefined}
 									listening={false}
 								/>
 							))}
