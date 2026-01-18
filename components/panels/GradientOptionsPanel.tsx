@@ -6,7 +6,28 @@ import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Trash2, Droplet, ArrowUpDown } from "lucide-react";
+import {
+	Plus,
+	Trash2,
+	Droplet,
+	ArrowUpDown,
+	RotateCcw,
+	Download,
+	Upload,
+	Copy,
+	Sparkles,
+	FlipHorizontal,
+	FlipVertical,
+} from "lucide-react";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Input } from "@/components/ui/input";
 
 export const GradientOptionsPanel: React.FC = () => {
 	const {
@@ -14,13 +35,25 @@ export const GradientOptionsPanel: React.FC = () => {
 		setBrushSettings,
 		primaryColor,
 		secondaryColor,
-		setPrimaryColor,
-		setSecondaryColor,
 		swapColors,
+		gradients,
+		addGradient,
+		removeGradient,
 	} = useArtStudioStore();
+
+	const [gradientAngle, setGradientAngle] = React.useState(90);
+	const [gradientScale, setGradientScale] = React.useState(100);
+	const [repeatMode, setRepeatMode] = React.useState("none");
+	const [blendMode, setBlendMode] = React.useState("normal");
+	const [gradientName, setGradientName] = React.useState("Custom Gradient");
 
 	const handleGradientTypeChange = (type: "linear" | "radial") => {
 		setBrushSettings({ gradientType: type });
+	};
+
+	const handleGradientAngleChange = (angle: number) => {
+		setGradientAngle(angle);
+		// Here you would need to pass this to your canvas implementation
 	};
 
 	const handleAddColorStop = () => {
@@ -67,6 +100,8 @@ export const GradientOptionsPanel: React.FC = () => {
 				{ color: secondaryColor, position: 1 },
 			],
 		});
+		setGradientAngle(90);
+		setGradientScale(100);
 	};
 
 	const handleSwapColors = () => {
@@ -79,37 +114,295 @@ export const GradientOptionsPanel: React.FC = () => {
 		});
 	};
 
+	const handleSaveGradient = () => {
+		const newGradient = {
+			id: `gradient-${Date.now()}`,
+			name: gradientName || "Custom Gradient",
+			type: brushSettings.gradientType,
+			stops: brushSettings.gradientStops,
+			angle: gradientAngle,
+			scale: gradientScale,
+			repeat: repeatMode,
+			blendMode: blendMode,
+			timestamp: Date.now(),
+		};
+		addGradient(newGradient as any);
+		setGradientName("Custom Gradient");
+	};
+
+	const handleLoadGradient = (gradient: any) => {
+		setBrushSettings({
+			gradientType: gradient.type,
+			gradientStops: gradient.stops,
+		});
+		setGradientAngle(gradient.angle || 90);
+		setGradientScale(gradient.scale || 100);
+		setRepeatMode(gradient.repeat || "none");
+		setBlendMode(gradient.blendMode || "normal");
+	};
+
+	const handleGenerateRandomGradient = () => {
+		const randomColors = [
+			"#" + Math.floor(Math.random() * 16777215).toString(16),
+			"#" + Math.floor(Math.random() * 16777215).toString(16),
+		];
+		setBrushSettings({
+			gradientStops: [
+				{ color: randomColors[0], position: 0 },
+				{ color: randomColors[1], position: 1 },
+			],
+		});
+	};
+
+	const handleExportGradient = () => {
+		const gradientData = {
+			name: gradientName,
+			type: brushSettings.gradientType,
+			stops: brushSettings.gradientStops,
+			angle: gradientAngle,
+			scale: gradientScale,
+			repeat: repeatMode,
+			blendMode: blendMode,
+		};
+		const dataStr = JSON.stringify(gradientData, null, 2);
+		const dataBlob = new Blob([dataStr], { type: "application/json" });
+		const url = URL.createObjectURL(dataBlob);
+		const link = document.createElement("a");
+		link.href = url;
+		link.download = `${gradientName.replace(/\s+/g, "_")}.gradient.json`;
+		link.click();
+		URL.revokeObjectURL(url);
+	};
+
+	const handleImportGradient = (event: React.ChangeEvent<HTMLInputElement>) => {
+		const file = event.target.files?.[0];
+		if (!file) return;
+
+		const reader = new FileReader();
+		reader.onload = (e) => {
+			try {
+				const gradientData = JSON.parse(e.target?.result as string);
+				handleLoadGradient(gradientData);
+			} catch (error) {
+				console.error("Failed to import gradient:", error);
+			}
+		};
+		reader.readAsText(file);
+	};
+
+	const handleCopyGradientCSS = () => {
+		const css = brushSettings.gradientType === "linear"
+			? `linear-gradient(${gradientAngle}deg, ${brushSettings.gradientStops.map((s) => `${s.color} ${s.position * 100}%`).join(", ")})`
+			: `radial-gradient(circle, ${brushSettings.gradientStops.map((s) => `${s.color} ${s.position * 100}%`).join(", ")})`;
+		
+		navigator.clipboard.writeText(css).then(() => {
+			// You could add a toast notification here
+		});
+	};
+
+	const handleFlipGradient = (direction: "horizontal" | "vertical") => {
+		const newStops = brushSettings.gradientStops.map(stop => ({
+			...stop,
+			position: direction === "horizontal" ? 1 - stop.position : stop.position
+		}));
+		setBrushSettings({ gradientStops: newStops });
+	};
+
 	return (
-		<div className="w-64 h-full bg-background border-l border-border/50 overflow-y-auto">
+		<div className="w-72 h-full bg-background border-l border-border/50 overflow-y-auto">
 			<div className="p-4 space-y-6">
 				{/* Gradient Preview */}
 				<div className="space-y-3">
-					<h3 className="font-semibold text-sm">Gradient Preview</h3>
-					<div
-						className="w-full h-24 rounded-md border"
-						style={{
-							background:
-								brushSettings.gradientType === "linear"
-									? `linear-gradient(90deg, ${brushSettings.gradientStops.map((s) => `${s.color} ${s.position * 100}%`).join(", ")})`
-									: `radial-gradient(circle, ${brushSettings.gradientStops.map((s) => `${s.color} ${s.position * 100}%`).join(", ")})`,
-						}}
-					/>
+					<div className="flex items-center justify-between">
+						<h3 className="font-semibold text-sm">Gradient Preview</h3>
+						<Button size="sm" variant="ghost" onClick={handleCopyGradientCSS}>
+							<Copy className="w-4 h-4" />
+						</Button>
+					</div>
+					<div className="relative">
+						<div
+							className="w-full h-32 rounded-md border"
+							style={{
+								background:
+									brushSettings.gradientType === "linear"
+										? `linear-gradient(${gradientAngle}deg, ${brushSettings.gradientStops.map((s) => `${s.color} ${s.position * 100}%`).join(", ")})`
+										: `radial-gradient(circle at ${gradientScale}%, ${brushSettings.gradientStops.map((s) => `${s.color} ${s.position * 100}%`).join(", ")})`,
+								backgroundBlendMode: blendMode,
+							}}
+						/>
+						<div className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
+							{brushSettings.gradientType === "linear" ? `${gradientAngle}°` : `${gradientScale}%`}
+						</div>
+					</div>
 				</div>
 
-				{/* Gradient Type */}
+				{/* Gradient Type & Options */}
+				<div className="space-y-4">
+					<div className="grid grid-cols-2 gap-3">
+						<div className="space-y-2">
+							<Label className="text-xs">Type</Label>
+							<Tabs
+								value={brushSettings.gradientType}
+								onValueChange={(value) =>
+									handleGradientTypeChange(value as "linear" | "radial")
+								}
+							>
+								<TabsList className="w-full">
+									<TabsTrigger value="linear" className="flex-1">Linear</TabsTrigger>
+									<TabsTrigger value="radial" className="flex-1">Radial</TabsTrigger>
+								</TabsList>
+							</Tabs>
+						</div>
+
+						<div className="space-y-2">
+							<Label className="text-xs">Repeat</Label>
+							<Select value={repeatMode} onValueChange={setRepeatMode}>
+								<SelectTrigger className="w-full">
+									<SelectValue placeholder="Repeat" />
+								</SelectTrigger>
+								<SelectContent>
+									<SelectItem value="none">None</SelectItem>
+									<SelectItem value="repeat">Repeat</SelectItem>
+									<SelectItem value="repeat-x">Repeat X</SelectItem>
+									<SelectItem value="repeat-y">Repeat Y</SelectItem>
+									<SelectItem value="round">Round</SelectItem>
+									<SelectItem value="space">Space</SelectItem>
+								</SelectContent>
+							</Select>
+						</div>
+					</div>
+
+					<div className="grid grid-cols-2 gap-3">
+						<div className="space-y-2">
+							<Label className="text-xs">Blend Mode</Label>
+							<Select value={blendMode} onValueChange={setBlendMode}>
+								<SelectTrigger className="w-full">
+									<SelectValue placeholder="Blend Mode" />
+								</SelectTrigger>
+								<SelectContent>
+									<SelectItem value="normal">Normal</SelectItem>
+									<SelectItem value="multiply">Multiply</SelectItem>
+									<SelectItem value="screen">Screen</SelectItem>
+									<SelectItem value="overlay">Overlay</SelectItem>
+									<SelectItem value="darken">Darken</SelectItem>
+									<SelectItem value="lighten">Lighten</SelectItem>
+									<SelectItem value="color-dodge">Color Dodge</SelectItem>
+									<SelectItem value="color-burn">Color Burn</SelectItem>
+									<SelectItem value="hard-light">Hard Light</SelectItem>
+									<SelectItem value="soft-light">Soft Light</SelectItem>
+									<SelectItem value="difference">Difference</SelectItem>
+									<SelectItem value="exclusion">Exclusion</SelectItem>
+								</SelectContent>
+							</Select>
+						</div>
+
+						<div className="space-y-2">
+							<Label className="text-xs">Opacity</Label>
+							<Slider
+								min={0}
+								max={100}
+								step={1}
+								value={[brushSettings.gradientOpacity || 100]}
+								onValueChange={([value]) =>
+									setBrushSettings({ gradientOpacity: value })
+								}
+							/>
+						</div>
+					</div>
+				</div>
+
+				{/* Gradient Controls */}
 				<div className="space-y-3">
-					<h3 className="font-semibold text-sm">Gradient Type</h3>
-					<Tabs
-						value={brushSettings.gradientType}
-						onValueChange={(value) =>
-							handleGradientTypeChange(value as "linear" | "radial")
-						}
-					>
-						<TabsList className="grid grid-cols-2">
-							<TabsTrigger value="linear">Linear</TabsTrigger>
-							<TabsTrigger value="radial">Radial</TabsTrigger>
-						</TabsList>
-					</Tabs>
+					<div className="flex items-center justify-between">
+						<h3 className="font-semibold text-sm">Controls</h3>
+						<div className="flex gap-1">
+							<Button size="sm" variant="ghost" onClick={handleGenerateRandomGradient}>
+								<Sparkles className="w-4 h-4" />
+							</Button>
+							<Button size="sm" variant="ghost" onClick={handleResetGradient}>
+								<RotateCcw className="w-4 h-4" />
+							</Button>
+						</div>
+					</div>
+
+					{brushSettings.gradientType === "linear" ? (
+						<div className="space-y-3">
+							<div>
+								<Label className="text-xs">Angle: {gradientAngle}°</Label>
+								<Slider
+									min={0}
+									max={360}
+									step={1}
+									value={[gradientAngle]}
+									onValueChange={([value]) => setGradientAngle(value)}
+								/>
+								<div className="flex justify-between mt-1">
+									<span className="text-xs text-muted-foreground">0°</span>
+									<span className="text-xs text-muted-foreground">180°</span>
+									<span className="text-xs text-muted-foreground">360°</span>
+								</div>
+							</div>
+
+							<div className="flex gap-2">
+								<Button
+									size="sm"
+									variant="outline"
+									className="flex-1"
+									onClick={() => handleFlipGradient("horizontal")}
+								>
+									<FlipHorizontal className="w-4 h-4 mr-2" />
+									Flip H
+								</Button>
+								<Button
+									size="sm"
+									variant="outline"
+									className="flex-1"
+									onClick={() => handleFlipGradient("vertical")}
+								>
+									<FlipVertical className="w-4 h-4 mr-2" />
+									Flip V
+								</Button>
+							</div>
+						</div>
+					) : (
+						<div className="space-y-3">
+							<div>
+								<Label className="text-xs">Scale: {gradientScale}%</Label>
+								<Slider
+									min={0}
+									max={200}
+									step={1}
+									value={[gradientScale]}
+									onValueChange={([value]) => setGradientScale(value)}
+								/>
+							</div>
+							<div>
+								<Label className="text-xs">Center Position</Label>
+								<div className="grid grid-cols-2 gap-2">
+									<Input
+										type="number"
+										placeholder="X"
+										min={0}
+										max={100}
+										value={brushSettings.gradientCenterX || 50}
+										onChange={(e) =>
+											setBrushSettings({ gradientCenterX: parseInt(e.target.value) })
+										}
+									/>
+									<Input
+										type="number"
+										placeholder="Y"
+										min={0}
+										max={100}
+										value={brushSettings.gradientCenterY || 50}
+										onChange={(e) =>
+											setBrushSettings({ gradientCenterY: parseInt(e.target.value) })
+										}
+									/>
+								</div>
+							</div>
+						</div>
+					)}
 				</div>
 
 				{/* Color Stops */}
@@ -120,74 +413,56 @@ export const GradientOptionsPanel: React.FC = () => {
 							<Button size="sm" variant="ghost" onClick={handleAddColorStop}>
 								<Plus className="w-4 h-4" />
 							</Button>
-							<Button
-								size="sm"
-								variant="ghost"
-								onClick={handleReverseGradient}
-								title="Reverse Gradient"
-							>
+							<Button size="sm" variant="ghost" onClick={handleReverseGradient}>
 								<ArrowUpDown className="w-4 h-4" />
 							</Button>
-							<Button
-								size="sm"
-								variant="ghost"
-								onClick={handleSwapColors}
-								title="Swap Colors"
-							>
+							<Button size="sm" variant="ghost" onClick={handleSwapColors}>
 								<Droplet className="w-4 h-4 rotate-90" />
 							</Button>
 						</div>
 					</div>
 
-					<div className="space-y-3">
+					<div className="space-y-2 max-h-40 overflow-y-auto">
 						{brushSettings.gradientStops.map((stop, index) => (
-							<div key={index} className="space-y-2 p-3 border rounded-md">
+							<div key={index} className="space-y-2 p-2 border rounded-md">
 								<div className="flex items-center justify-between">
 									<div className="flex items-center gap-2">
 										<div
-											className="w-6 h-6 rounded border"
+											className="w-5 h-5 rounded border"
 											style={{ backgroundColor: stop.color }}
 										/>
 										<span className="text-xs font-medium">
-											Stop {index + 1} ({Math.round(stop.position * 100)}%)
+											{Math.round(stop.position * 100)}%
 										</span>
 									</div>
-									<Button
-										size="sm"
-										variant="ghost"
-										onClick={() => handleRemoveColorStop(index)}
-										disabled={brushSettings.gradientStops.length <= 2}
-									>
-										<Trash2 className="w-4 h-4" />
-									</Button>
+									<div className="flex gap-1">
+										<Button
+											size="sm"
+											variant="ghost"
+											className="h-6 w-6 p-0"
+											onClick={() => handleRemoveColorStop(index)}
+											disabled={brushSettings.gradientStops.length <= 2}
+										>
+											<Trash2 className="w-3 h-3" />
+										</Button>
+									</div>
 								</div>
 
-								<div className="space-y-2">
+								<div className="grid grid-cols-2 gap-2">
 									<div>
-										<Label htmlFor={`color-${index}`} className="text-xs">
-											Color
-										</Label>
-										<div className="flex gap-2 mt-1">
-											<input
-												type="color"
-												id={`color-${index}`}
-												value={stop.color}
-												onChange={(e) =>
-													handleColorStopChange(index, {
-														color: e.target.value,
-													})
-												}
-												className="w-full h-8 cursor-pointer"
-											/>
-										</div>
+										<Input
+											type="color"
+											value={stop.color}
+											onChange={(e) =>
+												handleColorStopChange(index, {
+													color: e.target.value,
+												})
+											}
+											className="h-8 cursor-pointer"
+										/>
 									</div>
-
 									<div>
-										<Label htmlFor={`position-${index}`} className="text-xs">
-											Position: {Math.round(stop.position * 100)}%
-										</Label>
 										<Slider
-											id={`position-${index}`}
 											min={0}
 											max={1}
 											step={0.01}
@@ -195,12 +470,87 @@ export const GradientOptionsPanel: React.FC = () => {
 											onValueChange={([value]) =>
 												handleColorStopChange(index, { position: value })
 											}
-											className="mt-2"
 										/>
 									</div>
 								</div>
 							</div>
 						))}
+					</div>
+				</div>
+
+				{/* Save/Load Gradients */}
+				<div className="space-y-3">
+					<h3 className="font-semibold text-sm">Presets</h3>
+					<div className="space-y-2">
+						<div className="flex gap-2">
+							<Input
+								placeholder="Gradient Name"
+								value={gradientName}
+								onChange={(e) => setGradientName(e.target.value)}
+								className="flex-1"
+							/>
+							<Button size="sm" onClick={handleSaveGradient}>
+								Save
+							</Button>
+						</div>
+
+						<div className="flex gap-2">
+							<Button size="sm" variant="outline" className="flex-1" onClick={handleExportGradient}>
+								<Download className="w-4 h-4 mr-2" />
+								Export
+							</Button>
+							<Button size="sm" variant="outline" className="flex-1" asChild>
+								<label>
+									<Upload className="w-4 h-4 mr-2" />
+									Import
+									<input
+										type="file"
+										accept=".json,.gradient"
+										onChange={handleImportGradient}
+										className="hidden"
+									/>
+								</label>
+							</Button>
+						</div>
+					</div>
+
+					{/* Saved Gradients */}
+					<div className="space-y-2">
+						<Label className="text-xs">Saved Gradients</Label>
+						<div className="grid grid-cols-2 gap-2">
+							{gradients.slice(0, 6).map((gradient) => (
+								<Button
+									key={gradient.id}
+									size="sm"
+									variant="outline"
+									className="h-16 flex-col relative group"
+									onClick={() => handleLoadGradient(gradient)}
+								>
+									<div
+										className="w-full h-8 rounded mb-1"
+										style={{
+											background: gradient.type === "linear"
+												? `linear-gradient(90deg, ${gradient.colorStops.map((s: any) => `${s.color} ${s.offset * 100}%`).join(", ")})`
+												: `radial-gradient(circle, ${gradient.colorStops.map((s: any) => `${s.color} ${s.offset * 100}%`).join(", ")})`,
+										}}
+									/>
+									<span className="text-[10px] truncate w-full">
+										{gradient.name}
+									</span>
+									<Button
+										size="sm"
+										variant="destructive"
+										className="h-5 w-5 p-0 absolute top-1 right-1 opacity-0 group-hover:opacity-100"
+										onClick={(e) => {
+											e.stopPropagation();
+											removeGradient(gradient.id);
+										}}
+									>
+										<Trash2 className="w-3 h-3" />
+									</Button>
+								</Button>
+							))}
+						</div>
 					</div>
 				</div>
 
@@ -213,14 +563,15 @@ export const GradientOptionsPanel: React.FC = () => {
 								name: "Sunset",
 								stops: [
 									{ color: "#FF6B6B", position: 0 },
-									{ color: "#FFE66D", position: 1 },
+									{ color: "#FFE66D", position: 0.5 },
+									{ color: "#4ECDC4", position: 1 },
 								],
 							},
 							{
 								name: "Ocean",
 								stops: [
 									{ color: "#4ECDC4", position: 0 },
-									{ color: "#556270", position: 1 },
+									{ color: "#2E3192", position: 1 },
 								],
 							},
 							{
@@ -231,27 +582,25 @@ export const GradientOptionsPanel: React.FC = () => {
 								],
 							},
 							{
-								name: "Purple",
+								name: "Sunrise",
+								stops: [
+									{ color: "#FF5F6D", position: 0 },
+									{ color: "#FFC371", position: 1 },
+								],
+							},
+							{
+								name: "Twilight",
 								stops: [
 									{ color: "#8A2387", position: 0 },
-									{ color: "#F27121", position: 1 },
+									{ color: "#F27121", position: 0.5 },
+									{ color: "#E94057", position: 1 },
 								],
 							},
 							{
-								name: "Steel",
+								name: "Aurora",
 								stops: [
-									{ color: "#757F9A", position: 0 },
-									{ color: "#D7DDE8", position: 1 },
-								],
-							},
-							{
-								name: "Rainbow",
-								stops: [
-									{ color: "#FF0000", position: 0 },
-									{ color: "#FFFF00", position: 0.25 },
-									{ color: "#00FF00", position: 0.5 },
-									{ color: "#00FFFF", position: 0.75 },
-									{ color: "#0000FF", position: 1 },
+									{ color: "#00B4DB", position: 0 },
+									{ color: "#0083B0", position: 1 },
 								],
 							},
 						].map((preset) => (
@@ -279,15 +628,52 @@ export const GradientOptionsPanel: React.FC = () => {
 					</div>
 				</div>
 
+				{/* Advanced Options */}
+				<div className="space-y-3 border-t pt-4">
+					<h3 className="font-semibold text-sm">Advanced Options</h3>
+					<div className="space-y-3">
+						<div className="flex items-center justify-between">
+							<Label className="text-xs">Dithering</Label>
+							<Switch
+								checked={brushSettings.gradientDithering || false}
+								onCheckedChange={(checked: boolean) =>
+									setBrushSettings({ gradientDithering: checked })
+								}
+							/>
+						</div>
+						<div className="flex items-center justify-between">
+							<Label className="text-xs">Anti-aliasing</Label>
+							<Switch
+								checked={brushSettings.gradientAntiAlias || true}
+								onCheckedChange={(checked: boolean) =>
+									setBrushSettings({ gradientAntiAlias: checked })
+								}
+							/>
+						</div>
+						<div>
+							<Label className="text-xs">Noise: {brushSettings.gradientNoise || 0}%</Label>
+							<Slider
+								min={0}
+								max={50}
+								step={1}
+								value={[brushSettings.gradientNoise || 0]}
+								onValueChange={([value]) =>
+									setBrushSettings({ gradientNoise: value })
+								}
+							/>
+						</div>
+					</div>
+				</div>
+
 				{/* Instructions */}
 				<div className="pt-4 border-t">
 					<h4 className="font-semibold text-sm mb-2">How to Use</h4>
 					<ul className="text-xs space-y-1 text-muted-foreground">
-						<li>• Click and drag on canvas to create gradient</li>
-						<li>• Adjust color stops above</li>
-						<li>• Click gradient to select and move</li>
-						<li>• Use presets for quick gradients</li>
-						<li>• Add more stops for complex gradients</li>
+						<li>• Drag on canvas to draw gradient</li>
+						<li>• Adjust stops for custom gradients</li>
+						<li>• Use Angle/Scale controls</li>
+						<li>• Save presets for reuse</li>
+						<li>• Adjust blend mode for effects</li>
 					</ul>
 				</div>
 			</div>

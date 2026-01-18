@@ -72,6 +72,12 @@ export interface BrushSettings {
 	blurSize: number;
 	blurMode: "gaussian" | "box" | "motion";
 	blurQuality: "low" | "medium" | "high";
+	gradientOpacity?: number;
+	gradientDithering?: boolean;
+	gradientAntiAlias?: boolean;
+	gradientNoise?: number;
+	gradientCenterX?: number;
+	gradientCenterY?: number;
 }
 
 export interface GradientObject {
@@ -83,6 +89,7 @@ export interface GradientObject {
 	y1: number;
 	colorStops: { offset: number; color: string }[];
 	layerId: string;
+	name: string;
 }
 
 export interface HistoryEntry {

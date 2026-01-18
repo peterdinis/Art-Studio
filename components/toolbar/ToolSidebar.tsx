@@ -635,13 +635,6 @@ export const ToolSidebar: React.FC = () => {
 				</div>
 			</div>
 
-			{/* Text options panel when text tool is active */}
-			{shouldShowTextOptions && (
-				<div className="w-64 border-l border-border/50">
-					<TextOptionsPanel />
-				</div>
-			)}
-
 			{/* Gradient options panel when gradient tool is active */}
 			{shouldShowGradientOptions && (
 				<div className="w-64 border-l border-border/50">
