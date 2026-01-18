@@ -13,7 +13,7 @@ import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 
 export const HistoryPanel: React.FC = () => {
-	const { history, historyIndex, restoreToHistoryIndex, clearHistory } =
+	const { history, historyIndex, restoreToHistoryIndex, clearSessionHistory } =
 		useArtStudioStore();
 
 	const handleRestore = (index: number) => {
@@ -22,7 +22,7 @@ export const HistoryPanel: React.FC = () => {
 		toast.success(`Restored to state ${index + 1}`);
 	};
 
-	const handleClearHistory = () => {
+	const handleClearHistory = async () => {
 		if (history.length === 0) return;
 
 		if (
@@ -30,8 +30,13 @@ export const HistoryPanel: React.FC = () => {
 				"Are you sure you want to clear all history? This cannot be undone.",
 			)
 		) {
-			clearHistory();
-			toast.success("History cleared");
+			try {
+				await clearSessionHistory();
+				toast.success("History cleared");
+			} catch (error) {
+				console.error("Failed to clear history:", error);
+				toast.error("Failed to clear history");
+			}
 		}
 	};
 

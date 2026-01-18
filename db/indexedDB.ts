@@ -294,6 +294,44 @@ class SessionDBManager {
 		}
 	}
 
+	async deleteHistoryEntry(id: string): Promise<void> {
+		const db = await this.getDB();
+
+		if (db) {
+			await db.delete("session-history", id);
+		} else {
+			// Memory storage fallback
+			this.memoryStore["session-history"].delete(id);
+		}
+	}
+
+	async deleteAllHistoryForSession(sessionId: string): Promise<void> {
+		const db = await this.getDB();
+
+		if (db) {
+			const transaction = db.transaction("session-history", "readwrite");
+			const store = transaction.objectStore("session-history");
+			const index = store.index("by-session");
+
+			let cursor = await index.openCursor(IDBKeyRange.only(sessionId));
+			while (cursor) {
+				await cursor.delete();
+				cursor = await cursor.continue();
+			}
+
+			await transaction.done;
+		} else {
+			// Memory storage fallback
+			for (const [key, entry] of this.memoryStore[
+				"session-history"
+			].entries()) {
+				if (entry.sessionId === sessionId) {
+					this.memoryStore["session-history"].delete(key);
+				}
+			}
+		}
+	}
+
 	private async trimHistory(): Promise<void> {
 		const db = await this.getDB();
 		if (!db) return;

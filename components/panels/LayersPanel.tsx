@@ -71,7 +71,7 @@ export const LayersPanel: React.FC = () => {
 		}
 	};
 
-	const handleClearAllLayers = () => {
+	const handleClearAllLayers = async () => {
 		if (layers.length === 0) return;
 
 		if (
@@ -79,8 +79,14 @@ export const LayersPanel: React.FC = () => {
 				"Are you sure you want to delete all layers? This cannot be undone.",
 			)
 		) {
-			clearLayers();
-			toast.success("All layers cleared");
+			try {
+				// Len čistí vrstvy v stave, nie celú session
+				clearLayers();
+				toast.success("All layers cleared");
+			} catch (error) {
+				console.error("Failed to clear layers:", error);
+				toast.error("Failed to clear layers");
+			}
 		}
 	};
 

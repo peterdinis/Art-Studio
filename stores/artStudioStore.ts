@@ -197,6 +197,7 @@ interface ArtStudioState {
 	canRedo: () => boolean;
 	restoreToHistoryIndex: (index: number) => Promise<void>;
 	clearHistory: () => void;
+	clearSessionHistory: () => Promise<void>;
 
 	// Session management
 	initializeSession: () => Promise<void>;
@@ -792,10 +793,40 @@ export const useArtStudioStore = create<ArtStudioState>()(
 			},
 
 			clearHistory: () => {
+				// Len čistí lokálny state, ale nie IndexedDB
 				set({
 					history: [],
 					historyIndex: -1,
 				});
+			},
+
+			clearSessionHistory: async () => {
+				try {
+					const { sessionId } = get();
+					
+					if (sessionId) {
+						// Vymaž históriu z IndexedDB pre aktuálnu session
+						await sessionDB.deleteAllHistoryForSession(sessionId);
+					}
+					
+					// Vymaž lokálny state
+					set({
+						history: [],
+						historyIndex: -1,
+					});
+
+					// Upozorni canvas, že história bola vymazaná
+					window.dispatchEvent(
+						new CustomEvent("artstudio:history-cleared", {
+							detail: { sessionId },
+						}),
+					);
+
+					console.log("Session history cleared from IndexedDB");
+				} catch (error) {
+					console.error("Error clearing session history:", error);
+					throw error;
+				}
 			},
 
 			// ========== TOOL AND CANVAS ACTIONS ==========
