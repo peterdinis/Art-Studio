@@ -418,7 +418,7 @@ export const ToolSidebar: React.FC = () => {
 					<TooltipTrigger asChild>
 						<button
 							onClick={() => {
-								const entry = undo();
+								const entry = undo() as any;
 								if (entry) {
 									const canvas = window.fabricCanvas || window.konvaStage;
 									if (canvas) {
@@ -463,7 +463,7 @@ export const ToolSidebar: React.FC = () => {
 					<TooltipTrigger asChild>
 						<button
 							onClick={() => {
-								const entry = redo();
+								const entry = redo() as any;
 								if (entry) {
 									const canvas = window.fabricCanvas || window.konvaStage;
 									if (canvas) {
