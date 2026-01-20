@@ -194,7 +194,7 @@ export const GradientOptionsPanel: React.FC = () => {
 		const css = brushSettings.gradientType === "linear"
 			? `linear-gradient(${gradientAngle}deg, ${brushSettings.gradientStops.map((s) => `${s.color} ${s.position * 100}%`).join(", ")})`
 			: `radial-gradient(circle, ${brushSettings.gradientStops.map((s) => `${s.color} ${s.position * 100}%`).join(", ")})`;
-		
+
 		navigator.clipboard.writeText(css).then(() => {
 			// You could add a toast notification here
 		});
@@ -225,8 +225,8 @@ export const GradientOptionsPanel: React.FC = () => {
 							style={{
 								background:
 									brushSettings.gradientType === "linear"
-										? `linear-gradient(${gradientAngle}deg, ${brushSettings.gradientStops.map((s) => `${s.color} ${s.position * 100}%`).join(", ")})`
-										: `radial-gradient(circle at ${gradientScale}%, ${brushSettings.gradientStops.map((s) => `${s.color} ${s.position * 100}%`).join(", ")})`,
+										? `linear-gradient(${gradientAngle}deg, ${(brushSettings.gradientStops || []).map((s) => `${s.color} ${s.position * 100}%`).join(", ")})`
+										: `radial-gradient(circle at ${gradientScale}%, ${(brushSettings.gradientStops || []).map((s) => `${s.color} ${s.position * 100}%`).join(", ")})`,
 								backgroundBlendMode: blendMode,
 							}}
 						/>
@@ -530,8 +530,8 @@ export const GradientOptionsPanel: React.FC = () => {
 										className="w-full h-8 rounded mb-1"
 										style={{
 											background: gradient.type === "linear"
-												? `linear-gradient(90deg, ${gradient.colorStops.map((s: any) => `${s.color} ${s.offset * 100}%`).join(", ")})`
-												: `radial-gradient(circle, ${gradient.colorStops.map((s: any) => `${s.color} ${s.offset * 100}%`).join(", ")})`,
+												? `linear-gradient(90deg, ${(gradient.colorStops || []).map((s: any) => `${s.color} ${s.offset * 100}%`).join(", ")})`
+												: `radial-gradient(circle, ${(gradient.colorStops || []).map((s: any) => `${s.color} ${s.offset * 100}%`).join(", ")})`,
 										}}
 									/>
 									<span className="text-[10px] truncate w-full">
@@ -618,8 +618,8 @@ export const GradientOptionsPanel: React.FC = () => {
 									style={{
 										background:
 											brushSettings.gradientType === "linear"
-												? `linear-gradient(90deg, ${preset.stops.map((s) => `${s.color} ${s.position * 100}%`).join(", ")})`
-												: `radial-gradient(circle, ${preset.stops.map((s) => `${s.color} ${s.position * 100}%`).join(", ")})`,
+												? `linear-gradient(90deg, ${(preset.stops || []).map((s) => `${s.color} ${s.position * 100}%`).join(", ")})`
+												: `radial-gradient(circle, ${(preset.stops || []).map((s) => `${s.color} ${s.position * 100}%`).join(", ")})`,
 									}}
 								/>
 								<span className="text-[10px]">{preset.name}</span>

@@ -38,9 +38,9 @@ class SessionDBManager {
 		"current-session": Map<string, any>;
 		"session-history": Map<string, any>;
 	} = {
-		"current-session": new Map(),
-		"session-history": new Map(),
-	};
+			"current-session": new Map(),
+			"session-history": new Map(),
+		};
 
 	constructor() {
 		// Check if we're in a browser environment
@@ -336,27 +336,24 @@ class SessionDBManager {
 		const db = await this.getDB();
 		if (!db) return;
 
-		const transaction = db.transaction("session-history", "readonly");
+		const transaction = db.transaction("session-history", "readwrite");
 		const store = transaction.objectStore("session-history");
 		const index = store.index("by-session");
 
-		const entries = await index.getAll(this.currentSessionId!);
-		await transaction.done;
+		// Fetch entries for the current session, sorted by timestamp desc (newest first)
+		// We want to keep the newest 50 and delete the rest.
+		let count = 0;
+		let cursor = await index.openCursor(this.currentSessionId!, "prev");
 
-		if (entries.length > 50) {
-			const entriesToDelete = entries
-				.sort((a, b) => b.timestamp - a.timestamp)
-				.slice(50);
-
-			const deleteTransaction = db.transaction("session-history", "readwrite");
-			const deleteStore = deleteTransaction.objectStore("session-history");
-
-			for (const entry of entriesToDelete) {
-				await deleteStore.delete(entry.id);
+		while (cursor) {
+			count++;
+			if (count > 50) {
+				await cursor.delete();
 			}
-
-			await deleteTransaction.done;
+			cursor = await cursor.continue();
 		}
+
+		await transaction.done;
 	}
 
 	private async trimMemoryHistory(): Promise<void> {

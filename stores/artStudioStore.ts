@@ -137,6 +137,7 @@ interface ArtStudioState {
 		width: number;
 		height: number;
 	} | null;
+	selectionPath: number[] | null;
 
 	// UI state (persistent in localStorage)
 	showColorPicker: boolean;
@@ -214,10 +215,10 @@ interface ArtStudioState {
 	exportSessionData: () => Promise<any>;
 	importSessionData: (data: any) => Promise<boolean>;
 
-	// Other actions
 	setSelectionBounds: (
 		bounds: { x: number; y: number; width: number; height: number } | null,
 	) => void;
+	setSelectionPath: (path: number[] | null) => void;
 	clearSelection: () => void;
 	setShowColorPicker: (show: boolean) => void;
 	setShowLeftPanel: (show: boolean) => void;
@@ -306,6 +307,7 @@ const serializeCanvasState = (state: any) => {
 		fillPreview,
 		healingSource,
 		selectionBounds,
+		selectionPath,
 		history,
 		historyIndex,
 		sessionId,
@@ -327,6 +329,7 @@ const serializeCanvasState = (state: any) => {
 		recentColors: canvasState.recentColors,
 		brushSettings: canvasState.brushSettings,
 		selectionBounds: canvasState.selectionBounds,
+		selectionPath: canvasState.selectionPath,
 	};
 };
 
@@ -348,6 +351,7 @@ const deserializeCanvasState = (data: any, currentState: any) => {
 		recentColors: data.recentColors || currentState.recentColors,
 		brushSettings: data.brushSettings || currentState.brushSettings,
 		selectionBounds: data.selectionBounds || currentState.selectionBounds,
+		selectionPath: data.selectionPath || currentState.selectionPath,
 	};
 };
 
@@ -389,6 +393,7 @@ export const useArtStudioStore = create<ArtStudioState>()(
 			history: [],
 			historyIndex: -1,
 			selectionBounds: null,
+			selectionPath: null,
 			showColorPicker: false,
 			showLeftPanel: true,
 			showRightPanel: true,
@@ -565,6 +570,7 @@ export const useArtStudioStore = create<ArtStudioState>()(
 						history: [],
 						historyIndex: -1,
 						selectionBounds: null,
+						selectionPath: null,
 						fillPreview: null,
 						healingSource: null,
 					});
@@ -690,7 +696,7 @@ export const useArtStudioStore = create<ArtStudioState>()(
 					setTimeout(() => {
 						get()
 							.saveSession()
-							.catch(() => {});
+							.catch(() => { });
 					}, 1000);
 				}
 			},
@@ -810,12 +816,12 @@ export const useArtStudioStore = create<ArtStudioState>()(
 			clearSessionHistory: async () => {
 				try {
 					const { sessionId } = get();
-					
+
 					if (sessionId) {
 						// Vymaž históriu z IndexedDB pre aktuálnu session
 						await sessionDB.deleteAllHistoryForSession(sessionId);
 					}
-					
+
 					// Vymaž lokálny state
 					set({
 						history: [],
@@ -848,7 +854,7 @@ export const useArtStudioStore = create<ArtStudioState>()(
 					() =>
 						get()
 							.saveSession()
-							.catch(() => {}),
+							.catch(() => { }),
 					2000,
 				);
 			},
@@ -860,7 +866,7 @@ export const useArtStudioStore = create<ArtStudioState>()(
 					() =>
 						get()
 							.saveSession()
-							.catch(() => {}),
+							.catch(() => { }),
 					2000,
 				);
 			},
@@ -871,7 +877,7 @@ export const useArtStudioStore = create<ArtStudioState>()(
 					() =>
 						get()
 							.saveSession()
-							.catch(() => {}),
+							.catch(() => { }),
 					2000,
 				);
 			},
@@ -883,7 +889,7 @@ export const useArtStudioStore = create<ArtStudioState>()(
 					() =>
 						get()
 							.saveSession()
-							.catch(() => {}),
+							.catch(() => { }),
 					2000,
 				);
 			},
@@ -1018,7 +1024,7 @@ export const useArtStudioStore = create<ArtStudioState>()(
 					() =>
 						get()
 							.saveSession()
-							.catch(() => {}),
+							.catch(() => { }),
 					1000,
 				);
 			},
@@ -1036,7 +1042,7 @@ export const useArtStudioStore = create<ArtStudioState>()(
 					() =>
 						get()
 							.saveSession()
-							.catch(() => {}),
+							.catch(() => { }),
 					1000,
 				);
 			},
@@ -1090,7 +1096,7 @@ export const useArtStudioStore = create<ArtStudioState>()(
 					() =>
 						get()
 							.saveSession()
-							.catch(() => {}),
+							.catch(() => { }),
 					1000,
 				);
 			},
@@ -1105,7 +1111,7 @@ export const useArtStudioStore = create<ArtStudioState>()(
 					() =>
 						get()
 							.saveSession()
-							.catch(() => {}),
+							.catch(() => { }),
 					1000,
 				);
 			},
@@ -1119,7 +1125,7 @@ export const useArtStudioStore = create<ArtStudioState>()(
 					() =>
 						get()
 							.saveSession()
-							.catch(() => {}),
+							.catch(() => { }),
 					1000,
 				);
 			},
@@ -1131,7 +1137,7 @@ export const useArtStudioStore = create<ArtStudioState>()(
 					() =>
 						get()
 							.saveSession()
-							.catch(() => {}),
+							.catch(() => { }),
 					1000,
 				);
 			},
@@ -1183,7 +1189,7 @@ export const useArtStudioStore = create<ArtStudioState>()(
 					() =>
 						get()
 							.saveSession()
-							.catch(() => {}),
+							.catch(() => { }),
 					500,
 				);
 			},
@@ -1192,7 +1198,9 @@ export const useArtStudioStore = create<ArtStudioState>()(
 
 			setSelectionBounds: (bounds) => set({ selectionBounds: bounds }),
 
-			clearSelection: () => set({ selectionBounds: null }),
+			setSelectionPath: (path) => set({ selectionPath: path }),
+
+			clearSelection: () => set({ selectionBounds: null, selectionPath: null }),
 
 			// ========== UI ACTIONS ==========
 

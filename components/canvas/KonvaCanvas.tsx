@@ -12,7 +12,7 @@ import {
 	Transformer,
 } from "react-konva";
 import Konva from "konva";
-import { useArtStudioStore } from "@/stores/artStudioStore";
+import { useArtStudioStore, Tool } from "@/stores/artStudioStore";
 import { toast } from "sonner";
 
 interface KonvaCanvasProps {
@@ -27,7 +27,7 @@ interface DrawingLine {
 	stroke: string;
 	strokeWidth: number;
 	tool: "brush" | "pencil" | "eraser" | "healing" | "blur" | "pen";
-	layerId: string; // POVINNÉ pre všetky objekty
+	layerId: string;
 }
 
 interface ShapeObject {
@@ -49,7 +49,7 @@ interface ShapeObject {
 	rotation?: number;
 	scaleX?: number;
 	scaleY?: number;
-	layerId: string; // POVINNÉ pre všetky objekty
+	layerId: string;
 }
 
 interface ImageObject {
@@ -62,7 +62,7 @@ interface ImageObject {
 	rotation?: number;
 	scaleX?: number;
 	scaleY?: number;
-	layerId: string; // POVINNÉ pre všetky objekty
+	layerId: string;
 }
 
 interface GradientObject {
@@ -73,7 +73,7 @@ interface GradientObject {
 	x1: number;
 	y1: number;
 	colorStops: { offset: number; color: string }[];
-	layerId: string; // POVINNÉ pre všetky objekty
+	layerId: string;
 }
 
 interface HealingData {
@@ -98,6 +98,30 @@ interface CanvasState {
 	blurData: BlurData;
 }
 
+const ImageNode = ({ image, onClick, onDragEnd, draggable }: { image: ImageObject; onClick: (id: string) => void; onDragEnd?: (id: string, x: number, y: number) => void; draggable?: boolean }) => {
+	const [img, setImg] = useState<HTMLImageElement | null>(null);
+
+	useEffect(() => {
+		const konvaImg = new window.Image();
+		konvaImg.src = image.src;
+		konvaImg.onload = () => setImg(konvaImg);
+	}, [image.src]);
+
+	return (
+		<KonvaImage
+			id={image.id}
+			image={img || undefined}
+			x={image.x}
+			y={image.y}
+			width={image.width}
+			height={image.height}
+			onDragEnd={(e) => onDragEnd?.(image.id, e.target.x(), e.target.y())}
+			onClick={() => onClick(image.id)}
+			onTap={() => onClick(image.id)}
+		/>
+	);
+};
+
 export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 	width = 1920,
 	height = 1080,
@@ -115,21 +139,19 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 	const [isDrawing, setIsDrawing] = useState(false);
 	const [isFilling, setIsFilling] = useState(false);
 	const [isDrawingGradient, setIsDrawingGradient] = useState(false);
-	const [currentGradient, setCurrentGradient] = useState<GradientObject | null>(
-		null,
-	);
+	const [currentGradient, setCurrentGradient] = useState<GradientObject | null>(null);
 	const gradientStartPoint = useRef<{ x: number; y: number } | null>(null);
 
 	const [currentShape, setCurrentShape] = useState<ShapeObject | null>(null);
 	const shapeStartPoint = useRef<{ x: number; y: number } | null>(null);
 
-	// Nové stavy pre Pen a Polygon nástroje
 	const [isDrawingPolygon, setIsDrawingPolygon] = useState(false);
 	const [polygonPoints, setPolygonPoints] = useState<number[]>([]);
-	const [currentPenLine, setCurrentPenLine] = useState<DrawingLine | null>(
-		null,
-	);
+	const [currentPenLine, setCurrentPenLine] = useState<DrawingLine | null>(null);
 	const [penPoints, setPenPoints] = useState<number[]>([]);
+
+	const [isSelecting, setIsSelecting] = useState(false);
+	const [selectionStartPoint, setSelectionStartPoint] = useState<{ x: number; y: number } | null>(null);
 
 	const isPanning = useRef(false);
 	const lastPanPos = useRef({ x: 0, y: 0 });
@@ -142,7 +164,6 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		isActive: false,
 		brushSize: 20,
 	});
-	const [isHealing, setIsHealing] = useState(false);
 	const healingCanvas = useRef<HTMLCanvasElement | null>(null);
 	const healingContext = useRef<CanvasRenderingContext2D | null>(null);
 
@@ -151,7 +172,6 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		brushSize: 20,
 		intensity: 10,
 	});
-	const [isBlurring, setIsBlurring] = useState(false);
 	const blurCanvas = useRef<HTMLCanvasElement | null>(null);
 	const blurContext = useRef<CanvasRenderingContext2D | null>(null);
 
@@ -162,18 +182,11 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 	const eyedropperCanvas = useRef<HTMLCanvasElement | null>(null);
 	const eyedropperContext = useRef<CanvasRenderingContext2D | null>(null);
 
-	// Stavy pre správu session
 	const [isLoadingSession, setIsLoadingSession] = useState(true);
-	const [hasRestoredState, setHasRestoredState] = useState(false);
-	const [lastSessionId, setLastSessionId] = useState<string | null>(null);
 	const [showSessionNotification, setShowSessionNotification] = useState(false);
 
-	// Nové stavy pre správu kreslenia
-	const [activeDrawingLine, setActiveDrawingLine] =
-		useState<DrawingLine | null>(null);
-	const [tempCanvas, setTempCanvas] = useState<HTMLCanvasElement | null>(null);
-	const [tempContext, setTempContext] =
-		useState<CanvasRenderingContext2D | null>(null);
+	const [activeDrawingLine, setActiveDrawingLine] = useState<DrawingLine | null>(null);
+	const [tempContext, setTempContext] = useState<CanvasRenderingContext2D | null>(null);
 
 	const {
 		activeTool,
@@ -199,800 +212,590 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		setHealingSource,
 		sessionId,
 		initializeSession,
+		selectionBounds,
+		selectionPath,
+		setSelectionBounds,
+		setSelectionPath,
+		clearSelection,
 	} = useArtStudioStore();
+
+	const magicWandTolerance = brushSettings.tolerance || 20;
 
 	const actualWidth = canvasSize?.width || width;
 	const actualHeight = canvasSize?.height || height;
 	const actualBackground = canvasSize?.backgroundColor || backgroundColor;
 
-	// Cleanup efekt
-	useEffect(() => {
-		console.log("KonvaCanvas mounting...");
+	const generateId = useCallback((prefix: string) => {
+		return `${prefix}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+	}, []);
 
-		// Inicializácia temporary canvasu pre kreslenie
+	/* --- CORE UTILITIES (Hoisted) --- */
+
+	const saveCanvasState = useCallback((action: string) => {
+		if (!stageRef.current) return;
+		try {
+			const canvasState: CanvasState = {
+				lines, shapes, images, gradients, healingData, blurData
+			};
+			const stateString = JSON.stringify(canvasState);
+			const dataURL = stageRef.current.toDataURL({ pixelRatio: 0.2 });
+			addToHistory(stateString, dataURL, action);
+		} catch (err) {
+			console.error("Failed to save canvas state:", err);
+		}
+	}, [lines, shapes, images, gradients, healingData, blurData, addToHistory]);
+
+	const updateAuxCanvases = useCallback(() => {
+		if (!stageRef.current) return;
+		const stage = stageRef.current;
+		const tempCanvas = stage.toCanvas();
+		const canvases = [floodFillCanvas, eyedropperCanvas, healingCanvas, blurCanvas];
+		const contexts = [floodFillContext, eyedropperContext, healingContext, blurContext];
+
+		contexts.forEach((ctxRef, i) => {
+			if (ctxRef.current) {
+				const ctx = ctxRef.current;
+				ctx.clearRect(0, 0, actualWidth, actualHeight);
+				ctx.fillStyle = actualBackground;
+				ctx.fillRect(0, 0, actualWidth, actualHeight);
+				ctx.drawImage(tempCanvas, 0, 0, actualWidth, actualHeight);
+			}
+		});
+	}, [actualWidth, actualHeight, actualBackground]);
+
+	const restoreCanvasState = useCallback((stateString: string) => {
+		try {
+			const state: CanvasState = JSON.parse(stateString);
+			setLines(state.lines || []);
+			setShapes(state.shapes || []);
+			setImages(state.images || []);
+			setGradients(state.gradients || []);
+			if (state.healingData) setHealingData(state.healingData);
+			if (state.blurData) setBlurData(state.blurData);
+		} catch (error) {
+			console.error("Failed to restore canvas state:", error);
+		}
+	}, [setGradients]);
+
+	useEffect(() => {
+		if (selectedId && transformerRef.current && stageRef.current) {
+			const node = stageRef.current.findOne(`#${selectedId}`);
+			if (node) {
+				transformerRef.current.nodes([node]);
+				transformerRef.current.getLayer()?.batchDraw();
+			}
+		} else if (transformerRef.current) {
+			transformerRef.current.nodes([]);
+		}
+	}, [selectedId]);
+
+	useEffect(() => {
 		const tempCanvasEl = document.createElement("canvas");
 		tempCanvasEl.width = actualWidth;
 		tempCanvasEl.height = actualHeight;
 		const tempCtx = tempCanvasEl.getContext("2d");
 		if (tempCtx) {
-			setTempCanvas(tempCanvasEl);
 			setTempContext(tempCtx);
 		}
-
-		return () => {
-			console.log("KonvaCanvas unmounting, vykonávam cleanup...");
-
-			// Znič stage ak existuje
-			if (stageRef.current) {
-				try {
-					stageRef.current.destroy();
-					console.log("Stage úspešne zničená");
-				} catch (error) {
-					console.error("Chyba pri ničení stage:", error);
-				}
-			}
-
-			// Vyčisti globálnu referenciu
-			if ((window as any).konvaStage === stageRef.current) {
-				delete (window as any).konvaStage;
-			}
-
-			// Vyčisti referencie na canvasy
-			floodFillCanvas.current = null;
-			eyedropperCanvas.current = null;
-			healingCanvas.current = null;
-			blurCanvas.current = null;
-			floodFillContext.current = null;
-			eyedropperContext.current = null;
-			healingContext.current = null;
-			blurContext.current = null;
-			if (tempCanvasEl) tempCanvasEl.remove();
-		};
+		return () => { tempCanvasEl.remove(); };
 	}, [actualWidth, actualHeight]);
 
-	// Nastav globálnu referenciu len raz
-	useEffect(() => {
-		if (stageRef.current && !(window as any).konvaStage) {
-			(window as any).konvaStage = stageRef.current;
-			console.log("Globálna Konva stage referencia nastavená");
-		}
-	}, []);
-
-	// Inicializácia session a načítanie stavu
 	useEffect(() => {
 		const loadSessionAndState = async () => {
 			try {
-				console.log("Loading session for canvas...");
 				setIsLoadingSession(true);
+				if (!sessionId) await initializeSession();
 
-				// Inicializuj session (ak ešte nebola inicializovaná)
-				if (!sessionId) {
-					await initializeSession();
-				}
+				const { sessionDB } = await import("@/db/indexedDB");
+				const savedData = await sessionDB.loadSessionData();
 
-				// Skontroluj, či máme session dáta
-				const storeState = useArtStudioStore.getState();
-				console.log("Current session ID:", storeState.sessionId);
-
-				if (storeState.sessionId) {
-					setLastSessionId(storeState.sessionId);
-
-					// Počkáme krátko, aby sa store stabilizoval
-					await new Promise((resolve) => setTimeout(resolve, 500));
-
-					// Načítame session dát z IndexedDB priamo
-					const { sessionDB } = await import("@/db/indexedDB");
-					const savedData = await sessionDB.loadSessionData();
-
-					if (savedData) {
-						console.log("Found saved session data:", savedData);
-
-						// Ak máme uložené dáta, obnovíme ich
-						if (savedData.lines) setLines(savedData.lines || []);
-						if (savedData.shapes) setShapes(savedData.shapes || []);
-						if (savedData.images) setImages(savedData.images || []);
-						if (savedData.gradients) setGradients(savedData.gradients || []);
-
-						// Obnovíme healing a blur data
-						if (savedData.healingData) setHealingData(savedData.healingData);
-						if (savedData.blurData) setBlurData(savedData.blurData);
-
-						console.log("Canvas state restored from session");
-						setHasRestoredState(true);
-						setShowSessionNotification(true);
-
-						// Upozornime, že canvas je načítaný
-						setTimeout(() => {
-							toast.success("Session restored", {
-								description: "Your previous work has been loaded",
-							});
-						}, 1000);
-
-						// Skry oznámenie po 5 sekundách
-						setTimeout(() => {
-							setShowSessionNotification(false);
-						}, 5000);
-					} else {
-						console.log("No saved session data found");
-						setHasRestoredState(false);
-					}
+				if (savedData) {
+					if (savedData.lines) setLines(savedData.lines);
+					if (savedData.shapes) setShapes(savedData.shapes);
+					if (savedData.images) setImages(savedData.images);
+					if (savedData.gradients) setGradients(savedData.gradients);
+					if (savedData.healingData) setHealingData(savedData.healingData);
+					if (savedData.blurData) setBlurData(savedData.blurData);
+					setShowSessionNotification(true);
+					setTimeout(() => setShowSessionNotification(false), 5000);
 				}
 			} catch (error) {
 				console.error("Error loading session:", error);
-				toast.error("Failed to load session", {
-					description: "Starting with a fresh canvas",
-				});
 			} finally {
 				setIsLoadingSession(false);
 			}
 		};
-
 		loadSessionAndState();
 	}, [sessionId, initializeSession, setGradients]);
 
-	// Inicializácia pomocných canvasov
 	useEffect(() => {
-		// Flood fill canvas
-		const floodCanvas = document.createElement("canvas");
-		floodCanvas.width = actualWidth;
-		floodCanvas.height = actualHeight;
-		floodFillCanvas.current = floodCanvas;
-		const floodCtx = floodCanvas.getContext("2d");
-		if (floodCtx) {
-			floodFillContext.current = floodCtx;
-		}
-
-		// Eyedropper canvas
-		const eyedropperCanvasEl = document.createElement("canvas");
-		eyedropperCanvasEl.width = actualWidth;
-		eyedropperCanvasEl.height = actualHeight;
-		eyedropperCanvas.current = eyedropperCanvasEl;
-		const eyedropperCtx = eyedropperCanvasEl.getContext("2d", {
-			willReadFrequently: true,
-		});
-		if (eyedropperCtx) {
-			eyedropperContext.current = eyedropperCtx;
-		}
-
-		// Healing canvas
-		const healingCanvasEl = document.createElement("canvas");
-		healingCanvasEl.width = actualWidth;
-		healingCanvasEl.height = actualHeight;
-		healingCanvas.current = healingCanvasEl;
-		const healingCtx = healingCanvasEl.getContext("2d", {
-			willReadFrequently: true,
-		});
-		if (healingCtx) {
-			healingContext.current = healingCtx;
-		}
-
-		// Blur canvas
-		const blurCanvasEl = document.createElement("canvas");
-		blurCanvasEl.width = actualWidth;
-		blurCanvasEl.height = actualHeight;
-		blurCanvas.current = blurCanvasEl;
-		const blurCtx = blurCanvasEl.getContext("2d", { willReadFrequently: true });
-		if (blurCtx) {
-			blurContext.current = blurCtx;
-		}
-
-		return () => {
-			if (floodCanvas) floodCanvas.remove();
-			if (eyedropperCanvasEl) eyedropperCanvasEl.remove();
-			if (healingCanvasEl) healingCanvasEl.remove();
-			if (blurCanvasEl) blurCanvasEl.remove();
+		const handleClearCanvas = () => {
+			setLines([]);
+			setShapes([]);
+			setImages([]);
+			setGradients([]);
+			clearSelection();
+			toast.info("Canvas cleared");
 		};
-	}, [actualWidth, actualHeight]);
+		window.addEventListener("artstudio:clear-canvas", handleClearCanvas);
+		return () => window.removeEventListener("artstudio:clear-canvas", handleClearCanvas);
+	}, [setGradients, clearSelection]);
 
-	// Hlavná funkcia pre získanie pozície na canvase
-	const getCanvasPosition = useCallback(
-		(clientX: number, clientY: number) => {
-			if (!stageRef.current) return null;
-
-			const stage = stageRef.current;
-			const stageRect = stage.container().getBoundingClientRect();
-
-			// Vypočítaj relatívnu pozíciu vzhľadom k stage
-			const x = (clientX - stageRect.left) * (actualWidth / stageRect.width);
-			const y = (clientY - stageRect.top) * (actualHeight / stageRect.height);
-
-			// Aplikuj zoom a pan offset
-			const transformedX = x / (zoom / 100) - panOffset.x;
-			const transformedY = y / (zoom / 100) - panOffset.y;
-
-			return {
-				x: Math.max(0, Math.min(actualWidth, transformedX)),
-				y: Math.max(0, Math.min(actualHeight, transformedY)),
-			};
-		},
-		[actualWidth, actualHeight, zoom, panOffset],
-	);
-
-	const updateEyedropperData = useCallback(() => {
-		if (!stageRef.current || !eyedropperContext.current) return;
-
+	const getCanvasPosition = useCallback((clientX: number, clientY: number) => {
+		if (!stageRef.current) return null;
 		const stage = stageRef.current;
-		const tempCanvas = stage.toCanvas();
-		const ctx = eyedropperContext.current;
-		ctx.clearRect(0, 0, actualWidth, actualHeight);
+		const stageRect = stage.container().getBoundingClientRect();
+		const x = (clientX - stageRect.left) * (actualWidth / stageRect.width);
+		const y = (clientY - stageRect.top) * (actualHeight / stageRect.height);
+		const transformedX = x / (zoom / 100) - panOffset.x;
+		const transformedY = y / (zoom / 100) - panOffset.y;
+		return {
+			x: Math.max(0, Math.min(actualWidth, transformedX)),
+			y: Math.max(0, Math.min(actualHeight, transformedY)),
+		};
+	}, [actualWidth, actualHeight, zoom, panOffset]);
 
-		ctx.fillStyle = actualBackground;
-		ctx.fillRect(0, 0, actualWidth, actualHeight);
 
-		ctx.drawImage(tempCanvas, 0, 0, actualWidth, actualHeight);
-	}, [actualWidth, actualHeight, actualBackground]);
 
-	const updateFloodFillData = useCallback(() => {
-		if (!stageRef.current || !floodFillContext.current) return;
+	const handleMagicWand = useCallback((startX: number, startY: number) => {
+		updateAuxCanvases();
+		if (!floodFillContext.current) return;
 
-		const stage = stageRef.current;
-		const tempCanvas = stage.toCanvas();
 		const ctx = floodFillContext.current;
-		ctx.clearRect(0, 0, actualWidth, actualHeight);
+		const imageData = ctx.getImageData(0, 0, actualWidth, actualHeight);
+		const data = imageData.data;
+		const width = actualWidth;
+		const height = actualHeight;
 
-		ctx.fillStyle = actualBackground;
-		ctx.fillRect(0, 0, actualWidth, actualHeight);
+		const startIdx = (Math.floor(startY) * width + Math.floor(startX)) * 4;
+		const targetR = data[startIdx];
+		const targetG = data[startIdx + 1];
+		const targetB = data[startIdx + 2];
+		const targetA = data[startIdx + 3];
 
-		ctx.drawImage(tempCanvas, 0, 0, actualWidth, actualHeight);
+		const visited = new Uint8Array(width * height);
+		const queue: [number, number][] = [[Math.floor(startX), Math.floor(startY)]];
+		const path: number[] = [];
 
-		floodFillImageData.current = ctx.getImageData(
-			0,
-			0,
-			actualWidth,
-			actualHeight,
-		);
-	}, [actualWidth, actualHeight, actualBackground]);
+		while (queue.length > 0) {
+			const [x, y] = queue.shift()!;
+			const idx = (y * width + x);
+			if (visited[idx]) continue;
+			visited[idx] = 1;
 
-	const updateHealingData = useCallback(() => {
-		if (!stageRef.current || !healingContext.current) return;
+			const dataIdx = idx * 4;
+			const r = data[dataIdx];
+			const g = data[dataIdx + 1];
+			const b = data[dataIdx + 2];
+			const a = data[dataIdx + 3];
 
-		const stage = stageRef.current;
-		const tempCanvas = stage.toCanvas();
+			const distance = Math.sqrt(
+				(r - targetR) ** 2 +
+				(g - targetG) ** 2 +
+				(b - targetB) ** 2 +
+				(a - targetA) ** 2
+			);
+
+			if (distance <= magicWandTolerance) {
+				path.push(x, y);
+				if (x > 0) queue.push([x - 1, y]);
+				if (x < width - 1) queue.push([x + 1, y]);
+				if (y > 0) queue.push([x, y - 1]);
+				if (y < height - 1) queue.push([x, y + 1]);
+			}
+		}
+
+		if (path.length > 0) {
+			setSelectionPath(path);
+		}
+	}, [actualWidth, actualHeight, magicWandTolerance, setSelectionPath, updateAuxCanvases]);
+
+	const handleCloneBrush = useCallback((targetX: number, targetY: number) => {
+		if (!cloneSourcePoint.current || !shapeStartPoint.current || !tempContext) return;
+		updateAuxCanvases();
+		const ctx = floodFillContext.current;
+		if (!ctx) return;
+		const size = brushSettings.size;
+		const offset = { x: targetX - shapeStartPoint.current.x, y: targetY - shapeStartPoint.current.y };
+		const srcX = cloneSourcePoint.current.x + offset.x;
+		const srcY = cloneSourcePoint.current.y + offset.y;
+		const imgData = ctx.getImageData(srcX - size / 2, srcY - size / 2, size, size);
+		tempContext.putImageData(imgData, targetX - size / 2, targetY - size / 2);
+	}, [brushSettings.size, tempContext, updateAuxCanvases]);
+
+	const applyHealingBrush = useCallback((x: number, y: number) => {
+		if (!healingSource || !tempContext) return;
+		updateAuxCanvases();
 		const ctx = healingContext.current;
+		if (!ctx) return;
+		const size = brushSettings.size;
+		const srcData = ctx.getImageData(healingSource.x - size / 2, healingSource.y - size / 2, size, size);
+		const targetData = ctx.getImageData(x - size / 2, y - size / 2, size, size);
+		for (let i = 0; i < targetData.data.length; i += 4) {
+			targetData.data[i] = (targetData.data[i] + srcData.data[i]) / 2;
+			targetData.data[i + 1] = (targetData.data[i + 1] + srcData.data[i + 1]) / 2;
+			targetData.data[i + 2] = (targetData.data[i + 2] + srcData.data[i + 2]) / 2;
+		}
+		tempContext.putImageData(targetData, x - size / 2, y - size / 2);
+	}, [brushSettings.size, healingSource, tempContext, updateAuxCanvases]);
 
-		ctx.fillStyle = actualBackground;
-		ctx.fillRect(0, 0, actualWidth, actualHeight);
-
-		ctx.drawImage(tempCanvas, 0, 0, actualWidth, actualHeight);
-	}, [actualWidth, actualHeight, actualBackground]);
-
-	const updateBlurData = useCallback(() => {
-		if (!stageRef.current || !blurContext.current) return;
-
-		const stage = stageRef.current;
-		const tempCanvas = stage.toCanvas();
+	const applyBlurBrush = useCallback((x: number, y: number) => {
+		if (!tempContext) return;
+		updateAuxCanvases();
 		const ctx = blurContext.current;
+		if (!ctx) return;
+		const size = brushSettings.size;
+		const imgData = ctx.getImageData(x - size / 2, y - size / 2, size, size);
+		const d = imgData.data;
+		for (let i = 0; i < d.length; i += 4) {
+			d[i] = (d[i] + (d[i - 4] || d[i]) + (d[i + 4] || d[i])) / 3;
+		}
+		tempContext.putImageData(imgData, x - size / 2, y - size / 2);
+	}, [brushSettings.size, tempContext, updateAuxCanvases]);
 
-		ctx.fillStyle = actualBackground;
-		ctx.fillRect(0, 0, actualWidth, actualHeight);
+	/* --- AUXILIARY TOOL HANDLERS --- */
 
-		ctx.drawImage(tempCanvas, 0, 0, actualWidth, actualHeight);
-	}, [actualWidth, actualHeight, actualBackground]);
+	const handleEyedropper = useCallback((x: number, y: number, isAltPressed: boolean = false) => {
+		updateAuxCanvases();
+		if (!eyedropperContext.current) return;
+		const ctx = eyedropperContext.current;
+		const pixel = ctx.getImageData(Math.floor(x), Math.floor(y), 1, 1).data;
+		const color = `rgba(${pixel[0]}, ${pixel[1]}, ${pixel[2]}, ${pixel[3] / 255})`;
+		if (isAltPressed) {
+			setSecondaryColor(color);
+		} else {
+			setPrimaryColor(color);
+		}
+		toast.success(`Color picked: ${color}`);
+	}, [setPrimaryColor, setSecondaryColor, updateAuxCanvases]);
 
-	const saveCanvasState = useCallback(
-		(action: string) => {
-			if (!stageRef.current) return;
-			try {
-				const canvasState: CanvasState = {
-					lines,
-					shapes,
-					images: images.map((img) => ({ ...img })),
-					gradients: gradients.map((grad) => ({ ...grad })),
-					healingData,
-					blurData,
-				};
-				const stateString = JSON.stringify(canvasState);
-				const dataURL = stageRef.current.toDataURL({ pixelRatio: 0.2 });
-				addToHistory(stateString, dataURL, action);
-			} catch (err) {
-				console.error("Failed to save canvas state:", err);
+	const floodFill = useCallback((startX: number, startY: number, fillColor: string) => {
+		updateAuxCanvases();
+		if (!floodFillContext.current) return;
+		const ctx = floodFillContext.current;
+		const imageData = ctx.getImageData(0, 0, actualWidth, actualHeight);
+		const { data, width, height } = imageData;
+		const startIdx = (Math.floor(startY) * width + Math.floor(startX)) * 4;
+		const targetColor = [data[startIdx], data[startIdx + 1], data[startIdx + 2], data[startIdx + 3]];
+
+		const fillRGB = parseColorToRgb(fillColor);
+		if (fillRGB.r === targetColor[0] && fillRGB.g === targetColor[1] && fillRGB.b === targetColor[2]) return;
+
+		const queue: [number, number][] = [[Math.floor(startX), Math.floor(startY)]];
+		while (queue.length > 0) {
+			const [x, y] = queue.shift()!;
+			const idx = (y * width + x) * 4;
+			if (data[idx] === targetColor[0] && data[idx + 1] === targetColor[1] && data[idx + 2] === targetColor[2]) {
+				data[idx] = fillRGB.r;
+				data[idx + 1] = fillRGB.g;
+				data[idx + 2] = fillRGB.b;
+				data[idx + 3] = 255;
+				if (x > 0) queue.push([x - 1, y]);
+				if (x < width - 1) queue.push([x + 1, y]);
+				if (y > 0) queue.push([x, y - 1]);
+				if (y < height - 1) queue.push([x, y + 1]);
 			}
-		},
-		[lines, shapes, images, gradients, healingData, blurData, addToHistory],
-	);
+		}
+		ctx.putImageData(imageData, 0, 0);
+		// In a real app, we'd save this to a layer. For now, it's a visual effect on the aux canvas.
+		// We'll add it as an image object to make it permanent.
+		const fillImage: ImageObject = {
+			id: generateId("fill"),
+			src: ctx.canvas.toDataURL(),
+			x: 0, y: 0, width, height,
+			layerId: activeLayerId || "layer-1",
+		};
+		setImages((prev) => [...prev, fillImage]);
+		saveCanvasState("Flood Fill applied");
+	}, [actualWidth, actualHeight, activeLayerId, saveCanvasState, setImages]);
 
-	const restoreCanvasState = useCallback(
-		(stateString: string) => {
-			try {
-				const state: CanvasState = JSON.parse(stateString);
+	const parseColorToRgb = (color: string) => {
+		const div = document.createElement("div");
+		div.style.color = color;
+		document.body.appendChild(div);
+		const computed = getComputedStyle(div).color;
+		document.body.removeChild(div);
+		const match = computed.match(/\d+/g);
+		return match ? { r: parseInt(match[0]), g: parseInt(match[1]), b: parseInt(match[2]) } : { r: 0, g: 0, b: 0 };
+	};
 
-				setLines(state.lines || []);
-				setShapes(state.shapes || []);
-				setImages(state.images || []);
-				setGradients(state.gradients || []);
-				if (state.healingData) setHealingData(state.healingData);
-				if (state.blurData) setBlurData(state.blurData);
-
-				setHasRestoredState(true);
-
-				console.log("Canvas state restored from history");
-			} catch (error) {
-				console.error("Failed to restore canvas state:", error);
-				toast.error("Failed to restore history state");
-			}
-		},
-		[setGradients],
-	);
+	const handleTextTool = useCallback((pos: { x: number; y: number }) => {
+		const text = prompt("Enter text:", "New Text");
+		if (text) {
+			const newText: ShapeObject = {
+				id: generateId("text"),
+				type: "text",
+				x: pos.x, y: pos.y,
+				text,
+				fontSize: 24,
+				fill: primaryColor,
+				layerId: activeLayerId || "layer-1",
+			};
+			setShapes((prev) => [...prev, newText]);
+			saveCanvasState("Text added");
+		}
+	}, [primaryColor, activeLayerId, setShapes, saveCanvasState]);
 
 	useEffect(() => {
-		const handleRestoreHistory = (e: CustomEvent) => {
-			if (e.detail?.canvasData) {
-				restoreCanvasState(e.detail.canvasData);
-			}
+		const handleRestoreHistory = (e: any) => {
+			if (e.detail?.canvasData) restoreCanvasState(e.detail.canvasData);
 		};
-
-		window.addEventListener(
-			"artstudio:restore-history",
-			handleRestoreHistory as EventListener,
-		);
-
-		return () => {
-			window.removeEventListener(
-				"artstudio:restore-history",
-				handleRestoreHistory as EventListener,
-			);
-		};
+		window.addEventListener("artstudio:restore-history", handleRestoreHistory as EventListener);
+		return () => window.removeEventListener("artstudio:restore-history", handleRestoreHistory as EventListener);
 	}, [restoreCanvasState]);
 
-	// Transformer update efekt
-	useEffect(() => {
-		if (!transformerRef.current || !stageRef.current) return;
+	const startDrawing = useCallback((pos: { x: number; y: number }) => {
+		const drawingTools = ["brush", "pencil", "eraser", "clone", "healing", "blur"];
+		if (!drawingTools.includes(activeTool)) return;
 
-		if (selectedId) {
-			const selectedNode = stageRef.current.findOne(`#${selectedId}`);
-			if (selectedNode) {
-				transformerRef.current.nodes([selectedNode]);
-				transformerRef.current.getLayer()?.batchDraw();
-			}
-		} else {
-			transformerRef.current.nodes([]);
+		if (activeTool === "clone" && !cloneSourcePoint.current) {
+			toast.error("Alt+click to set clone source first");
+			return;
 		}
-	}, [selectedId]);
 
-	// Hlavná funkcia pre kreslenie - OPRAVENÁ PRE ERAZER
-	const startDrawing = useCallback(
-		(pos: { x: number; y: number }) => {
-			const drawingTools = ["brush", "pencil", "eraser"];
-			if (!drawingTools.includes(activeTool)) return;
+		setIsDrawing(true);
+		shapeStartPoint.current = pos; // Used as starting point for relative cloning
 
-			setIsDrawing(true);
+		const strokeColor = activeTool === "eraser" ? "transparent" : primaryColor;
+		const newLine: DrawingLine = {
+			id: generateId("line"),
+			points: [pos.x, pos.y],
+			stroke: strokeColor,
+			strokeWidth: activeTool === "pencil" ? 1 : brushSettings.size,
+			tool: activeTool as any,
+			layerId: activeLayerId || "layer-1",
+		};
+		setActiveDrawingLine(newLine);
+		setLines((prev) => [...prev, newLine]);
 
-			// Kľúčová zmena: pre eraser používame transparentnú farbu, nie background
-			let strokeColor = primaryColor;
+		if (tempContext) {
+			tempContext.strokeStyle = activeTool === "eraser" ? "rgba(0,0,0,0)" : newLine.stroke;
+			tempContext.lineWidth = newLine.strokeWidth;
+			tempContext.lineCap = "round";
+			tempContext.lineJoin = "round";
+			tempContext.beginPath();
+			tempContext.moveTo(pos.x, pos.y);
+		}
 
-			if (activeTool === "eraser") {
-				// Pre eraser používame "transparent" namiesto background farby
-				// Toto vytvorí "dieru" v objektoch na aktuálnej vrstve
-				strokeColor = "transparent";
-			}
+		if (activeTool === "clone") {
+			handleCloneBrush(pos.x, pos.y);
+		}
+		if (activeTool === "healing") {
+			applyHealingBrush(pos.x, pos.y);
+		}
+		if (activeTool === "blur") {
+			applyBlurBrush(pos.x, pos.y);
+		}
+	}, [activeTool, primaryColor, brushSettings.size, activeLayerId, tempContext, handleCloneBrush, applyHealingBrush, applyBlurBrush]);
 
-			const newLine: DrawingLine = {
-				id: `line-${Date.now()}`,
-				points: [pos.x, pos.y],
-				stroke: strokeColor,
-				strokeWidth: brushSettings.size,
-				tool: activeTool as "brush" | "pencil" | "eraser",
-				layerId: activeLayerId || "layer-1", // POVINNÉ
-			};
+	const continueDrawing = useCallback((pos: { x: number; y: number }) => {
+		if (!isDrawing || !activeDrawingLine) return;
 
-			setActiveDrawingLine(newLine);
-			setLines((prev) => [...prev, newLine]);
+		if (activeTool === "clone") {
+			handleCloneBrush(pos.x, pos.y);
+		} else if (activeTool === "healing") {
+			applyHealingBrush(pos.x, pos.y);
+		} else if (activeTool === "blur") {
+			applyBlurBrush(pos.x, pos.y);
+		} else if (tempContext) {
+			tempContext.lineTo(pos.x, pos.y);
+			tempContext.stroke();
+		}
 
-			// Aktualizuj temporary canvas
-			if (tempContext) {
-				tempContext.strokeStyle =
-					activeTool === "eraser" ? "rgba(0,0,0,0)" : newLine.stroke;
-				tempContext.lineWidth = newLine.strokeWidth;
-				tempContext.lineCap = "round";
-				tempContext.lineJoin = "round";
-				tempContext.beginPath();
-				tempContext.moveTo(pos.x, pos.y);
-			}
-		},
-		[activeTool, primaryColor, brushSettings.size, activeLayerId, tempContext],
-	);
-
-	const continueDrawing = useCallback(
-		(pos: { x: number; y: number }) => {
-			if (!isDrawing || !activeDrawingLine) return;
-
-			// Aktualizuj temporary canvas
-			if (tempContext) {
-				tempContext.lineTo(pos.x, pos.y);
-				tempContext.stroke();
-			}
-
-			// Aktualizuj líniu v stave
-			setLines((prev) =>
-				prev.map((line) =>
-					line.id === activeDrawingLine.id
-						? {
-								...line,
-								points: [...line.points, pos.x, pos.y],
-							}
-						: line,
-				),
-			);
-		},
-		[isDrawing, activeDrawingLine, tempContext],
-	);
+		setLines((prev) => prev.map((line) =>
+			line.id === activeDrawingLine.id ? { ...line, points: [...line.points, pos.x, pos.y] } : line
+		));
+	}, [isDrawing, activeDrawingLine, tempContext, activeTool, handleCloneBrush, applyHealingBrush, applyBlurBrush]);
 
 	const stopDrawing = useCallback(() => {
 		if (isDrawing) {
 			setIsDrawing(false);
 			setActiveDrawingLine(null);
-			if (tempContext) {
-				tempContext.closePath();
-			}
+			if (tempContext) tempContext.closePath();
 			saveCanvasState(`${activeTool === "eraser" ? "Erased" : "Stroke added"}`);
 		}
 	}, [isDrawing, tempContext, saveCanvasState, activeTool]);
 
-	// PEN NÁSTROJ - Začiatok kreslenia krivky
-	const startPenDrawing = useCallback(
-		(pos: { x: number; y: number }) => {
-			if (activeTool !== "pen") return;
-
-			const newPenLine: DrawingLine = {
-				id: `pen-${Date.now()}`,
-				points: [pos.x, pos.y],
-				stroke: primaryColor,
-				strokeWidth: brushSettings.strokeWidth || 2,
-				tool: "pen",
-				layerId: activeLayerId || "layer-1", // POVINNÉ
-			};
-			setCurrentPenLine(newPenLine);
-			setPenPoints([pos.x, pos.y]);
-			setIsDrawing(true);
-		},
-		[activeTool, primaryColor, brushSettings.strokeWidth, activeLayerId],
-	);
-
-	// PEN NÁSTROJ - Pridanie bodu
-	const addPenPoint = useCallback(
-		(pos: { x: number; y: number }) => {
-			if (!currentPenLine) return;
-
-			setPenPoints((prev) => [...prev, pos.x, pos.y]);
-			setCurrentPenLine((prev) =>
-				prev
-					? {
-							...prev,
-							points: [...prev.points, pos.x, pos.y],
-						}
-					: prev,
-			);
-		},
-		[currentPenLine],
-	);
-
-	// PEN NÁSTROJ - Dokončenie krivky
 	const finishPenDrawing = useCallback(() => {
 		if (!currentPenLine) return;
-
 		if (currentPenLine.points.length >= 4) {
 			setLines((prev) => [...prev, currentPenLine]);
 			saveCanvasState("Pen curve completed");
-			toast.success("Pen curve completed");
-		} else {
-			toast.error("Pen curve needs at least 2 points");
 		}
-
 		setCurrentPenLine(null);
 		setPenPoints([]);
 		setIsDrawing(false);
 	}, [currentPenLine, saveCanvasState]);
 
-	// POLYGON NÁSTROJ - Začiatok
-	const startPolygonDrawing = useCallback(
-		(pos: { x: number; y: number }) => {
-			if (activeTool !== "polygon") return;
-
-			setIsDrawingPolygon(true);
-			setPolygonPoints([pos.x, pos.y]);
-		},
-		[activeTool],
-	);
-
-	// POLYGON NÁSTROJ - Pridanie vrcholu
-	const addPolygonPoint = useCallback((pos: { x: number; y: number }) => {
-		setPolygonPoints((prev) => [...prev, pos.x, pos.y]);
-	}, []);
-
-	// POLYGON NÁSTROJ - Dokončenie
 	const finishPolygonDrawing = useCallback(() => {
 		if (polygonPoints.length >= 6) {
 			const polygonShape: ShapeObject = {
-				id: `polygon-${Date.now()}`,
+				id: generateId("polygon"),
 				type: "polygon",
 				points: [...polygonPoints],
-				x: 0,
-				y: 0,
+				x: 0, y: 0,
 				stroke: primaryColor,
 				strokeWidth: brushSettings.strokeWidth || 2,
 				fill: `${primaryColor}40`,
-				layerId: activeLayerId || "layer-1", // POVINNÉ
+				layerId: activeLayerId || "layer-1",
 			};
 			setShapes((prev) => [...prev, polygonShape]);
 			saveCanvasState("Polygon created");
-			toast.success(`Polygon with ${polygonPoints.length / 2} sides created`);
-		} else {
-			toast.error("Polygon needs at least 3 points");
 		}
-
 		setIsDrawingPolygon(false);
 		setPolygonPoints([]);
-		setCurrentShape(null);
-	}, [
-		polygonPoints,
-		primaryColor,
-		brushSettings.strokeWidth,
-		activeLayerId,
-		saveCanvasState,
-	]);
-
-	// LINE NÁSTROJ - Začiatok
-	const startLineDrawing = useCallback(
-		(pos: { x: number; y: number }) => {
-			if (activeTool !== "line") return;
-
-			shapeStartPoint.current = pos;
-
-			const newLine: ShapeObject = {
-				id: `line-${Date.now()}`,
-				type: "line",
-				x: pos.x,
-				y: pos.y,
-				points: [pos.x, pos.y, pos.x, pos.y],
-				stroke: primaryColor,
-				strokeWidth: brushSettings.strokeWidth || 2,
-				fill: primaryColor,
-				layerId: activeLayerId || "layer-1", // POVINNÉ
-			};
-
-			setCurrentShape(newLine);
-		},
-		[activeTool, primaryColor, brushSettings.strokeWidth, activeLayerId],
-	);
-
-	// LINE NÁSTROJ - Aktualizácia
-	const updateLineDrawing = useCallback(
-		(pos: { x: number; y: number }) => {
-			if (!currentShape || !shapeStartPoint.current) return;
-
-			const startX = shapeStartPoint.current.x;
-			const startY = shapeStartPoint.current.y;
-
-			setCurrentShape({
-				...currentShape,
-				points: [startX, startY, pos.x, pos.y],
-			});
-		},
-		[currentShape],
-	);
-
-	// LINE NÁSTROJ - Dokončenie
-	const finishLineDrawing = useCallback(() => {
-		if (currentShape && currentShape.type === "line") {
-			setShapes((prev) => [...prev, currentShape]);
-			setCurrentShape(null);
-			shapeStartPoint.current = null;
-			saveCanvasState("Line created");
-		}
-	}, [currentShape, saveCanvasState]);
+	}, [polygonPoints, primaryColor, brushSettings.strokeWidth, activeLayerId, saveCanvasState]);
 
 	const handleMouseDown = (e: Konva.KonvaEventObject<MouseEvent>) => {
 		const pos = getCanvasPosition(e.evt.clientX, e.evt.clientY);
 		if (!pos) return;
 
-		const drawingTools = ["brush", "pencil", "eraser", "healing", "blur"];
-		const shapeTools = ["rectangle", "ellipse"];
-
-		// PEN NÁSTROJ
-		if (activeTool === "pen") {
-			if (e.evt.button !== 0) return;
-
-			if (!currentPenLine) {
-				startPenDrawing(pos);
-			} else {
-				addPenPoint(pos);
-			}
-			return;
-		}
-
-		// POLYGON NÁSTROJ
-		if (activeTool === "polygon") {
-			if (e.evt.button !== 0) return;
-
-			if (!isDrawingPolygon) {
-				startPolygonDrawing(pos);
-			} else {
-				addPolygonPoint(pos);
-			}
-			return;
-		}
-
-		// LINE NÁSTROJ
-		if (activeTool === "line") {
-			if (e.evt.button !== 0) return;
-
-			startLineDrawing(pos);
-			return;
-		}
-
-		// Kreslenie (brush, pencil, eraser)
-		if (drawingTools.includes(activeTool)) {
-			if (activeTool === "healing") {
-				updateHealingData();
-
-				if (e.evt.altKey) {
-					setHealingData((prev) => ({
-						...prev,
-						sourceX: pos.x,
-						sourceY: pos.y,
-						isActive: true,
-						brushSize: brushSettings.size,
-					}));
-					setHealingSource({ x: pos.x, y: pos.y });
-					toast.success("Healing source set (click to heal)");
-					return;
-				} else {
-					if (!healingData.isActive) {
-						toast.error("Alt+click to set healing source first");
-						return;
-					}
-					applyHealingBrush(pos.x, pos.y);
-					return;
+		const selectionTools: Tool[] = ["select", "move", "marquee", "lasso", "magicwand"];
+		if (selectionTools.includes(activeTool)) {
+			if (activeTool === "select" || activeTool === "move") {
+				if (e.target === stageRef.current || e.target.name() === "background") {
+					setSelectedId(null);
+					clearSelection();
 				}
 			}
+			if (activeTool === "marquee") {
+				setIsSelecting(true);
+				setSelectionStartPoint(pos);
+				setSelectionBounds({ x: pos.x, y: pos.y, width: 0, height: 0 });
+			}
+			if (activeTool === "lasso") {
+				setIsSelecting(true);
+				setSelectionPath([pos.x, pos.y]);
+			}
+			if (activeTool === "magicwand") {
+				handleMagicWand(pos.x, pos.y);
+			}
+			return;
+		}
 
-			if (activeTool === "blur") {
-				updateBlurData();
-				applyBlurBrush(pos.x, pos.y);
+		if (activeTool === "gradient") {
+			setIsDrawingGradient(true);
+			gradientStartPoint.current = pos;
+			const newGradient: GradientObject = {
+				id: generateId("gradient"),
+				type: brushSettings.gradientType || "linear",
+				x0: pos.x, y0: pos.y, x1: pos.x, y1: pos.y,
+				colorStops: (brushSettings.gradientStops || []).map(s => ({ offset: s.position, color: s.color })),
+				layerId: activeLayerId || "layer-1",
+			};
+			setCurrentGradient(newGradient);
+			return;
+		}
+
+		if (activeTool === "pen") {
+			if (e.evt.button === 0) {
+				if (!currentPenLine) {
+					const newLine: DrawingLine = {
+						id: generateId("pen"),
+						points: [pos.x, pos.y],
+						stroke: primaryColor,
+						strokeWidth: brushSettings.strokeWidth || 2,
+						tool: "pen",
+						layerId: activeLayerId || "layer-1",
+					};
+					setCurrentPenLine(newLine);
+					setPenPoints([pos.x, pos.y]);
+					setIsDrawing(true);
+				} else {
+					setPenPoints((prev) => [...prev, pos.x, pos.y]);
+					setCurrentPenLine((prev) => prev ? { ...prev, points: [...prev.points, pos.x, pos.y] } : null);
+				}
+			}
+			return;
+		}
+
+		if (activeTool === "polygon") {
+			if (e.evt.button === 0) {
+				if (!isDrawingPolygon) {
+					setIsDrawingPolygon(true);
+					setPolygonPoints([pos.x, pos.y]);
+				} else {
+					setPolygonPoints((prev) => [...prev, pos.x, pos.y]);
+				}
+			}
+			return;
+		}
+
+		const drawingTools = ["brush", "pencil", "eraser", "healing", "blur", "clone"];
+		if (drawingTools.includes(activeTool)) {
+			if (activeTool === "clone" && e.evt.altKey) {
+				cloneSourcePoint.current = pos;
+				toast.success("Clone source set");
 				return;
 			}
-
-			// Normálne kreslenie
 			startDrawing(pos);
 			return;
 		}
 
-		// Eyedropper
-		if (activeTool === "eyedropper" || e.evt.ctrlKey) {
-			const isCtrlPressed = e.evt.ctrlKey || e.evt.metaKey;
-			handleEyedropper(pos.x, pos.y, isCtrlPressed);
-			return;
-		}
-
-		// Tvary (rectangle, ellipse)
-		if (shapeTools.includes(activeTool)) {
+		if (["rectangle", "ellipse", "line"].includes(activeTool)) {
 			shapeStartPoint.current = pos;
-
 			const newShape: ShapeObject = {
-				id: `shape-${Date.now()}`,
-				type: activeTool === "rectangle" ? "rect" : "ellipse",
-				x: pos.x,
-				y: pos.y,
-				width: 1,
-				height: 1,
-				fill: primaryColor,
-				stroke: secondaryColor,
-				strokeWidth: 2,
-				layerId: activeLayerId || "layer-1", // POVINNÉ
+				id: generateId("shape"),
+				type: activeTool === "rectangle" ? "rect" : (activeTool === "ellipse" ? "ellipse" : "line" as any),
+				x: pos.x, y: pos.y,
+				width: 1, height: 1,
+				points: activeTool === "line" ? [pos.x, pos.y, pos.x, pos.y] : undefined,
+				fill: activeTool === "line" ? "transparent" : primaryColor,
+				stroke: activeTool === "line" ? primaryColor : secondaryColor,
+				strokeWidth: brushSettings.strokeWidth || 2,
+				layerId: activeLayerId || "layer-1",
 			};
 			setCurrentShape(newShape);
 			return;
 		}
 
-		// Text
-		if (activeTool === "text") {
-			const newTextShape: ShapeObject = {
-				id: `text-${Date.now()}`,
-				type: "text",
-				x: pos.x,
-				y: pos.y,
-				text: "Type here",
-				fontSize: brushSettings.fontSize || 20,
-				fill: primaryColor,
-				layerId: activeLayerId || "layer-1", // POVINNÉ
-			};
-			setShapes((prev) => [...prev, newTextShape]);
-			setSelectedId(newTextShape.id);
-			saveCanvasState("Text added");
-			toast.success("Text added - double click to edit");
+		if (activeTool === "eyedropper") {
+			handleEyedropper(pos.x, pos.y, e.evt.altKey);
 			return;
 		}
 
-		// Fill
 		if (activeTool === "fill") {
-			setIsFilling(true);
-
-			updateFloodFillData();
-
-			if (floodFillContext.current) {
-				try {
-					const pixelData = floodFillContext.current.getImageData(
-						Math.floor(pos.x),
-						Math.floor(pos.y),
-						1,
-						1,
-					).data;
-
-					const targetColor = `rgb(${pixelData[0]}, ${pixelData[1]}, ${pixelData[2]})`;
-
-					const success = floodFill(
-						pos.x,
-						pos.y,
-						targetColor,
-						primaryColor,
-						brushSettings.tolerance,
-					);
-
-					if (!success) {
-						toast.error("No area to fill or same color");
-					}
-				} catch (error) {
-					console.error("Fill error:", error);
-					toast.error("Failed to fill area");
-				}
-			} else {
-				toast.error("Fill context not available");
-			}
+			floodFill(pos.x, pos.y, primaryColor);
 			return;
 		}
 
-		// Gradient
-		if (activeTool === "gradient") {
-			setIsDrawingGradient(true);
-			gradientStartPoint.current = pos;
-
-			const newGradient: GradientObject = {
-				id: `gradient-${Date.now()}`,
-				type: brushSettings.gradientType as "linear" | "radial",
-				x0: pos.x,
-				y0: pos.y,
-				x1: pos.x + 100,
-				y1: pos.y,
-				colorStops: brushSettings.gradientStops.map((stop) => ({
-					offset: stop.position,
-					color: stop.color,
-				})),
-				layerId: activeLayerId || "layer-1", // POVINNÉ
-			};
-
-			setCurrentGradient(newGradient);
+		if (activeTool === "text") {
+			handleTextTool(pos);
 			return;
 		}
 
-		// Zoom
-		if (activeTool === "zoom") {
-			if (e.evt.altKey) {
-				setZoom(Math.max(10, zoom - 25));
-			} else {
-				setZoom(Math.min(500, zoom + 25));
-			}
-			return;
-		}
-
-		// Hand (panning)
 		if (activeTool === "hand") {
 			isPanning.current = true;
 			lastPanPos.current = { x: e.evt.clientX, y: e.evt.clientY };
 			return;
 		}
 
-		// Clone
-		if (activeTool === "clone") {
-			if (e.evt.altKey) {
-				cloneSourcePoint.current = pos;
-				toast.success("Clone source set");
-				return;
-			}
+		if (activeTool === "zoom") {
+			const zoomStep = 20;
+			const isZoomOut = e.evt.altKey;
+			const oldZoom = zoom / 100;
+			const newZoomVal = isZoomOut ? Math.max(10, zoom - zoomStep) : Math.min(800, zoom + zoomStep);
+			const newZoom = newZoomVal / 100;
 
-			if (!cloneSourcePoint.current) {
-				toast.error("Alt+click to set clone source first");
-				return;
+			// Zoom towards mouse logic
+			const pointer = stageRef.current?.getPointerPosition();
+			if (pointer) {
+				const mousePointTo = {
+					x: (pointer.x / oldZoom) - panOffset.x,
+					y: (pointer.y / oldZoom) - panOffset.y,
+				};
+
+				const newOffset = {
+					x: (pointer.x / newZoom) - mousePointTo.x,
+					y: (pointer.y / newZoom) - mousePointTo.y,
+				};
+
+				setZoom(newZoomVal);
+				setPanOffset(newOffset);
+			} else {
+				setZoom(newZoomVal);
 			}
+			return;
 		}
 	};
 
@@ -1000,1509 +803,265 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		const pos = getCanvasPosition(e.evt.clientX, e.evt.clientY);
 		if (!pos) return;
 
-		// PEN NÁSTROJ - Ukážka krivky
+		if (isSelecting && selectionStartPoint) {
+			if (activeTool === "marquee") {
+				const x = Math.min(selectionStartPoint.x, pos.x);
+				const y = Math.min(selectionStartPoint.y, pos.y);
+				const width = Math.abs(pos.x - selectionStartPoint.x);
+				const height = Math.abs(pos.y - selectionStartPoint.y);
+				setSelectionBounds({ x, y, width, height });
+			} else if (activeTool === "lasso" && selectionPath) {
+				setSelectionPath([...selectionPath, pos.x, pos.y]);
+			}
+		}
+
 		if (activeTool === "pen" && currentPenLine) {
-			// Pri pohybe myšou ukážeme preview posledného segmentu
-			const previewPoints = [...currentPenLine.points, pos.x, pos.y];
-			setCurrentPenLine({
-				...currentPenLine,
-				points: previewPoints,
-			});
+			setCurrentPenLine({ ...currentPenLine, points: [...penPoints, pos.x, pos.y] });
 			return;
 		}
 
-		// POLYGON NÁSTROJ - Ukážka
-		if (
-			activeTool === "polygon" &&
-			isDrawingPolygon &&
-			polygonPoints.length > 0
-		) {
-			// Ukážeme preview posledného segmentu
-			const previewPoints = [...polygonPoints, pos.x, pos.y];
+		if (isDrawingPolygon && polygonPoints.length > 0) {
 			setCurrentShape({
-				id: `polygon-preview-${Date.now()}`,
-				type: "polygon",
-				points: previewPoints,
-				x: 0,
-				y: 0,
-				stroke: primaryColor,
-				strokeWidth: brushSettings.strokeWidth || 2,
-				fill: `${primaryColor}40`,
-				layerId: activeLayerId || "layer-1", // POVINNÉ
+				id: "polygon-preview", type: "polygon", x: 0, y: 0,
+				points: [...polygonPoints, pos.x, pos.y],
+				stroke: primaryColor, strokeWidth: 2, fill: `${primaryColor}40`,
+				layerId: activeLayerId || "layer-1"
 			});
 			return;
 		}
 
-		// LINE NÁSTROJ
-		if (activeTool === "line" && currentShape) {
-			updateLineDrawing(pos);
-			return;
-		}
+		if (isDrawing) continueDrawing(pos);
 
-		// Kreslenie
-		if (isDrawing && activeDrawingLine) {
-			continueDrawing(pos);
-			return;
-		}
-
-		// Tvary (rectangle, ellipse)
 		if (currentShape && shapeStartPoint.current) {
 			const startX = shapeStartPoint.current.x;
 			const startY = shapeStartPoint.current.y;
-
 			if (currentShape.type === "rect") {
-				const width = pos.x - startX;
-				const height = pos.y - startY;
-
 				setCurrentShape({
 					...currentShape,
-					x: width > 0 ? startX : pos.x,
-					y: height > 0 ? startY : pos.y,
-					width: Math.abs(width),
-					height: Math.abs(height),
+					x: Math.min(startX, pos.x), y: Math.min(startY, pos.y),
+					width: Math.abs(pos.x - startX), height: Math.abs(pos.y - startY)
 				});
 			} else if (currentShape.type === "ellipse") {
-				const radiusX = Math.abs(pos.x - startX) / 2;
-				const radiusY = Math.abs(pos.y - startY) / 2;
-
 				setCurrentShape({
 					...currentShape,
-					x: (startX + pos.x) / 2,
-					y: (startY + pos.y) / 2,
-					radiusX,
-					radiusY,
+					x: (startX + pos.x) / 2, y: (startY + pos.y) / 2,
+					radiusX: Math.abs(pos.x - startX) / 2, radiusY: Math.abs(pos.y - startY) / 2
+				});
+			} else if (currentShape.type === "line" as any) {
+				setCurrentShape({
+					...currentShape,
+					points: [startX, startY, pos.x, pos.y]
 				});
 			}
-			return;
 		}
 
-		// Gradient
 		if (isDrawingGradient && currentGradient && gradientStartPoint.current) {
 			setCurrentGradient({
 				...currentGradient,
-				x1: pos.x,
-				y1: pos.y,
+				x1: pos.x, y1: pos.y
 			});
-			return;
 		}
 
-		// Panning
-		if (isPanning.current && activeTool === "hand") {
+		if (isPanning.current) {
 			const deltaX = e.evt.clientX - lastPanPos.current.x;
 			const deltaY = e.evt.clientY - lastPanPos.current.y;
-
 			setPanOffset({
 				x: panOffset.x + deltaX / (zoom / 100),
-				y: panOffset.y + deltaY / (zoom / 100),
+				y: panOffset.y + deltaY / (zoom / 100)
 			});
-
 			lastPanPos.current = { x: e.evt.clientX, y: e.evt.clientY };
 		}
 	};
 
-	const handleMouseUp = (e: Konva.KonvaEventObject<MouseEvent>) => {
-		// PEN NÁSTROJ - Dokončenie krivky pravým tlačidlom
-		if (activeTool === "pen" && currentPenLine) {
-			if (e.evt.button === 2) {
-				finishPenDrawing();
+	const handleMouseUp = () => {
+		if (isSelecting) {
+			setIsSelecting(false);
+			if (activeTool === "marquee" && selectionBounds) {
+				const { x, y, width, height } = selectionBounds;
+				// Better selection logic: find all overlapping shapes/images
+				const selectedShapes = shapes.filter(s => {
+					// Handle different shape types
+					if (s.type === "rect") {
+						return s.x < x + width && s.x + (s.width || 0) > x && s.y < y + height && s.y + (s.height || 0) > y;
+					}
+					if (s.type === "ellipse") {
+						return s.x - (s.radiusX || 0) < x + width && s.x + (s.radiusX || 0) > x && s.y - (s.radiusY || 0) < y + height && s.y + (s.radiusY || 0) > y;
+					}
+					return s.x >= x && s.x <= x + width && s.y >= y && s.y <= y + height;
+				});
+				const selectedImgs = images.filter(img => {
+					return img.x < x + width && img.x + img.width > x && img.y < y + height && img.y + img.height > y;
+				});
+
+				if (selectedShapes.length > 0) setSelectedId(selectedShapes[selectedShapes.length - 1].id);
+				else if (selectedImgs.length > 0) setSelectedId(selectedImgs[selectedImgs.length - 1].id);
+				else setSelectedId(null);
+			} else if (activeTool === "lasso" && selectionPath && selectionPath.length >= 6) {
+				// Simple check: is object origin inside bounding box of lasso
+				let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+				for (let i = 0; i < selectionPath.length; i += 2) {
+					minX = Math.min(minX, selectionPath[i]);
+					minY = Math.min(minY, selectionPath[i + 1]);
+					maxX = Math.max(maxX, selectionPath[i]);
+					maxY = Math.max(maxY, selectionPath[i + 1]);
+				}
+				const selectedShapes = shapes.filter(s => s.x >= minX && s.x <= maxX && s.y >= minY && s.y <= maxY);
+				const selectedImgs = images.filter(img => img.x >= minX && img.x <= maxX && img.y >= minY && img.y <= maxY);
+
+				if (selectedShapes.length > 0) setSelectedId(selectedShapes[selectedShapes.length - 1].id);
+				else if (selectedImgs.length > 0) setSelectedId(selectedImgs[selectedImgs.length - 1].id);
+				else setSelectedId(null);
 			}
-			return;
+			setSelectionStartPoint(null);
 		}
-
-		// POLYGON NÁSTROJ - Dokončenie pravým tlačidlom
-		if (activeTool === "polygon" && isDrawingPolygon) {
-			if (e.evt.button === 2) {
-				finishPolygonDrawing();
-			}
-			return;
-		}
-
-		// LINE NÁSTROJ - Dokončenie čiary
-		if (activeTool === "line" && currentShape) {
-			finishLineDrawing();
-			return;
-		}
-
-		// Dokonči kreslenie
-		if (isDrawing) {
-			stopDrawing();
-		}
-
-		// Dokonči tvar (rectangle, ellipse)
-		if (
-			currentShape &&
-			(currentShape.type === "rect" || currentShape.type === "ellipse")
-		) {
+		if (isDrawing) stopDrawing();
+		if (currentShape && (currentShape.type === "rect" || currentShape.type === "ellipse" || currentShape.type === "line" as any)) {
 			setShapes((prev) => [...prev, currentShape]);
 			setCurrentShape(null);
-			shapeStartPoint.current = null;
 			saveCanvasState(`${currentShape.type} created`);
-			return;
 		}
-
-		// Dokonči gradient
 		if (isDrawingGradient && currentGradient) {
+			setIsDrawingGradient(false);
 			addGradient(currentGradient);
 			setCurrentGradient(null);
-			setIsDrawingGradient(false);
-			gradientStartPoint.current = null;
 			saveCanvasState("Gradient added");
-			toast.success("Gradient created");
-			return;
 		}
-
-		// Dokonči fill
-		if (isFilling) {
-			setIsFilling(false);
-		}
-
-		// Dokonči panning
-		if (isPanning.current) {
-			isPanning.current = false;
-		}
-	};
-
-	const handleDblClick = (e: Konva.KonvaEventObject<MouseEvent>) => {
-		// Pre Polygon nástroj - dokonči polygon dvojklikom
-		if (activeTool === "polygon" && isDrawingPolygon) {
-			finishPolygonDrawing();
-			return;
-		}
-
-		// Pre Pen nástroj - dokonči krivku dvojklikom
-		if (activeTool === "pen" && currentPenLine) {
-			finishPenDrawing();
-			return;
-		}
-	};
-
-	const handleWheel = useCallback(
-		(e: WheelEvent) => {
-			e.preventDefault();
-
-			if (e.ctrlKey || e.metaKey) {
-				// Zoom
-				const delta = e.deltaY > 0 ? -10 : 10;
-				setZoom(Math.max(10, Math.min(500, zoom + delta)));
-			} else if (e.shiftKey) {
-				// Horizontálny posun
-				setPanOffset({
-					x: panOffset.x - e.deltaY / (zoom / 100),
-					y: panOffset.y,
-				});
-			} else {
-				// Vertikálny posun
-				setPanOffset({
-					x: panOffset.x - e.deltaX / (zoom / 100),
-					y: panOffset.y - e.deltaY / (zoom / 100),
-				});
-			}
-		},
-		[zoom, panOffset, setZoom, setPanOffset],
-	);
-
-	// Event listener pre wheel
-	useEffect(() => {
-		const container = containerRef.current;
-		if (!container) return;
-
-		container.addEventListener("wheel", handleWheel, { passive: false });
-		return () => container.removeEventListener("wheel", handleWheel);
-	}, [handleWheel]);
-
-	// Key handler pre klávesové skratky
-	useEffect(() => {
-		const handleKeyDown = (e: KeyboardEvent) => {
-			if (
-				e.target instanceof HTMLInputElement ||
-				e.target instanceof HTMLTextAreaElement
-			)
-				return;
-
-			// Escape pre zrušenie všetkého kreslenia
-			if (e.key === "Escape") {
-				// Zruš pen kreslenie
-				if (activeTool === "pen" && currentPenLine) {
-					setCurrentPenLine(null);
-					setPenPoints([]);
-					setIsDrawing(false);
-					toast.info("Pen drawing cancelled");
-				}
-
-				// Zruš polygon kreslenie
-				if (activeTool === "polygon" && isDrawingPolygon) {
-					setIsDrawingPolygon(false);
-					setPolygonPoints([]);
-					setCurrentShape(null);
-					toast.info("Polygon drawing cancelled");
-				}
-
-				// Zruš line kreslenie
-				if (activeTool === "line" && currentShape) {
-					setCurrentShape(null);
-					shapeStartPoint.current = null;
-					toast.info("Line drawing cancelled");
-				}
-
-				// Zruš healing source
-				if (healingData.isActive) {
-					setHealingData((prev) => ({ ...prev, isActive: false }));
-					setHealingSource(null);
-					toast.info("Healing source cleared");
-				}
-			}
-
-			// Enter pre dokončenie polygonu
-			if (e.key === "Enter" && activeTool === "polygon" && isDrawingPolygon) {
-				finishPolygonDrawing();
-			}
-
-			// Delete/Backspace pre vymazanie vybraného
-			if ((e.key === "Delete" || e.key === "Backspace") && selectedId) {
-				e.preventDefault();
-				deleteSelected();
-			}
-		};
-
-		const deleteSelected = () => {
-			if (selectedId) {
-				setShapes((prev) => prev.filter((s) => s.id !== selectedId));
-				setLines((prev) => prev.filter((l) => l.id !== selectedId));
-				setImages((prev) => prev.filter((i) => i.id !== selectedId));
-				setSelectedId(null);
-				saveCanvasState("Object deleted");
-				toast.success("Selection deleted");
-			}
-		};
-
-		const handleClearCanvas = () => {
-			setShapes([]);
-			setLines([]);
-			setImages([]);
-			setSelectedId(null);
-			setHealingData({
-				sourceX: 0,
-				sourceY: 0,
-				isActive: false,
-				brushSize: 20,
-			});
-			setBlurData({
-				isActive: false,
-				brushSize: 20,
-				intensity: 10,
-			});
-			setHealingSource(null);
-			saveCanvasState("Canvas cleared");
-			toast.success("Canvas cleared");
-		};
-
-		window.addEventListener("keydown", handleKeyDown);
-		window.addEventListener("artstudio:delete-selection", deleteSelected);
-		window.addEventListener("artstudio:clear-canvas", handleClearCanvas);
-
-		return () => {
-			window.removeEventListener("keydown", handleKeyDown);
-			window.removeEventListener("artstudio:delete-selection", deleteSelected);
-			window.removeEventListener("artstudio:clear-canvas", handleClearCanvas);
-		};
-	}, [
-		selectedId,
-		shapes,
-		lines,
-		images,
-		saveCanvasState,
-		activeTool,
-		currentPenLine,
-		isDrawingPolygon,
-		currentShape,
-		healingData,
-		setHealingSource,
-	]);
-
-	// Načítanie obrázkov
-	useEffect(() => {
-		if (loadedImages.length === 0) return;
-
-		const latestImage = loadedImages[loadedImages.length - 1];
-		const alreadyLoaded = images.some((img) => img.id === latestImage.id);
-		if (alreadyLoaded) return;
-
-		const img = new window.Image();
-		img.src = latestImage.src;
-		img.onload = () => {
-			const scale = Math.min(
-				(actualWidth * 0.8) / img.width,
-				(actualHeight * 0.8) / img.height,
-				1,
-			);
-
-			const newImage: ImageObject = {
-				id: latestImage.id,
-				src: latestImage.src,
-				x: (actualWidth - img.width * scale) / 2,
-				y: (actualHeight - img.height * scale) / 2,
-				width: img.width * scale,
-				height: img.height * scale,
-				layerId: activeLayerId || "layer-1", // POVINNÉ
-			};
-
-			setImages([...images, newImage]);
-			setSelectedId(newImage.id);
-			toast.success(`Image loaded: ${latestImage.name}`);
-			saveCanvasState("Image added");
-		};
-	}, [
-		loadedImages,
-		images,
-		actualWidth,
-		actualHeight,
-		saveCanvasState,
-		activeLayerId,
-	]);
-
-	// Update pomocných canvasov
-	useEffect(() => {
-		if (activeTool === "fill") {
-			updateFloodFillData();
-		}
-		if (activeTool === "eyedropper") {
-			updateEyedropperData();
-		}
-		if (activeTool === "healing") {
-			updateHealingData();
-		}
-		if (activeTool === "blur") {
-			updateBlurData();
-		}
-	}, [
-		activeTool,
-		updateFloodFillData,
-		updateEyedropperData,
-		updateHealingData,
-		updateBlurData,
-	]);
-
-	// Eyedropper funkcie
-	const parseColorToRgb = (color: string) => {
-		if (color.startsWith("#")) {
-			const hex = color.replace("#", "");
-			let r = 0,
-				g = 0,
-				b = 0;
-
-			if (hex.length === 3) {
-				r = parseInt(hex[0] + hex[0], 16);
-				g = parseInt(hex[1] + hex[1], 16);
-				b = parseInt(hex[2] + hex[2], 16);
-			} else if (hex.length === 6) {
-				r = parseInt(hex.substring(0, 2), 16);
-				g = parseInt(hex.substring(2, 4), 16);
-				b = parseInt(hex.substring(4, 6), 16);
-			}
-			return { r, g, b };
-		}
-
-		if (color.startsWith("rgb")) {
-			const match = color.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
-			if (match) {
-				return {
-					r: parseInt(match[1]),
-					g: parseInt(match[2]),
-					b: parseInt(match[3]),
+		if (activeTool === "clone" || activeTool === "healing" || activeTool === "blur") {
+			if (tempContext) {
+				const imgData = tempContext.canvas.toDataURL();
+				const newImg: ImageObject = {
+					id: generateId("pixel-stroke"),
+					src: imgData,
+					x: 0, y: 0, width: actualWidth, height: actualHeight,
+					layerId: activeLayerId || "layer-1",
 				};
+				setImages((prev) => [...prev, newImg]);
+				tempContext.clearRect(0, 0, actualWidth, actualHeight);
+				saveCanvasState(`${activeTool} stroke applied`);
 			}
 		}
-
-		return { r: 0, g: 0, b: 0 };
+		isPanning.current = false;
 	};
 
-	const getColorFromCanvas = useCallback(
-		(x: number, y: number) => {
-			if (!eyedropperContext.current) return null;
-
-			const ctx = eyedropperContext.current;
-			const pixelData = ctx.getImageData(
-				Math.floor(x),
-				Math.floor(y),
-				1,
-				1,
-			).data;
-
-			if (pixelData[3] === 0) {
-				return actualBackground;
-			}
-
-			const r = pixelData[0].toString(16).padStart(2, "0");
-			const g = pixelData[1].toString(16).padStart(2, "0");
-			const b = pixelData[2].toString(16).padStart(2, "0");
-			return `#${r}${g}${b}`;
-		},
-		[actualBackground],
-	);
-
-	const handleEyedropper = useCallback(
-		(x: number, y: number, isCtrlPressed: boolean = false) => {
-			updateEyedropperData();
-
-			const color = getColorFromCanvas(x, y);
-			if (color) {
-				if (isCtrlPressed) {
-					setSecondaryColor(color);
-					toast.success(`Secondary color set to ${color}`);
-				} else {
-					setPrimaryColor(color);
-					toast.success(`Primary color set to ${color}`);
-				}
-				return color;
-			}
-			return null;
-		},
-		[
-			updateEyedropperData,
-			getColorFromCanvas,
-			setPrimaryColor,
-			setSecondaryColor,
-		],
-	);
-
-	const floodFill = useCallback(
-		(
-			startX: number,
-			startY: number,
-			targetColor: string,
-			replacementColor: string,
-			tolerance: number = brushSettings.tolerance,
-		) => {
-			if (!floodFillImageData.current || !floodFillContext.current) {
-				return false;
-			}
-
-			const imageData = floodFillImageData.current;
-			const width = imageData.width;
-			const height = imageData.height;
-
-			const targetRgb = parseColorToRgb(targetColor);
-			const replacementRgb = parseColorToRgb(replacementColor);
-
-			const x = Math.floor(Math.max(0, Math.min(width - 1, startX)));
-			const y = Math.floor(Math.max(0, Math.min(height - 1, startY)));
-
-			const startIndex = (y * width + x) * 4;
-
-			const startR = imageData.data[startIndex];
-			const startG = imageData.data[startIndex + 1];
-			const startB = imageData.data[startIndex + 2];
-
-			// Zisti, či farba východiskového bodu je rovnaká ako cieľová farba
-			const startDistance = Math.sqrt(
-				Math.pow(startR - targetRgb.r, 2) +
-					Math.pow(startG - targetRgb.g, 2) +
-					Math.pow(startB - targetRgb.b, 2),
-			);
-
-			// Ak je farba už rovnaká, nevykonávaj vyplnenie
-			if (startDistance <= tolerance) {
-				return false;
-			}
-
-			// Použite boolean pole namiesto Uint8Array pre jednoduchšiu správu
-			const visited = new Array(width * height).fill(false);
-			const queue: Array<{ x: number; y: number }> = [{ x, y }];
-			visited[y * width + x] = true;
-			const processedPixels: { x: number; y: number }[] = [];
-
-			while (queue.length > 0) {
-				const point = queue.shift()!;
-				const px = point.x;
-				const py = point.y;
-
-				processedPixels.push({ x: px, y: py });
-
-				// Skontroluj susedné pixely
-				const directions = [
-					{ dx: 1, dy: 0 },
-					{ dx: -1, dy: 0 },
-					{ dx: 0, dy: 1 },
-					{ dx: 0, dy: -1 },
-				];
-
-				for (const dir of directions) {
-					const nx = px + dir.dx;
-					const ny = py + dir.dy;
-
-					// Skontroluj hranice
-					if (nx < 0 || nx >= width || ny < 0 || ny >= height) {
-						continue;
-					}
-
-					// Skontroluj, či už bol pixel navštívený
-					if (visited[ny * width + nx]) {
-						continue;
-					}
-
-					const index = (ny * width + nx) * 4;
-					const r = imageData.data[index];
-					const g = imageData.data[index + 1];
-					const b = imageData.data[index + 2];
-					const a = imageData.data[index + 3];
-
-					// Ignoruj priehľadné pixely
-					if (a === 0) {
-						continue;
-					}
-
-					// Vypočítaj vzdialenosť farby od farby východiskového bodu
-					const pixelColorDistance = Math.sqrt(
-						Math.pow(r - startR, 2) +
-							Math.pow(g - startG, 2) +
-							Math.pow(b - startB, 2),
-					);
-
-					// Ak je farba podobná (v rámci tolerance)
-					if (pixelColorDistance <= tolerance) {
-						visited[ny * width + nx] = true;
-						queue.push({ x: nx, y: ny });
-					}
-				}
-			}
-
-			// Ak nebolo spracovaných žiadnych pixelov, vráť false
-			if (processedPixels.length === 0) {
-				return false;
-			}
-
-			// Ulož pôvodné dáta pre historiu (voliteľné)
-			const originalData = new Uint8ClampedArray(imageData.data);
-
-			// Aplikuj novú farbu na všetky spracované pixely
-			for (const pixel of processedPixels) {
-				const index = (pixel.y * width + pixel.x) * 4;
-				imageData.data[index] = replacementRgb.r;
-				imageData.data[index + 1] = replacementRgb.g;
-				imageData.data[index + 2] = replacementRgb.b;
-				// Zachovaj alfa kanál
-				imageData.data[index + 3] = originalData[index + 3];
-			}
-
-			// Aktualizuj canvas
-			if (floodFillContext.current) {
-				floodFillContext.current.putImageData(imageData, 0, 0);
-
-				// Vytvor tvar vyplnenia (voliteľné, ak chcete mať vyplnenie ako samostatný objekt)
-				const minX = Math.min(...processedPixels.map((p) => p.x));
-				const minY = Math.min(...processedPixels.map((p) => p.y));
-				const maxX = Math.max(...processedPixels.map((p) => p.x));
-				const maxY = Math.max(...processedPixels.map((p) => p.y));
-
-				// Skontroluj, či sú rozsahy platné
-				if (minX <= maxX && minY <= maxY) {
-					const fillShape: ShapeObject = {
-						id: `fill-${Date.now()}`,
-						type: "rect",
-						x: minX,
-						y: minY,
-						width: Math.max(1, maxX - minX),
-						height: Math.max(1, maxY - minY),
-						fill: replacementColor,
-						layerId: activeLayerId || "layer-1",
-					};
-
-					setShapes((prev) => [...prev, fillShape]);
-				}
-
-				saveCanvasState("Fill applied");
-				toast.success(`Area filled with ${replacementColor}`);
-			}
-
-			return true;
-		},
-		[brushSettings.tolerance, activeLayerId, saveCanvasState],
-	);
-
-	// Healing brush funkcie
-	const applyHealingBrush = useCallback(
-		(targetX: number, targetY: number) => {
-			if (!healingContext.current || !healingData.isActive) {
-				toast.error("Set healing source first (Alt+click)");
-				return;
-			}
-
-			const brushSize = brushSettings.size;
-			const halfSize = Math.floor(brushSize / 2);
-
-			const sourceX = healingData.sourceX;
-			const sourceY = healingData.sourceY;
-
-			const sourceImageData = healingContext.current.getImageData(
-				Math.max(0, sourceX - halfSize),
-				Math.max(0, sourceY - halfSize),
-				brushSize,
-				brushSize,
-			);
-
-			const targetImageData = healingContext.current.getImageData(
-				Math.max(0, targetX - halfSize),
-				Math.max(0, targetY - halfSize),
-				brushSize,
-				brushSize,
-			);
-
-			for (let i = 0; i < targetImageData.data.length; i += 4) {
-				const sourceIdx = i;
-
-				const sr = sourceImageData.data[sourceIdx];
-				const sg = sourceImageData.data[sourceIdx + 1];
-				const sb = sourceImageData.data[sourceIdx + 2];
-				const sa = sourceImageData.data[sourceIdx + 3];
-
-				const tr = targetImageData.data[i];
-				const tg = targetImageData.data[i + 1];
-				const tb = targetImageData.data[i + 2];
-				const ta = targetImageData.data[i + 3];
-
-				if (sa > 0 && ta > 0) {
-					const blendFactor = 0.7;
-
-					targetImageData.data[i] = Math.round(
-						tr * (1 - blendFactor) + sr * blendFactor,
-					);
-					targetImageData.data[i + 1] = Math.round(
-						tg * (1 - blendFactor) + sg * blendFactor,
-					);
-					targetImageData.data[i + 2] = Math.round(
-						tb * (1 - blendFactor) + sb * blendFactor,
-					);
-				} else if (sa > 0) {
-					targetImageData.data[i] = sr;
-					targetImageData.data[i + 1] = sg;
-					targetImageData.data[i + 2] = sb;
-					targetImageData.data[i + 3] = sa;
-				}
-			}
-
-			healingContext.current.putImageData(
-				targetImageData,
-				Math.max(0, targetX - halfSize),
-				Math.max(0, targetY - halfSize),
-			);
-
-			const healedShape: ShapeObject = {
-				id: `healed-${Date.now()}`,
-				type: "rect",
-				x: Math.max(0, targetX - halfSize),
-				y: Math.max(0, targetY - halfSize),
-				width: brushSize,
-				height: brushSize,
-				fill: `rgba(255, 255, 255, 0.3)`,
-				layerId: activeLayerId || "layer-1", // POVINNÉ
-			};
-
-			setShapes((prev) => [...prev, healedShape]);
-			saveCanvasState("Healing applied");
-			toast.success("Area healed");
-		},
-		[healingData, brushSettings.size, activeLayerId, saveCanvasState],
-	);
-
-	// Blur brush funkcie
-	const applyBlurBrush = useCallback(
-		(targetX: number, targetY: number) => {
-			if (!blurContext.current) {
-				toast.error("Blur context not available");
-				return;
-			}
-
-			const brushSize = brushSettings.size;
-			const intensity = brushSettings.blurIntensity;
-			const halfSize = Math.floor(brushSize / 2);
-
-			const targetImageData = blurContext.current.getImageData(
-				Math.max(0, targetX - halfSize),
-				Math.max(0, targetY - halfSize),
-				brushSize,
-				brushSize,
-			);
-
-			const blurredData = new ImageData(
-				new Uint8ClampedArray(targetImageData.data),
-				targetImageData.width,
-				targetImageData.height,
-			);
-
-			const radius = Math.floor(intensity / 2);
-
-			for (let y = 0; y < brushSize; y++) {
-				for (let x = 0; x < brushSize; x++) {
-					let r = 0,
-						g = 0,
-						b = 0,
-						a = 0;
-					let count = 0;
-
-					for (let ky = -radius; ky <= radius; ky++) {
-						const ny = y + ky;
-						if (ny < 0 || ny >= brushSize) continue;
-
-						for (let kx = -radius; kx <= radius; kx++) {
-							const nx = x + kx;
-							if (nx < 0 || nx >= brushSize) continue;
-
-							const idx = (ny * brushSize + nx) * 4;
-							r += targetImageData.data[idx];
-							g += targetImageData.data[idx + 1];
-							b += targetImageData.data[idx + 2];
-							a += targetImageData.data[idx + 3];
-							count++;
-						}
-					}
-
-					const targetIdx = (y * brushSize + x) * 4;
-
-					if (count > 0) {
-						blurredData.data[targetIdx] = Math.round(r / count);
-						blurredData.data[targetIdx + 1] = Math.round(g / count);
-						blurredData.data[targetIdx + 2] = Math.round(b / count);
-						blurredData.data[targetIdx + 3] = Math.round(a / count);
-					}
-				}
-			}
-
-			blurContext.current.putImageData(
-				blurredData,
-				Math.max(0, targetX - halfSize),
-				Math.max(0, targetY - halfSize),
-			);
-
-			const blurredShape: ShapeObject = {
-				id: `blurred-${Date.now()}`,
-				type: "rect",
-				x: Math.max(0, targetX - halfSize),
-				y: Math.max(0, targetY - halfSize),
-				width: brushSize,
-				height: brushSize,
-				fill: `rgba(128, 128, 128, 0.1)`,
-				layerId: activeLayerId || "layer-1", // POVINNÉ
-			};
-
-			setShapes((prev) => [...prev, blurredShape]);
-			saveCanvasState("Blur applied");
-			toast.success(`Area blurred (intensity: ${intensity})`);
-		},
-		[
-			brushSettings.size,
-			brushSettings.blurIntensity,
-			activeLayerId,
-			saveCanvasState,
-		],
-	);
-
-	// Funkcia pre kontrolu viditeľnosti vrstvy
-	const isLayerVisible = useCallback(
-		(layerId?: string) => {
-			if (!layerId) return true;
-			const layer = layers.find((l) => l.id === layerId);
-			return layer ? layer.visible : true;
-		},
-		[layers],
-	);
-
-	// Loading indicator
-	if (isLoadingSession) {
-		return (
-			<div className="flex-1 flex items-center justify-center bg-canvas">
-				<div className="text-center">
-					<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-					<p className="text-muted-foreground">Loading your session...</p>
-					<p className="text-xs text-gray-500 mt-2">
-						Restoring your previous work
-					</p>
-				</div>
-			</div>
-		);
-	}
-
-	const getCursor = () => {
-		switch (activeTool) {
-			case "brush":
-			case "pencil":
-			case "eraser":
-			case "clone":
-			case "healing":
-			case "blur":
-			case "gradient":
-			case "pen":
-				return "crosshair";
-			case "hand":
-				return isPanning.current ? "grabbing" : "grab";
-			case "eyedropper":
-				return "crosshair";
-			case "zoom":
-				return "zoom-in";
-			case "fill":
-				return "cell";
-			case "text":
-				return "text";
-			case "rectangle":
-			case "ellipse":
-			case "polygon":
-			case "line":
-				return "crosshair";
-			default:
-				return "default";
-		}
-	};
-
-	const ImageNode: React.FC<{
-		image: ImageObject;
-		onClick: (id: string) => void;
-	}> = ({ image, onClick }) => {
-		const [img, setImg] = useState<HTMLImageElement | null>(null);
-
-		useEffect(() => {
-			const loadedImg = new window.Image();
-			loadedImg.src = image.src;
-			loadedImg.onload = () => setImg(loadedImg);
-		}, [image.src]);
-
-		const drawingTools = [
-			"brush",
-			"pencil",
-			"eraser",
-			"healing",
-			"blur",
-			"pen",
-		];
-
-		if (!img) return null;
-
-		return (
-			<KonvaImage
-				id={image.id}
-				image={img}
-				x={image.x}
-				y={image.y}
-				width={image.width}
-				height={image.height}
-				draggable={activeTool === "select" || activeTool === "move"}
-				listening={!drawingTools.includes(activeTool)}
-				onClick={() => {
-					if (!drawingTools.includes(activeTool)) {
-						onClick(image.id);
-					}
-				}}
-				onTap={() => {
-					if (!drawingTools.includes(activeTool)) {
-						onClick(image.id);
-					}
-				}}
-				onDragEnd={(e) => {
-					setImages(
-						images.map((i) =>
-							i.id === image.id
-								? { ...i, x: e.target.x(), y: e.target.y() }
-								: i,
-						),
-					);
-					saveCanvasState("Image moved");
-				}}
-				onTransformEnd={(e) => {
-					const node = e.target;
-					setImages(
-						images.map((i) =>
-							i.id === image.id
-								? {
-										...i,
-										x: node.x(),
-										y: node.y(),
-										width: node.width() * node.scaleX(),
-										height: node.height() * node.scaleY(),
-										rotation: node.rotation(),
-									}
-								: i,
-						),
-					);
-					node.scaleX(1);
-					node.scaleY(1);
-					saveCanvasState("Image transformed");
-				}}
-			/>
-		);
+	const handleDblClick = () => {
+		if (isDrawingPolygon) finishPolygonDrawing();
+		if (currentPenLine) finishPenDrawing();
 	};
 
 	const handleObjectClick = (id: string) => {
-		const drawingTools = [
-			"brush",
-			"pencil",
-			"eraser",
-			"healing",
-			"blur",
-			"pen",
-		];
-		if (!drawingTools.includes(activeTool)) {
-			setSelectedId(id);
-		}
+		if (activeTool === "select" || activeTool === "move") setSelectedId(id);
 	};
 
-	const renderPolygon = (shape: ShapeObject) => {
-		if (shape.points && shape.points.length >= 6) {
-			return (
-				<Line
-					key={shape.id}
-					id={shape.id}
-					points={shape.points}
-					closed={true}
-					fill={shape.fill}
-					stroke={shape.stroke}
-					strokeWidth={shape.strokeWidth}
-					draggable={activeTool === "select" || activeTool === "move"}
-					listening={false}
-					onClick={() => handleObjectClick(shape.id)}
-					onTap={() => handleObjectClick(shape.id)}
-					onDragEnd={(e) => {
-						const deltaX = e.target.x();
-						const deltaY = e.target.y();
-						const newPoints = shape.points?.map((point, index) =>
-							index % 2 === 0 ? point + deltaX : point + deltaY,
-						);
-						setShapes((prev) =>
-							prev.map((s) =>
-								s.id === shape.id
-									? {
-											...s,
-											points: newPoints,
-											x: s.x + deltaX,
-											y: s.y + deltaY,
-										}
-									: s,
-							),
-						);
-						saveCanvasState("Polygon moved");
-					}}
-				/>
-			);
-		}
-		return null;
+	const isLayerVisible = (id: string) => layers.find(l => l.id === id)?.visible !== false;
+
+	const getCursor = () => {
+		if (activeTool === "hand") return isPanning.current ? "grabbing" : "grab";
+		if (activeTool === "zoom") return "zoom-in";
+		if (["brush", "pencil", "eraser", "healing", "blur", "clone"].includes(activeTool)) return "crosshair";
+		if (["marquee", "lasso", "magicwand"].includes(activeTool)) return "cell";
+		if (activeTool === "text") return "text";
+		if (activeTool === "move") return "move";
+		if (activeTool === "eyedropper") return "wait";
+		return "default";
 	};
 
 	return (
-		<div
-			ref={containerRef}
-			className="flex-1 overflow-hidden bg-canvas relative flex items-center justify-center"
-			style={{ cursor: getCursor() }}
-		>
-			<div
-				className="absolute inset-0 opacity-20"
-				style={{
-					backgroundImage: `
-            linear-gradient(45deg, hsl(var(--muted)) 25%, transparent 25%),
-            linear-gradient(-45deg, hsl(var(--muted)) 25%, transparent 25%),
-            linear-gradient(45deg, transparent 75%, hsl(var(--muted)) 75%),
-            linear-gradient(-45deg, transparent 75%, hsl(var(--muted)) 75%)
-          `,
-					backgroundSize: "20px 20px",
-					backgroundPosition: "0 0, 0 10px, 10px -10px, -10px 0px",
-				}}
-			/>
+		<div ref={containerRef} className="flex-1 overflow-hidden bg-canvas relative flex items-center justify-center" style={{ cursor: getCursor() }}>
+			<div className="absolute inset-0 opacity-20" style={{
+				backgroundImage: `
+					linear-gradient(45deg, hsl(var(--muted)) 25%, transparent 25%),
+					linear-gradient(-45deg, hsl(var(--muted)) 25%, transparent 25%),
+					linear-gradient(45deg, transparent 75%, hsl(var(--muted)) 75%),
+					linear-gradient(-45deg, transparent 75%, hsl(var(--muted)) 75%)
+				`,
+				backgroundSize: "20px 20px",
+				backgroundPosition: "0 0, 0 10px, 10px -10px, -10px 0px",
+			}} />
 
-			{/* Session status indicator */}
 			{showSessionNotification && (
-				<div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-green-500/10 text-green-600 text-xs px-3 py-1.5 rounded-full border border-green-500/20 pointer-events-none z-20 flex items-center gap-2 transition-opacity duration-300">
+				<div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-green-500/10 text-green-600 text-xs px-3 py-1.5 rounded-full border border-green-500/20 pointer-events-none z-20 flex items-center gap-2">
 					<div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
 					<span>Session restored • Auto-save active</span>
 				</div>
 			)}
 
-			<div
-				className="relative shadow-2xl rounded-sm overflow-hidden"
-				style={{
-					transform: `scale(${zoom / 100}) translate(${panOffset.x}px, ${panOffset.y}px)`,
-					transformOrigin: "center center",
-					transition: "transform 0.1s ease-out",
-				}}
-			>
+			<div className="relative shadow-2xl rounded-sm overflow-hidden" style={{
+				transform: `scale(${zoom / 100}) translate(${panOffset.x}px, ${panOffset.y}px)`,
+				transformOrigin: "center center",
+				transition: "transform 0.1s ease-out",
+			}}>
 				<Stage
-					ref={stageRef}
-					width={actualWidth}
-					height={actualHeight}
-					onMouseDown={handleMouseDown}
-					onMouseMove={handleMouseMove}
-					onMouseUp={handleMouseUp}
-					onMouseLeave={handleMouseUp}
-					onDblClick={handleDblClick}
-					onTouchStart={(e) => {
-						const touch = e.evt.touches[0];
-						if (touch) {
-							const stage = stageRef.current;
-							if (stage) {
-								stage.setPointersPositions(e.evt);
-							}
-						}
-					}}
+					ref={stageRef} width={actualWidth} height={actualHeight}
+					onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp}
+					onMouseLeave={handleMouseUp} onDblClick={handleDblClick}
 				>
 					<Layer ref={layerRef}>
-						<Rect
-							name="background"
-							x={0}
-							y={0}
-							width={actualWidth}
-							height={actualHeight}
-							fill={actualBackground}
-							onClick={(e) => {
-								if (activeTool !== "select" && activeTool !== "move") {
-									e.cancelBubble = true;
-								}
-							}}
-						/>
+						<Rect name="background" x={0} y={0} width={actualWidth} height={actualHeight} fill={actualBackground} />
 
-						{lines
-							.filter((line) => isLayerVisible(line.layerId))
-							.map((line) => (
-								<Line
-									key={line.id}
-									id={line.id}
-									points={line.points}
-									stroke={line.stroke}
-									strokeWidth={line.strokeWidth}
-									tension={line.tool === "brush" ? 0.5 : 0}
-									lineCap="round"
-									lineJoin="round"
-									// KĽÚČOVÁ ZMENA: Pre eraser používame destination-out
-									globalCompositeOperation={
-										line.tool === "eraser" ? "destination-out" : "source-over"
-									}
-									opacity={line.tool === "eraser" ? 1 : undefined}
-									listening={false}
-								/>
-							))}
-
-						{images
-							.filter((img) => isLayerVisible(img.layerId))
-							.map((image) => (
-								<ImageNode
-									key={image.id}
-									image={image}
-									onClick={handleObjectClick}
-								/>
-							))}
-
-						{gradients
-							.filter((gradient) => isLayerVisible(gradient.layerId))
-							.map((gradient) => {
-								const x = Math.min(gradient.x0, gradient.x1);
-								const y = Math.min(gradient.y0, gradient.y1);
-								const width = Math.abs(gradient.x1 - gradient.x0);
-								const height = Math.abs(gradient.y1 - gradient.y0);
-
-								return (
-									<Rect
-										key={gradient.id}
-										id={gradient.id}
-										x={x}
-										y={y}
-										width={width}
-										height={height}
-										draggable={activeTool === "select" || activeTool === "move"}
-										listening={false}
-										onClick={() => handleObjectClick(gradient.id)}
-										onTap={() => handleObjectClick(gradient.id)}
-										onDragEnd={(e) => {
-											const deltaX = e.target.x() - x;
-											const deltaY = e.target.y() - y;
-
-											updateGradient(gradient.id, {
-												x0: gradient.x0 + deltaX,
-												y0: gradient.y0 + deltaY,
-												x1: gradient.x1 + deltaX,
-												y1: gradient.y1 + deltaY,
-											});
-											saveCanvasState("Gradient moved");
-										}}
-										fillLinearGradientStartPoint={{
-											x: gradient.x0 - x,
-											y: gradient.y0 - y,
-										}}
-										fillLinearGradientEndPoint={{
-											x: gradient.x1 - x,
-											y: gradient.y1 - y,
-										}}
-										fillLinearGradientColorStops={gradient.colorStops.flatMap(
-											(stop) => [stop.offset, stop.color],
-										)}
-									/>
-								);
-							})}
-
-						{shapes
-							.filter((shape) => isLayerVisible(shape.layerId))
-							.map((shape) => {
-								if (shape.type === "polygon") {
-									return renderPolygon(shape);
-								}
-
-								if (shape.type === "rect") {
-									return (
-										<Rect
-											key={shape.id}
-											id={shape.id}
-											x={shape.x}
-											y={shape.y}
-											width={shape.width}
-											height={shape.height}
-											fill={shape.fill}
-											stroke={shape.stroke}
-											strokeWidth={shape.strokeWidth}
-											draggable={
-												activeTool === "select" || activeTool === "move"
-											}
-											listening={false}
-											onClick={() => handleObjectClick(shape.id)}
-											onTap={() => handleObjectClick(shape.id)}
-											onDragEnd={(e) => {
-												setShapes(
-													shapes.map((s) =>
-														s.id === shape.id
-															? { ...s, x: e.target.x(), y: e.target.y() }
-															: s,
-													),
-												);
-												saveCanvasState("Shape moved");
-											}}
-										/>
-									);
-								}
-
-								if (shape.type === "ellipse") {
-									return (
-										<Ellipse
-											key={shape.id}
-											id={shape.id}
-											x={shape.x}
-											y={shape.y}
-											radiusX={shape.radiusX || 50}
-											radiusY={shape.radiusY || 50}
-											fill={shape.fill}
-											stroke={shape.stroke}
-											strokeWidth={shape.strokeWidth}
-											draggable={
-												activeTool === "select" || activeTool === "move"
-											}
-											listening={false}
-											onClick={() => handleObjectClick(shape.id)}
-											onTap={() => handleObjectClick(shape.id)}
-											onDragEnd={(e) => {
-												setShapes(
-													shapes.map((s) =>
-														s.id === shape.id
-															? { ...s, x: e.target.x(), y: e.target.y() }
-															: s,
-													),
-												);
-												saveCanvasState("Shape moved");
-											}}
-										/>
-									);
-								}
-
-								if (shape.type === "line") {
-									return (
-										<Line
-											key={shape.id}
-											id={shape.id}
-											points={shape.points || [0, 0, 100, 100]}
-											stroke={shape.fill}
-											strokeWidth={shape.strokeWidth}
-											lineCap="round"
-											draggable={
-												activeTool === "select" || activeTool === "move"
-											}
-											listening={false}
-											onClick={() => handleObjectClick(shape.id)}
-											onTap={() => handleObjectClick(shape.id)}
-										/>
-									);
-								}
-
-								if (shape.type === "text") {
-									return (
-										<Text
-											key={shape.id}
-											id={shape.id}
-											x={shape.x}
-											y={shape.y}
-											text={shape.text}
-											fontSize={shape.fontSize}
-											fill={shape.fill}
-											draggable={
-												activeTool === "select" || activeTool === "move"
-											}
-											listening={false}
-											onClick={() => handleObjectClick(shape.id)}
-											onTap={() => handleObjectClick(shape.id)}
-											onDblClick={(e) => {
-												const textNode = e.target as Konva.Text;
-												const stage = textNode.getStage();
-												if (!stage) return;
-
-												const textPosition = textNode.absolutePosition();
-												const areaPosition = {
-													x: stage.container().offsetLeft + textPosition.x,
-													y: stage.container().offsetTop + textPosition.y,
-												};
-
-												const textarea = document.createElement("textarea");
-												document.body.appendChild(textarea);
-
-												textarea.value = textNode.text();
-												textarea.style.position = "absolute";
-												textarea.style.top = areaPosition.y + "px";
-												textarea.style.left = areaPosition.x + "px";
-												textarea.style.width = textNode.width() + "px";
-												textarea.style.fontSize = textNode.fontSize() + "px";
-												textarea.style.border = "none";
-												textarea.style.padding = "0px";
-												textarea.style.margin = "0px";
-												textarea.style.overflow = "hidden";
-												textarea.style.background = "none";
-												textarea.style.outline = "none";
-												textarea.style.resize = "none";
-												textarea.style.color = textNode.fill() as string;
-												textarea.style.fontFamily = "Arial";
-												textarea.style.zIndex = "1000";
-
-												textarea.focus();
-
-												textarea.addEventListener("blur", () => {
-													setShapes(
-														shapes.map((s) =>
-															s.id === shape.id
-																? { ...s, text: textarea.value }
-																: s,
-														),
-													);
-													document.body.removeChild(textarea);
-													saveCanvasState("Text edited");
-												});
-											}}
-											onDragEnd={(e) => {
-												setShapes(
-													shapes.map((s) =>
-														s.id === shape.id
-															? { ...s, x: e.target.x(), y: e.target.y() }
-															: s,
-													),
-												);
-												saveCanvasState("Text moved");
-											}}
-										/>
-									);
-								}
-
-								return null;
-							})}
-
-						{/* Aktívny gradient pri kreslení */}
-						{currentGradient && activeTool === "gradient" && (
-							<Rect
-								x={Math.min(currentGradient.x0, currentGradient.x1)}
-								y={Math.min(currentGradient.y0, currentGradient.y1)}
-								width={Math.abs(currentGradient.x1 - currentGradient.x0)}
-								height={Math.abs(currentGradient.y1 - currentGradient.y0)}
-								fillLinearGradientStartPoint={{
-									x:
-										currentGradient.x0 -
-										Math.min(currentGradient.x0, currentGradient.x1),
-									y:
-										currentGradient.y0 -
-										Math.min(currentGradient.y0, currentGradient.y1),
-								}}
-								fillLinearGradientEndPoint={{
-									x:
-										currentGradient.x1 -
-										Math.min(currentGradient.x0, currentGradient.x1),
-									y:
-										currentGradient.y1 -
-										Math.min(currentGradient.y0, currentGradient.y1),
-								}}
-								fillLinearGradientColorStops={currentGradient.colorStops.flatMap(
-									(stop) => [stop.offset, stop.color],
-								)}
-								stroke="#666"
-								strokeWidth={1}
-								dash={[5, 5]}
-								listening={false}
-							/>
-						)}
-
-						{/* Aktívny tvar pri kreslení */}
-						{currentShape && currentShape.type === "rect" && (
-							<Rect
-								x={currentShape.x}
-								y={currentShape.y}
-								width={currentShape.width}
-								height={currentShape.height}
-								fill={currentShape.fill}
-								stroke={currentShape.stroke}
-								strokeWidth={currentShape.strokeWidth}
-								listening={false}
-							/>
-						)}
-
-						{currentShape && currentShape.type === "ellipse" && (
-							<Ellipse
-								x={currentShape.x}
-								y={currentShape.y}
-								radiusX={currentShape.radiusX || 1}
-								radiusY={currentShape.radiusY || 1}
-								fill={currentShape.fill}
-								stroke={currentShape.stroke}
-								strokeWidth={currentShape.strokeWidth}
-								listening={false}
-							/>
-						)}
-
-						{currentShape && currentShape.type === "line" && (
+						{lines.filter(l => isLayerVisible(l.layerId)).map(line => (
 							<Line
-								points={currentShape.points || [0, 0, 0, 0]}
-								stroke={currentShape.fill}
-								strokeWidth={currentShape.strokeWidth}
-								lineCap="round"
-								listening={false}
+								key={line.id} id={line.id} points={line.points} stroke={line.stroke} strokeWidth={line.strokeWidth}
+								tension={line.tool === "brush" ? 0.5 : 0} lineCap="round" lineJoin="round"
+								globalCompositeOperation={line.tool === "eraser" ? "destination-out" : "source-over"}
 							/>
-						)}
+						))}
 
-						{/* Polygon preview while drawing */}
-						{isDrawingPolygon &&
-							polygonPoints.length > 0 &&
-							currentShape &&
-							currentShape.type === "polygon" && (
-								<Line
-									points={currentShape.points || []}
-									closed={true}
-									fill={currentShape.fill}
-									stroke={currentShape.stroke}
-									strokeWidth={currentShape.strokeWidth}
-									listening={false}
-								/>
-							)}
-
-						{/* Pen preview while drawing */}
-						{currentPenLine && (
-							<Line
-								points={currentPenLine.points}
-								stroke={currentPenLine.stroke}
-								strokeWidth={currentPenLine.strokeWidth}
-								tension={0.5}
-								lineCap="round"
-								lineJoin="round"
-								listening={false}
-							/>
-						)}
-
-						<Transformer
-							ref={transformerRef}
-							boundBoxFunc={(oldBox, newBox) => {
-								if (newBox.width < 5 || newBox.height < 5) {
-									return oldBox;
+						{shapes.filter(s => isLayerVisible(s.layerId)).map(shape => {
+							const commonProps = {
+								draggable: activeTool === "select" || activeTool === "move",
+								onClick: () => handleObjectClick(shape.id),
+								onTap: () => handleObjectClick(shape.id),
+								onDragEnd: (e: any) => {
+									setShapes(shapes.map(s => s.id === shape.id ? { ...s, x: e.target.x(), y: e.target.y() } : s));
+									saveCanvasState(`${shape.type} moved`);
 								}
-								return newBox;
-							}}
-							enabledAnchors={[
-								"middle-left",
-								"middle-right",
-								"top-center",
-								"bottom-center",
-								"top-left",
-								"top-right",
-								"bottom-left",
-								"bottom-right",
-							]}
-							rotateEnabled={true}
-							borderEnabled={true}
-							anchorStroke="#0077ff"
-							anchorFill="#ffffff"
-							anchorStrokeWidth={2}
-							anchorSize={8}
-							borderStroke="#0077ff"
-							borderDash={[3, 3]}
-						/>
+							};
+							if (shape.type === "rect") return <Rect key={shape.id} id={shape.id} x={shape.x} y={shape.y} width={shape.width} height={shape.height} fill={shape.fill} stroke={shape.stroke} strokeWidth={shape.strokeWidth} rotation={shape.rotation} scaleX={shape.scaleX} scaleY={shape.scaleY} {...commonProps} />;
+							if (shape.type === "ellipse") return <Ellipse key={shape.id} id={shape.id} x={shape.x} y={shape.y} radiusX={shape.radiusX || 0} radiusY={shape.radiusY || 0} fill={shape.fill} stroke={shape.stroke} strokeWidth={shape.strokeWidth} rotation={shape.rotation} scaleX={shape.scaleX} scaleY={shape.scaleY} {...commonProps} />;
+							if (shape.type === "polygon") return <Line key={shape.id} id={shape.id} points={shape.points} closed fill={shape.fill} stroke={shape.stroke} strokeWidth={shape.strokeWidth} rotation={shape.rotation} scaleX={shape.scaleX} scaleY={shape.scaleY} lineJoin="round" lineCap="round" {...commonProps} />;
+							if (shape.type === "text") return <Text key={shape.id} id={shape.id} text={shape.text} x={shape.x} y={shape.y} fontSize={shape.fontSize} fill={shape.fill} rotation={shape.rotation} scaleX={shape.scaleX} scaleY={shape.scaleY} {...commonProps} />;
+							return null;
+						})}
+
+						{gradients.filter(g => isLayerVisible(g.layerId)).map(g => (
+							<Rect key={g.id} x={0} y={0} width={actualWidth} height={actualHeight} fillLinearGradientStartPoint={{ x: g.x0, y: g.y0 }} fillLinearGradientEndPoint={{ x: g.x1, y: g.y1 }} fillLinearGradientColorStops={(g.colorStops || []).flatMap(s => [s.offset, s.color])} listening={false} />
+						))}
+
+						{images.filter(img => isLayerVisible(img.layerId)).map(img => (
+							<ImageNode
+								key={img.id}
+								image={img}
+								onClick={handleObjectClick}
+								draggable={activeTool === "select" || activeTool === "move"}
+								onDragEnd={(id, x, y) => {
+									setImages(images.map(i => i.id === id ? { ...i, x, y } : i));
+									saveCanvasState("Image moved");
+								}}
+							/>
+						))}
+
+						{currentShape && currentShape.type === "rect" && <Rect id="preview-rect" x={currentShape.x} y={currentShape.y} width={currentShape.width} height={currentShape.height} fill={currentShape.fill} stroke={currentShape.stroke} strokeWidth={currentShape.strokeWidth} />}
+						{currentShape && currentShape.type === "ellipse" && <Ellipse id="preview-ellipse" x={currentShape.x} y={currentShape.y} radiusX={currentShape.radiusX || 0} radiusY={currentShape.radiusY || 0} fill={currentShape.fill} stroke={currentShape.stroke} strokeWidth={currentShape.strokeWidth} />}
+						{currentShape && currentShape.type === "polygon" && <Line id="preview-polygon" points={currentShape.points} closed={false} stroke={currentShape.stroke} strokeWidth={currentShape.strokeWidth} lineJoin="round" lineCap="round" />}
+
+						{currentPenLine && <Line points={currentPenLine.points} stroke={currentPenLine.stroke} strokeWidth={currentPenLine.strokeWidth} />}
+
+						{tempContext && <KonvaImage image={tempContext.canvas} x={0} y={0} opacity={0.8} listening={false} />}
+
+						{currentGradient && <Rect x={0} y={0} width={actualWidth} height={actualHeight} fillLinearGradientStartPoint={{ x: currentGradient.x0, y: currentGradient.y0 }} fillLinearGradientEndPoint={{ x: currentGradient.x1, y: currentGradient.y1 }} fillLinearGradientColorStops={(currentGradient.colorStops || []).flatMap(s => [s.offset, s.color])} listening={false} />}
+
+						{selectionBounds && <Rect {...selectionBounds} stroke="#3b82f6" strokeWidth={1} dash={[4, 2]} fill="rgba(59, 130, 246, 0.1)" />}
+						{selectionPath && selectionPath.length >= 4 && <Line points={selectionPath} stroke="#3b82f6" strokeWidth={1} dash={[5, 5]} closed fill="rgba(59, 130, 246, 0.1)" />}
+
+						{selectedId && <Transformer ref={transformerRef} />}
 					</Layer>
 				</Stage>
 			</div>
 
-			{/* Healing source indicator */}
-			{healingData.isActive && activeTool === "healing" && (
-				<div
-					className="absolute border-2 border-blue-500 pointer-events-none z-10 rounded-full"
-					style={{
-						left: `${healingData.sourceX}px`,
-						top: `${healingData.sourceY}px`,
-						width: `${brushSettings.size}px`,
-						height: `${brushSettings.size}px`,
-						transform: `translate(-50%, -50%) scale(${zoom / 100})`,
-						transformOrigin: "center center",
-						borderStyle: "dashed",
-					}}
-				>
-					<div className="absolute -top-6 left-1/2 transform -translate-x-1/2 text-xs bg-blue-500 text-white px-2 py-1 rounded whitespace-nowrap">
-						Healing Source
-					</div>
-				</div>
-			)}
-
-			{/* Tool instructions */}
-			{activeTool === "pen" && (
-				<div className="absolute bottom-4 left-4 bg-black/70 text-white text-xs px-3 py-2 rounded pointer-events-none z-10">
-					<div>Pen Tool</div>
-					<div className="text-gray-300">
-						Click to add points, right-click or double-click to finish
-					</div>
-					<div className="text-gray-400 text-[10px] mt-1">
-						Press ESC to cancel
-					</div>
-				</div>
-			)}
-
-			{activeTool === "polygon" && (
-				<div className="absolute bottom-4 left-4 bg-black/70 text-white text-xs px-3 py-2 rounded pointer-events-none z-10">
-					<div>Polygon Tool</div>
-					<div className="text-gray-300">
-						Click to add vertices, right-click, double-click or press Enter to
-						finish
-					</div>
-					<div className="text-gray-400 text-[10px] mt-1">
-						Press ESC to cancel
-					</div>
-				</div>
-			)}
-
-			{activeTool === "line" && (
-				<div className="absolute bottom-4 left-4 bg-black/70 text-white text-xs px-3 py-2 rounded pointer-events-none z-10">
-					<div>Line Tool</div>
-					<div className="text-gray-300">Click and drag to draw a line</div>
-				</div>
-			)}
-
-			{activeTool === "blur" && (
-				<div className="absolute bottom-4 left-4 bg-black/70 text-white text-xs px-3 py-2 rounded pointer-events-none z-10">
-					<div>Blur Tool</div>
-					<div className="text-gray-300">
-						Size: {brushSettings.size}px | Intensity:{" "}
-						{brushSettings.blurIntensity}
-					</div>
-				</div>
-			)}
-
-			{/* Zoom level indicator */}
 			<div className="absolute bottom-4 right-4 bg-black/50 text-white text-xs px-3 py-1.5 rounded pointer-events-none z-10">
-				Zoom: {zoom}%
+				Zoom: {zoom}% | {actualWidth} × {actualHeight}px
 			</div>
 
-			{/* Canvas dimensions */}
-			<div className="absolute top-4 right-4 bg-black/50 text-white text-xs px-3 py-1.5 rounded pointer-events-none z-10">
-				{actualWidth} × {actualHeight}px
-			</div>
-
-			{/* Hidden canvases */}
 			<canvas ref={floodFillCanvas} style={{ display: "none" }} />
 			<canvas ref={eyedropperCanvas} style={{ display: "none" }} />
 			<canvas ref={healingCanvas} style={{ display: "none" }} />
