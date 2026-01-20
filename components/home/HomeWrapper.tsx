@@ -7,10 +7,10 @@ import { BrushPanel } from "@/components/panels/BrushPanel";
 import { ColorPanel } from "@/components/panels/ColorPanel";
 import { LayersPanel } from "@/components/panels/LayersPanel";
 import { HistoryPanel } from "@/components/panels/HistoryPanel";
-import { KonvaCanvas } from "@/components/canvas/KonvaCanvas";
 import { useArtStudioStore } from "@/stores/artStudioStore";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useEffect, useState } from "react";
+import KonvaCanvas from "../canvas/KonvaCanvas";
 
 const HomeWrapper = () => {
 	const [isSessionInitialized, setIsSessionInitialized] = useState(false);
@@ -208,7 +208,7 @@ const HomeWrapper = () => {
 
 					{/* Canvas */}
 					<div className="flex-1 overflow-auto p-4">
-						<KonvaCanvas />
+						<KonvaCanvas width={1920} height={1080} backgroundColor="#2d3748" />
 					</div>
 				</div>
 
