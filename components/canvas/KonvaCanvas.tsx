@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useEffect, useState, useCallback, FC } from "react";
+import React, { useRef, useEffect, useState, useCallback } from "react";
 import {
 	Stage,
 	Layer,
@@ -123,11 +123,11 @@ const ImageNode = ({ image, onClick, onDragEnd, draggable }: { image: ImageObjec
 	);
 };
 
-const KonvaCanvas: FC<any> = ({
+const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 	width = 1920,
 	height = 1080,
 	backgroundColor = "#2d3748",
-}: KonvaCanvasProps) => {
+}) => {
 	const stageRef = useRef<Konva.Stage>(null);
 	const layerRef = useRef<Konva.Layer>(null);
 	const containerRef = useRef<HTMLDivElement>(null);
@@ -370,8 +370,6 @@ const KonvaCanvas: FC<any> = ({
 			y: Math.max(0, Math.min(actualHeight, pos.y)),
 		};
 	}, [actualWidth, actualHeight]);
-
-
 
 	const handleMagicWand = useCallback((startX: number, startY: number) => {
 		updateAuxCanvases();
@@ -921,290 +919,289 @@ const KonvaCanvas: FC<any> = ({
 				stroke: primaryColor, strokeWidth: 2, fill: `${primaryColor}40`,
 				layerId: activeLayerId || "layer-1"
 			});
-			if (isDrawing) continueDrawing(pos);
+		}
 
-			if (currentShape && shapeStartPoint.current) {
-				if (currentShape.type === "rect") {
-					const x = Math.min(shapeStartPoint.current.x, pos.x);
-					const y = Math.min(shapeStartPoint.current.y, pos.y);
-					const width = Math.abs(pos.x - shapeStartPoint.current.x);
-					const height = Math.abs(pos.y - shapeStartPoint.current.y);
-					setCurrentShape({ ...currentShape, x, y, width, height });
-				} else if (currentShape.type === "ellipse") {
-					const radiusX = Math.abs(pos.x - shapeStartPoint.current.x);
-					const radiusY = Math.abs(pos.y - shapeStartPoint.current.y);
-					setCurrentShape({ ...currentShape, radiusX, radiusY });
-				} else if (currentShape.type === "star" as any) {
-					const radius = Math.sqrt((pos.x - currentShape.x) ** 2 + (pos.y - currentShape.y) ** 2);
-					setCurrentShape({ ...currentShape, radius });
-				} else if (currentShape.type === "line" as any) {
-					setCurrentShape({ ...currentShape, points: [shapeStartPoint.current.x, shapeStartPoint.current.y, pos.x, pos.y] });
-				}
+		if (isDrawing) {
+			continueDrawing(pos);
+		}
+
+		if (currentShape && shapeStartPoint.current) {
+			if (currentShape.type === "rect") {
+				const x = Math.min(shapeStartPoint.current.x, pos.x);
+				const y = Math.min(shapeStartPoint.current.y, pos.y);
+				const width = Math.abs(pos.x - shapeStartPoint.current.x);
+				const height = Math.abs(pos.y - shapeStartPoint.current.y);
+				setCurrentShape({ ...currentShape, x, y, width, height });
+			} else if (currentShape.type === "ellipse") {
+				const radiusX = Math.abs(pos.x - shapeStartPoint.current.x);
+				const radiusY = Math.abs(pos.y - shapeStartPoint.current.y);
+				setCurrentShape({ ...currentShape, radiusX, radiusY });
+			} else if (currentShape.type === "star" as any) {
+				const radius = Math.sqrt((pos.x - currentShape.x) ** 2 + (pos.y - currentShape.y) ** 2);
+				setCurrentShape({ ...currentShape, radius });
+			} else if (currentShape.type === "line" as any) {
+				setCurrentShape({ ...currentShape, points: [shapeStartPoint.current.x, shapeStartPoint.current.y, pos.x, pos.y] });
 			}
+		}
 
-			if (isDrawingGradient && currentGradient && gradientStartPoint.current) {
-				setCurrentGradient({
-					...currentGradient,
-					x1: pos.x, y1: pos.y
+		if (isDrawingGradient && currentGradient && gradientStartPoint.current) {
+			setCurrentGradient({
+				...currentGradient,
+				x1: pos.x, y1: pos.y
+			});
+		}
+
+		if (currentShape && shapeStartPoint.current && activeTool === "polygon") {
+			const startX = shapeStartPoint.current.x;
+			const startY = shapeStartPoint.current.y;
+			const radius = Math.sqrt((pos.x - startX) ** 2 + (pos.y - startY) ** 2);
+			const rotation = Math.atan2(pos.y - startY, pos.x - startX);
+			const sides = brushSettings.sides || 5;
+			const points: number[] = [];
+			for (let i = 0; i < sides; i++) {
+				const angle = (i * 2 * Math.PI) / sides - Math.PI / 2 + rotation;
+				points.push(startX + radius * Math.cos(angle), startY + radius * Math.sin(angle));
+			}
+			setCurrentShape({
+				...currentShape,
+				points: points
+			});
+		}
+
+		if (isPanning.current) {
+			const deltaX = e.evt.clientX - lastPanPos.current.x;
+			const deltaY = e.evt.clientY - lastPanPos.current.y;
+
+			setPanOffset({
+				x: panOffset.x + deltaX,
+				y: panOffset.y + deltaY
+			});
+			lastPanPos.current = { x: e.evt.clientX, y: e.evt.clientY };
+		}
+	};
+
+	const handleMouseUp = () => {
+		if (isSelecting) {
+			setIsSelecting(false);
+			if (activeTool === "marquee" && selectionBounds) {
+				const { x, y, width, height } = selectionBounds;
+				const selectedShapes = shapes.filter(s => {
+					if (s.type === "rect") {
+						return s.x < x + width && s.x + (s.width || 0) > x && s.y < y + height && s.y + (s.height || 0) > y;
+					}
+					if (s.type === "ellipse") {
+						return s.x - (s.radiusX || 0) < x + width && s.x + (s.radiusX || 0) > x && s.y - (s.radiusY || 0) < y + height && s.y + (s.radiusY || 0) > y;
+					}
+					return s.x >= x && s.x <= x + width && s.y >= y && s.y <= y + height;
 				});
+				const selectedImgs = images.filter(img => {
+					return img.x < x + width && img.x + img.width > x && img.y < y + height && img.y + img.height > y;
+				});
+
+				if (selectedShapes.length > 0) setSelectedId(selectedShapes[selectedShapes.length - 1].id);
+				else if (selectedImgs.length > 0) setSelectedId(selectedImgs[selectedImgs.length - 1].id);
+				else setSelectedId(null);
+			} else if (activeTool === "lasso" && selectionPath && selectionPath.length >= 6) {
+				let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+				for (let i = 0; i < selectionPath.length; i += 2) {
+					minX = Math.min(minX, selectionPath[i]);
+					minY = Math.min(minY, selectionPath[i + 1]);
+					maxX = Math.max(maxX, selectionPath[i]);
+					maxY = Math.max(maxY, selectionPath[i + 1]);
+				}
+				const selectedShapes = shapes.filter(s => s.x < maxX && s.x + (s.width || 0) > minX && s.y < maxY && s.y + (s.height || 0) > minY);
+				const selectedImgs = images.filter(img => img.x < maxX && img.x + img.width > minX && img.y < maxY && img.y + img.height > minY);
+
+				if (selectedShapes.length > 0) setSelectedId(selectedShapes[selectedShapes.length - 1].id);
+				else if (selectedImgs.length > 0) setSelectedId(selectedImgs[selectedImgs.length - 1].id);
+				else setSelectedId(null);
 			}
+			setSelectionStartPoint(null);
+		}
+		if (isDrawing) stopDrawing();
+		if (currentShape && (currentShape.type === "rect" || currentShape.type === "ellipse" || currentShape.type === "polygon" || currentShape.type === "line" as any)) {
+			setShapes((prev) => [...prev, currentShape]);
+			setCurrentShape(null);
+			saveCanvasState(`${currentShape.type} created`);
+		}
+		if (isDrawingGradient && currentGradient) {
+			setIsDrawingGradient(false);
+			addGradient(currentGradient);
+			setCurrentGradient(null);
+			saveCanvasState("Gradient added");
+		}
+		if (activeTool === "clone" || activeTool === "healing" || activeTool === "blur" || activeTool === "dodge" || activeTool === "burn") {
+			if (tempContext) {
+				// Optimization: instead of full canvas, just save the part that was modified?
+				// For now, let's stick to full canvas but maybe a lower quality or better management.
+				// Better: Use a permanent hidden canvas for these effects and just draw it.
+				const imgData = tempContext.canvas.toDataURL();
+				const newImg: ImageObject = {
+					id: generateId("pixel-stroke"),
+					src: imgData,
+					x: 0, y: 0, width: actualWidth, height: actualHeight,
+					layerId: activeLayerId || "layer-1",
+				};
+				setImages((prev) => [...prev, newImg]);
+				// Don't clear if we want to keep it? No, we add it to shapes so we clear temp.
+				tempContext.clearRect(0, 0, actualWidth, actualHeight);
+				saveCanvasState(`${activeTool} stroke applied`);
+			}
+		}
+		isPanning.current = false;
+	};
 
-			if (currentShape && shapeStartPoint.current && activeTool === "polygon") {
-				const startX = shapeStartPoint.current.x;
+	const handleDblClick = () => {
+		if (isDrawingPolygon) finishPolygonDrawing();
+		if (currentPenLine) finishPenDrawing();
+		if (activeTool === "crop") applyCrop();
+	};
 
-				if (currentShape && shapeStartPoint.current && activeTool === "polygon") {
-					const startX = shapeStartPoint.current.x;
-					const startY = shapeStartPoint.current.y;
-					const radius = Math.sqrt((pos.x - startX) ** 2 + (pos.y - startY) ** 2);
-					const rotation = Math.atan2(pos.y - startY, pos.x - startX);
-					const sides = brushSettings.sides || 5;
-					const points: number[] = [];
-					for (let i = 0; i < sides; i++) {
-						const angle = (i * 2 * Math.PI) / sides - Math.PI / 2 + rotation;
-						points.push(startX + radius * Math.cos(angle), startY + radius * Math.sin(angle));
-					}
-					setCurrentShape({
-						...currentShape,
-						points: points
-					});
+	const handleObjectClick = (id: string, e?: Konva.KonvaEventObject<MouseEvent>) => {
+		if (activeTool === "select" || activeTool === "move") {
+			setSelectedId(id);
+		} else if (activeTool === "text") {
+			const shape = shapes.find(s => s.id === id);
+			if (shape && shape.type === "text") {
+				const newText = prompt("Edit text:", shape.text);
+				if (newText !== null) {
+					setShapes(shapes.map(s => s.id === id ? { ...s, text: newText } : s));
+					saveCanvasState("Text edited");
 				}
+			}
+		}
+	};
 
-				if (isPanning.current) {
-					const deltaX = e.evt.clientX - lastPanPos.current.x;
-					const deltaY = e.evt.clientY - lastPanPos.current.y;
+	const isLayerVisible = (id: string) => layers.find(l => l.id === id)?.visible !== false;
 
-					setPanOffset({
-						x: panOffset.x + deltaX,
-						y: panOffset.y + deltaY
-					});
-					lastPanPos.current = { x: e.evt.clientX, y: e.evt.clientY };
-				}
-			};
+	const getCursor = () => {
+		if (activeTool === "hand") return isPanning.current ? "grabbing" : "grab";
+		if (activeTool === "zoom") return "zoom-in";
+		if (["brush", "pencil", "eraser", "healing", "blur", "clone"].includes(activeTool)) return "crosshair";
+		if (["marquee", "lasso", "magicwand"].includes(activeTool)) return "crosshair";
+		if (activeTool === "text") return "text";
+		if (activeTool === "move") return "move";
+		if (activeTool === "eyedropper") return "copy";
+		if (activeTool === "fill") return "alias";
+		return "default";
+	};
 
-			const handleMouseUp = () => {
-				if (isSelecting) {
-					setIsSelecting(false);
-					if (activeTool === "marquee" && selectionBounds) {
-						const { x, y, width, height } = selectionBounds;
-						const selectedShapes = shapes.filter(s => {
-							if (s.type === "rect") {
-								return s.x < x + width && s.x + (s.width || 0) > x && s.y < y + height && s.y + (s.height || 0) > y;
-							}
-							if (s.type === "ellipse") {
-								return s.x - (s.radiusX || 0) < x + width && s.x + (s.radiusX || 0) > x && s.y - (s.radiusY || 0) < y + height && s.y + (s.radiusY || 0) > y;
-							}
-							return s.x >= x && s.x <= x + width && s.y >= y && s.y <= y + height;
-						});
-						const selectedImgs = images.filter(img => {
-							return img.x < x + width && img.x + img.width > x && img.y < y + height && img.y + img.height > y;
-						});
-
-						if (selectedShapes.length > 0) setSelectedId(selectedShapes[selectedShapes.length - 1].id);
-						else if (selectedImgs.length > 0) setSelectedId(selectedImgs[selectedImgs.length - 1].id);
-						else setSelectedId(null);
-					} else if (activeTool === "lasso" && selectionPath && selectionPath.length >= 6) {
-						let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-						for (let i = 0; i < selectionPath.length; i += 2) {
-							minX = Math.min(minX, selectionPath[i]);
-							minY = Math.min(minY, selectionPath[i + 1]);
-							maxX = Math.max(maxX, selectionPath[i]);
-							maxY = Math.max(maxY, selectionPath[i + 1]);
-						}
-						const selectedShapes = shapes.filter(s => s.x < maxX && s.x + (s.width || 0) > minX && s.y < maxY && s.y + (s.height || 0) > minY);
-						const selectedImgs = images.filter(img => img.x < maxX && img.x + img.width > minX && img.y < maxY && img.y + img.height > minY);
-
-						if (selectedShapes.length > 0) setSelectedId(selectedShapes[selectedShapes.length - 1].id);
-						else if (selectedImgs.length > 0) setSelectedId(selectedImgs[selectedImgs.length - 1].id);
-						else setSelectedId(null);
-					}
-					setSelectionStartPoint(null);
-				}
-				if (isDrawing) stopDrawing();
-				if (currentShape && (currentShape.type === "rect" || currentShape.type === "ellipse" || currentShape.type === "polygon" || currentShape.type === "line" as any)) {
-					setShapes((prev) => [...prev, currentShape]);
-					setCurrentShape(null);
-					saveCanvasState(`${currentShape.type} created`);
-				}
-				if (isDrawingGradient && currentGradient) {
-					setIsDrawingGradient(false);
-					addGradient(currentGradient);
-					setCurrentGradient(null);
-					saveCanvasState("Gradient added");
-				}
-				if (activeTool === "clone" || activeTool === "healing" || activeTool === "blur" || activeTool === "dodge" || activeTool === "burn") {
-					if (tempContext) {
-						// Optimization: instead of full canvas, just save the part that was modified?
-						// For now, let's stick to full canvas but maybe a lower quality or better management.
-						// Better: Use a permanent hidden canvas for these effects and just draw it.
-						const imgData = tempContext.canvas.toDataURL();
-						const newImg: ImageObject = {
-							id: generateId("pixel-stroke"),
-							src: imgData,
-							x: 0, y: 0, width: actualWidth, height: actualHeight,
-							layerId: activeLayerId || "layer-1",
-						};
-						setImages((prev) => [...prev, newImg]);
-						// Don't clear if we want to keep it? No, we add it to shapes so we clear temp.
-						tempContext.clearRect(0, 0, actualWidth, actualHeight);
-						saveCanvasState(`${activeTool} stroke applied`);
-					}
-				}
-				isPanning.current = false;
-			};
-
-			const handleDblClick = () => {
-				if (isDrawingPolygon) finishPolygonDrawing();
-				if (currentPenLine) finishPenDrawing();
-				if (activeTool === "crop") applyCrop();
-			};
-
-			const handleObjectClick = (id: string, e?: Konva.KonvaEventObject<MouseEvent>) => {
-				if (activeTool === "select" || activeTool === "move") {
-					setSelectedId(id);
-				} else if (activeTool === "text") {
-					const shape = shapes.find(s => s.id === id);
-					if (shape && shape.type === "text") {
-						const newText = prompt("Edit text:", shape.text);
-						if (newText !== null) {
-							setShapes(shapes.map(s => s.id === id ? { ...s, text: newText } : s));
-							saveCanvasState("Text edited");
-						}
-					}
-				}
-			};
-
-			const isLayerVisible = (id: string) => layers.find(l => l.id === id)?.visible !== false;
-
-			const getCursor = () => {
-				if (activeTool === "hand") return isPanning.current ? "grabbing" : "grab";
-				if (activeTool === "zoom") return "zoom-in";
-				if (["brush", "pencil", "eraser", "healing", "blur", "clone"].includes(activeTool)) return "crosshair";
-				if (["marquee", "lasso", "magicwand"].includes(activeTool)) return "crosshair";
-				if (activeTool === "text") return "text";
-				if (activeTool === "move") return "move";
-				if (activeTool === "eyedropper") return "copy";
-				if (activeTool === "fill") return "alias";
-				return "default";
-			};
-
-			return (
-				<div ref={containerRef} className="flex-1 overflow-hidden bg-canvas relative flex items-center justify-center" style={{ cursor: getCursor() }}>
-					<div className="absolute inset-0 opacity-20 pointer-events-none" style={{
-						backgroundImage: `
+	return (
+		<div ref={containerRef} className="flex-1 overflow-hidden bg-canvas relative flex items-center justify-center" style={{ cursor: getCursor() }}>
+			<div className="absolute inset-0 opacity-20 pointer-events-none" style={{
+				backgroundImage: `
 					linear-gradient(45deg, hsl(var(--muted)) 25%, transparent 25%),
 					linear-gradient(-45deg, hsl(var(--muted)) 25%, transparent 25%),
 					linear-gradient(45deg, transparent 75%, hsl(var(--muted)) 75%),
 					linear-gradient(-45deg, transparent 75%, hsl(var(--muted)) 75%)
 				`,
-						backgroundSize: "20px 20px",
-						backgroundPosition: "0 0, 0 10px, 10px -10px, -10px 0px",
-					}} />
+				backgroundSize: "20px 20px",
+				backgroundPosition: "0 0, 0 10px, 10px -10px, -10px 0px",
+			}} />
 
-					{showSessionNotification && (
-						<div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-green-500/10 text-green-600 text-xs px-3 py-1.5 rounded-full border border-green-500/20 pointer-events-none z-20 flex items-center gap-2">
-							<div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-							<span>Session restored • Auto-save active</span>
-						</div>
-					)}
-
-					<div className="relative shadow-2xl rounded-sm overflow-hidden bg-white">
-						<Stage
-							ref={stageRef}
-							width={actualWidth}
-							height={actualHeight}
-							scaleX={zoom / 100}
-							scaleY={zoom / 100}
-							x={panOffset.x}
-							y={panOffset.y}
-							onMouseDown={handleMouseDown}
-							onMouseMove={handleMouseMove}
-							onMouseUp={handleMouseUp}
-							onMouseLeave={handleMouseUp}
-							onDblClick={handleDblClick}
-						>
-							<Layer ref={layerRef}>
-								<Rect name="background" x={0} y={0} width={actualWidth} height={actualHeight} fill={actualBackground} />
-
-								{lines.filter(l => isLayerVisible(l.layerId)).map(line => (
-									<Line
-										key={line.id} id={line.id} points={line.points} stroke={line.stroke} strokeWidth={line.strokeWidth}
-										tension={line.tool === "brush" ? 0.5 : 0} lineCap="round" lineJoin="round"
-										globalCompositeOperation={line.tool === "eraser" ? "destination-out" : "source-over"}
-									/>
-								))}
-
-								{shapes.filter(s => isLayerVisible(s.layerId)).map(shape => {
-									const commonProps = {
-										draggable: activeTool === "select" || activeTool === "move",
-										onClick: () => handleObjectClick(shape.id),
-										onTap: () => handleObjectClick(shape.id),
-										onDragEnd: (e: any) => {
-											setShapes(shapes.map(s => s.id === shape.id ? { ...s, x: e.target.x(), y: e.target.y() } : s));
-											saveCanvasState(`${shape.type} moved`);
-										}
-									};
-									if (shape.type === "rect") return <Rect key={shape.id} id={shape.id} x={shape.x} y={shape.y} width={shape.width} height={shape.height} fill={shape.fill} stroke={shape.stroke} strokeWidth={shape.strokeWidth} rotation={shape.rotation} scaleX={shape.scaleX} scaleY={shape.scaleY} {...commonProps} />;
-									if (shape.type === "ellipse") return <Ellipse key={shape.id} id={shape.id} x={shape.x} y={shape.y} radiusX={shape.radiusX || 0} radiusY={shape.radiusY || 0} fill={shape.fill} stroke={shape.stroke} strokeWidth={shape.strokeWidth} rotation={shape.rotation} scaleX={shape.scaleX} scaleY={shape.scaleY} {...commonProps} />;
-									if (shape.type === "polygon") return <Line key={shape.id} id={shape.id} points={shape.points} closed fill={shape.fill} stroke={shape.stroke} strokeWidth={shape.strokeWidth} rotation={shape.rotation} scaleX={shape.scaleX} scaleY={shape.scaleY} lineJoin="round" lineCap="round" {...commonProps} />;
-									if (shape.type === "text") return <Text key={shape.id} id={shape.id} text={shape.text} x={shape.x} y={shape.y} fontSize={shape.fontSize} fill={shape.fill} rotation={shape.rotation} scaleX={shape.scaleX} scaleY={shape.scaleY} {...commonProps} />;
-									if (shape.type === "line" as any) return <Line key={shape.id} id={shape.id} points={shape.points} stroke={shape.stroke} strokeWidth={shape.strokeWidth} lineCap="round" lineJoin="round" {...commonProps} />;
-									if (shape.type === "star" as any) {
-										const sides = (shape as any).sides || 5;
-										const outerRadius = (shape as any).radius || 50;
-										const innerRadius = outerRadius / 2.5;
-										return <Star key={shape.id} id={shape.id} x={shape.x} y={shape.y} numPoints={sides} innerRadius={innerRadius} outerRadius={outerRadius} fill={shape.fill} stroke={shape.stroke} strokeWidth={shape.strokeWidth} rotation={shape.rotation} scaleX={shape.scaleX} scaleY={shape.scaleY} {...commonProps as any} />;
-									}
-									return null;
-								})}
-
-								{gradients.filter(g => isLayerVisible(g.layerId)).map(g => (
-									<Rect key={g.id} x={0} y={0} width={actualWidth} height={actualHeight} fillLinearGradientStartPoint={{ x: g.x0, y: g.y0 }} fillLinearGradientEndPoint={{ x: g.x1, y: g.y1 }} fillLinearGradientColorStops={(g.colorStops || []).flatMap(s => [s.offset, s.color])} listening={false} />
-								))}
-
-								{images.filter(img => isLayerVisible(img.layerId)).map(img => (
-									<ImageNode
-										key={img.id}
-										image={img}
-										onClick={handleObjectClick}
-										draggable={activeTool === "select" || activeTool === "move"}
-										onDragEnd={(id, x, y) => {
-											setImages(images.map(i => i.id === id ? { ...i, x, y } : i));
-											saveCanvasState("Image moved");
-										}}
-									/>
-								))}
-
-								{currentShape && currentShape.type === "rect" && <Rect id="preview-rect" x={currentShape.x} y={currentShape.y} width={currentShape.width} height={currentShape.height} fill={currentShape.fill} stroke={currentShape.stroke} strokeWidth={currentShape.strokeWidth} />}
-								{currentShape && currentShape.type === "ellipse" && <Ellipse id="preview-ellipse" x={currentShape.x} y={currentShape.y} radiusX={currentShape.radiusX || 0} radiusY={currentShape.radiusY || 0} fill={currentShape.fill} stroke={currentShape.stroke} strokeWidth={currentShape.strokeWidth} />}
-								{currentShape && currentShape.type === "polygon" && <Line id="preview-polygon" points={currentShape.points} closed={false} stroke={currentShape.stroke} strokeWidth={currentShape.strokeWidth} lineJoin="round" lineCap="round" />}
-								{currentShape && (currentShape.type as any) === "line" && <Line id="preview-line" points={currentShape.points} stroke={currentShape.stroke} strokeWidth={currentShape.strokeWidth} />}
-
-								{currentPenLine && <Line points={currentPenLine.points} stroke={currentPenLine.stroke} strokeWidth={currentPenLine.strokeWidth} />}
-
-								{tempContext && <KonvaImage image={tempContext.canvas} x={0} y={0} opacity={0.8} listening={false} />}
-
-								{currentGradient && <Rect x={0} y={0} width={actualWidth} height={actualHeight} fillLinearGradientStartPoint={{ x: currentGradient.x0, y: currentGradient.y0 }} fillLinearGradientEndPoint={{ x: currentGradient.x1, y: currentGradient.y1 }} fillLinearGradientColorStops={(currentGradient.colorStops || []).flatMap(s => [s.offset, s.color])} listening={false} />}
-
-								{selectionBounds && <Rect {...selectionBounds} stroke="#3b82f6" strokeWidth={1} dash={[4, 2]} fill="rgba(59, 130, 246, 0.1)" listening={false} />}
-								{selectionPath && selectionPath.length >= 4 && <Line points={selectionPath} stroke="#3b82f6" strokeWidth={1} dash={[5, 5]} closed fill="rgba(59, 130, 246, 0.1)" listening={false} />}
-
-								{selectedId && <Transformer ref={transformerRef} />}
-							</Layer>
-						</Stage>
-					</div>
-
-					<div className="absolute bottom-4 right-4 bg-black/50 text-white text-xs px-3 py-1.5 rounded pointer-events-none z-10">
-						Zoom: {zoom}% | {actualWidth} × {actualHeight}px
-					</div>
-
-					<canvas ref={floodFillCanvas} style={{ display: "none" }} />
-					<canvas ref={eyedropperCanvas} style={{ display: "none" }} />
-					<canvas ref={healingCanvas} style={{ display: "none" }} />
-					<canvas ref={blurCanvas} style={{ display: "none" }} />
+			{showSessionNotification && (
+				<div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-green-500/10 text-green-600 text-xs px-3 py-1.5 rounded-full border border-green-500/20 pointer-events-none z-20 flex items-center gap-2">
+					<div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+					<span>Session restored • Auto-save active</span>
 				</div>
-			);
-		}
-	}
-}
+			)}
+
+			<div className="relative shadow-2xl rounded-sm overflow-hidden bg-white">
+				<Stage
+					ref={stageRef}
+					width={actualWidth}
+					height={actualHeight}
+					scaleX={zoom / 100}
+					scaleY={zoom / 100}
+					x={panOffset.x}
+					y={panOffset.y}
+					onMouseDown={handleMouseDown}
+					onMouseMove={handleMouseMove}
+					onMouseUp={handleMouseUp}
+					onMouseLeave={handleMouseUp}
+					onDblClick={handleDblClick}
+				>
+					<Layer ref={layerRef}>
+						<Rect name="background" x={0} y={0} width={actualWidth} height={actualHeight} fill={actualBackground} />
+
+						{lines.filter(l => isLayerVisible(l.layerId)).map(line => (
+							<Line
+								key={line.id} id={line.id} points={line.points} stroke={line.stroke} strokeWidth={line.strokeWidth}
+								tension={line.tool === "brush" ? 0.5 : 0} lineCap="round" lineJoin="round"
+								globalCompositeOperation={line.tool === "eraser" ? "destination-out" : "source-over"}
+							/>
+						))}
+
+						{shapes.filter(s => isLayerVisible(s.layerId)).map(shape => {
+							const commonProps = {
+								draggable: activeTool === "select" || activeTool === "move",
+								onClick: () => handleObjectClick(shape.id),
+								onTap: () => handleObjectClick(shape.id),
+								onDragEnd: (e: any) => {
+									setShapes(shapes.map(s => s.id === shape.id ? { ...s, x: e.target.x(), y: e.target.y() } : s));
+									saveCanvasState(`${shape.type} moved`);
+								}
+							};
+							if (shape.type === "rect") return <Rect key={shape.id} id={shape.id} x={shape.x} y={shape.y} width={shape.width} height={shape.height} fill={shape.fill} stroke={shape.stroke} strokeWidth={shape.strokeWidth} rotation={shape.rotation} scaleX={shape.scaleX} scaleY={shape.scaleY} {...commonProps} />;
+							if (shape.type === "ellipse") return <Ellipse key={shape.id} id={shape.id} x={shape.x} y={shape.y} radiusX={shape.radiusX || 0} radiusY={shape.radiusY || 0} fill={shape.fill} stroke={shape.stroke} strokeWidth={shape.strokeWidth} rotation={shape.rotation} scaleX={shape.scaleX} scaleY={shape.scaleY} {...commonProps} />;
+							if (shape.type === "polygon") return <Line key={shape.id} id={shape.id} points={shape.points} closed fill={shape.fill} stroke={shape.stroke} strokeWidth={shape.strokeWidth} rotation={shape.rotation} scaleX={shape.scaleX} scaleY={shape.scaleY} lineJoin="round" lineCap="round" {...commonProps} />;
+							if (shape.type === "text") return <Text key={shape.id} id={shape.id} text={shape.text} x={shape.x} y={shape.y} fontSize={shape.fontSize} fill={shape.fill} rotation={shape.rotation} scaleX={shape.scaleX} scaleY={shape.scaleY} {...commonProps} />;
+							if (shape.type === "line" as any) return <Line key={shape.id} id={shape.id} points={shape.points} stroke={shape.stroke} strokeWidth={shape.strokeWidth} lineCap="round" lineJoin="round" {...commonProps} />;
+							if (shape.type === "star" as any) {
+								const sides = (shape as any).sides || 5;
+								const outerRadius = (shape as any).radius || 50;
+								const innerRadius = outerRadius / 2.5;
+								return <Star key={shape.id} id={shape.id} x={shape.x} y={shape.y} numPoints={sides} innerRadius={innerRadius} outerRadius={outerRadius} fill={shape.fill} stroke={shape.stroke} strokeWidth={shape.strokeWidth} rotation={shape.rotation} scaleX={shape.scaleX} scaleY={shape.scaleY} {...commonProps as any} />;
+							}
+							return null;
+						})}
+
+						{gradients.filter(g => isLayerVisible(g.layerId)).map(g => (
+							<Rect key={g.id} x={0} y={0} width={actualWidth} height={actualHeight} fillLinearGradientStartPoint={{ x: g.x0, y: g.y0 }} fillLinearGradientEndPoint={{ x: g.x1, y: g.y1 }} fillLinearGradientColorStops={(g.colorStops || []).flatMap(s => [s.offset, s.color])} listening={false} />
+						))}
+
+						{images.filter(img => isLayerVisible(img.layerId)).map(img => (
+							<ImageNode
+								key={img.id}
+								image={img}
+								onClick={handleObjectClick}
+								draggable={activeTool === "select" || activeTool === "move"}
+								onDragEnd={(id, x, y) => {
+									setImages(images.map(i => i.id === id ? { ...i, x, y } : i));
+									saveCanvasState("Image moved");
+								}}
+							/>
+						))}
+
+						{currentShape && currentShape.type === "rect" && <Rect id="preview-rect" x={currentShape.x} y={currentShape.y} width={currentShape.width} height={currentShape.height} fill={currentShape.fill} stroke={currentShape.stroke} strokeWidth={currentShape.strokeWidth} />}
+						{currentShape && currentShape.type === "ellipse" && <Ellipse id="preview-ellipse" x={currentShape.x} y={currentShape.y} radiusX={currentShape.radiusX || 0} radiusY={currentShape.radiusY || 0} fill={currentShape.fill} stroke={currentShape.stroke} strokeWidth={currentShape.strokeWidth} />}
+						{currentShape && currentShape.type === "polygon" && <Line id="preview-polygon" points={currentShape.points} closed={false} stroke={currentShape.stroke} strokeWidth={currentShape.strokeWidth} lineJoin="round" lineCap="round" />}
+						{currentShape && (currentShape.type as any) === "line" && <Line id="preview-line" points={currentShape.points} stroke={currentShape.stroke} strokeWidth={currentShape.strokeWidth} />}
+
+						{currentPenLine && <Line points={currentPenLine.points} stroke={currentPenLine.stroke} strokeWidth={currentPenLine.strokeWidth} />}
+
+						{tempContext && <KonvaImage image={tempContext.canvas} x={0} y={0} opacity={0.8} listening={false} />}
+
+						{currentGradient && <Rect x={0} y={0} width={actualWidth} height={actualHeight} fillLinearGradientStartPoint={{ x: currentGradient.x0, y: currentGradient.y0 }} fillLinearGradientEndPoint={{ x: currentGradient.x1, y: currentGradient.y1 }} fillLinearGradientColorStops={(currentGradient.colorStops || []).flatMap(s => [s.offset, s.color])} listening={false} />}
+
+						{selectionBounds && <Rect {...selectionBounds} stroke="#3b82f6" strokeWidth={1} dash={[4, 2]} fill="rgba(59, 130, 246, 0.1)" listening={false} />}
+						{selectionPath && selectionPath.length >= 4 && <Line points={selectionPath} stroke="#3b82f6" strokeWidth={1} dash={[5, 5]} closed fill="rgba(59, 130, 246, 0.1)" listening={false} />}
+
+						{selectedId && <Transformer ref={transformerRef} />}
+					</Layer>
+				</Stage>
+			</div>
+
+			<div className="absolute bottom-4 right-4 bg-black/50 text-white text-xs px-3 py-1.5 rounded pointer-events-none z-10">
+				Zoom: {zoom}% | {actualWidth} × {actualHeight}px
+			</div>
+
+			<canvas ref={floodFillCanvas} style={{ display: "none" }} />
+			<canvas ref={eyedropperCanvas} style={{ display: "none" }} />
+			<canvas ref={healingCanvas} style={{ display: "none" }} />
+			<canvas ref={blurCanvas} style={{ display: "none" }} />
+		</div>
+	);
+};
 
 export default KonvaCanvas;
