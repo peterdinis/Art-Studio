@@ -41,8 +41,8 @@ export const GradientOptionsPanel: React.FC = () => {
 		removeGradient,
 	} = useArtStudioStore();
 
-	const [gradientAngle, setGradientAngle] = React.useState(90);
-	const [gradientScale, setGradientScale] = React.useState(100);
+	const gradientAngle = brushSettings.gradientAngle || 90;
+	const gradientScale = brushSettings.gradientScale || 100;
 	const [repeatMode, setRepeatMode] = React.useState("none");
 	const [blendMode, setBlendMode] = React.useState("normal");
 	const [gradientName, setGradientName] = React.useState("Custom Gradient");
@@ -52,8 +52,7 @@ export const GradientOptionsPanel: React.FC = () => {
 	};
 
 	const handleGradientAngleChange = (angle: number) => {
-		setGradientAngle(angle);
-		// Here you would need to pass this to your canvas implementation
+		setBrushSettings({ gradientAngle: angle });
 	};
 
 	const handleAddColorStop = () => {
@@ -99,9 +98,9 @@ export const GradientOptionsPanel: React.FC = () => {
 				{ color: primaryColor, position: 0 },
 				{ color: secondaryColor, position: 1 },
 			],
+			gradientAngle: 90,
+			gradientScale: 100,
 		});
-		setGradientAngle(90);
-		setGradientScale(100);
 	};
 
 	const handleSwapColors = () => {
@@ -134,9 +133,9 @@ export const GradientOptionsPanel: React.FC = () => {
 		setBrushSettings({
 			gradientType: gradient.type,
 			gradientStops: gradient.stops,
+			gradientAngle: gradient.angle || 90,
+			gradientScale: gradient.scale || 100,
 		});
-		setGradientAngle(gradient.angle || 90);
-		setGradientScale(gradient.scale || 100);
 		setRepeatMode(gradient.repeat || "none");
 		setBlendMode(gradient.blendMode || "normal");
 	};
@@ -334,7 +333,7 @@ export const GradientOptionsPanel: React.FC = () => {
 									max={360}
 									step={1}
 									value={[gradientAngle]}
-									onValueChange={([value]) => setGradientAngle(value)}
+									onValueChange={([value]) => handleGradientAngleChange(value)}
 								/>
 								<div className="flex justify-between mt-1">
 									<span className="text-xs text-muted-foreground">0°</span>
@@ -373,7 +372,7 @@ export const GradientOptionsPanel: React.FC = () => {
 									max={200}
 									step={1}
 									value={[gradientScale]}
-									onValueChange={([value]) => setGradientScale(value)}
+									onValueChange={([value]) => setBrushSettings({ gradientScale: value })}
 								/>
 							</div>
 							<div>

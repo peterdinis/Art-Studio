@@ -24,7 +24,11 @@ export type Tool =
 	| "magicwand"
 	| "move"
 	| "hand"
-	| "zoom";
+	| "zoom"
+	| "crop"
+	| "dodge"
+	| "burn"
+	| "star";
 
 export interface Layer {
 	id: string;
@@ -78,6 +82,11 @@ export interface BrushSettings {
 	gradientNoise?: number;
 	gradientCenterX?: number;
 	gradientCenterY?: number;
+	gradientAngle: number;
+	gradientScale: number;
+	dodgeIntensity: number;
+	burnIntensity: number;
+	cropRect: { x: number; y: number; width: number; height: number } | null;
 }
 
 export interface GradientObject {
@@ -285,6 +294,11 @@ const defaultBrushSettings: BrushSettings = {
 	blurSize: 20,
 	blurMode: "gaussian",
 	blurQuality: "medium",
+	gradientAngle: 90,
+	gradientScale: 100,
+	dodgeIntensity: 50,
+	burnIntensity: 50,
+	cropRect: null,
 };
 
 // Helper to serialize canvas state (excluding UI)
@@ -360,7 +374,7 @@ export const useArtStudioStore = create<ArtStudioState>()(
 		(set, get) => ({
 			// Initial state
 			sessionId: null,
-			renderingEngine: "fabric",
+			renderingEngine: "konva",
 			activeTool: "brush",
 			primaryColor: "#ffffff",
 			secondaryColor: "#000000",
@@ -992,6 +1006,13 @@ export const useArtStudioStore = create<ArtStudioState>()(
 							blurSize: 20,
 							blurMode: "gaussian",
 							blurQuality: "medium",
+						};
+						break;
+					case "star":
+						newSettings = {
+							strokeWidth: 2,
+							sides: 5,
+							fillType: "solid",
 						};
 						break;
 					case "magicwand":

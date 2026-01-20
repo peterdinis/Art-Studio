@@ -10,6 +10,7 @@ import {
 	Text,
 	Image as KonvaImage,
 	Transformer,
+	Star,
 } from "react-konva";
 import Konva from "konva";
 import { useArtStudioStore, Tool } from "@/stores/artStudioStore";
@@ -190,6 +191,7 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 
 	const {
 		activeTool,
+		setActiveTool,
 		primaryColor,
 		secondaryColor,
 		brushSettings,
@@ -217,6 +219,7 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		setSelectionBounds,
 		setSelectionPath,
 		clearSelection,
+		setCanvasSize,
 	} = useArtStudioStore();
 
 	const magicWandTolerance = brushSettings.tolerance || 20;
@@ -248,7 +251,7 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 	const updateAuxCanvases = useCallback(() => {
 		if (!stageRef.current) return;
 		const stage = stageRef.current;
-		const tempCanvas = stage.toCanvas();
+		const tempCanvas = stage.toCanvas({ pixelRatio: 1 });
 		const canvases = [floodFillCanvas, eyedropperCanvas, healingCanvas, blurCanvas];
 		const contexts = [floodFillContext, eyedropperContext, healingContext, blurContext];
 
@@ -256,8 +259,6 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			if (ctxRef.current) {
 				const ctx = ctxRef.current;
 				ctx.clearRect(0, 0, actualWidth, actualHeight);
-				ctx.fillStyle = actualBackground;
-				ctx.fillRect(0, 0, actualWidth, actualHeight);
 				ctx.drawImage(tempCanvas, 0, 0, actualWidth, actualHeight);
 			}
 		});
@@ -338,22 +339,37 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			toast.info("Canvas cleared");
 		};
 		window.addEventListener("artstudio:clear-canvas", handleClearCanvas);
-		return () => window.removeEventListener("artstudio:clear-canvas", handleClearCanvas);
-	}, [setGradients, clearSelection]);
+
+		const handleRestoreHistory = (e: any) => {
+			if (e.detail && typeof e.detail === "string") {
+				restoreCanvasState(e.detail);
+			}
+		};
+		window.addEventListener("artstudio:restore-history", handleRestoreHistory);
+
+		const handleTempToolChange = (e: any) => {
+			if (e.detail) setActiveTool(e.detail);
+		};
+		window.addEventListener("artstudio:temp-tool-change", handleTempToolChange);
+
+		return () => {
+			window.removeEventListener("artstudio:clear-canvas", handleClearCanvas);
+			window.removeEventListener("artstudio:restore-history", handleRestoreHistory);
+			window.removeEventListener("artstudio:temp-tool-change", handleTempToolChange);
+		};
+	}, [setGradients, clearSelection, restoreCanvasState, setActiveTool]);
 
 	const getCanvasPosition = useCallback((clientX: number, clientY: number) => {
 		if (!stageRef.current) return null;
 		const stage = stageRef.current;
-		const stageRect = stage.container().getBoundingClientRect();
-		const x = (clientX - stageRect.left) * (actualWidth / stageRect.width);
-		const y = (clientY - stageRect.top) * (actualHeight / stageRect.height);
-		const transformedX = x / (zoom / 100) - panOffset.x;
-		const transformedY = y / (zoom / 100) - panOffset.y;
+		const pos = stage.getRelativePointerPosition();
+		if (!pos) return null;
+		// Return position within canvas bounds
 		return {
-			x: Math.max(0, Math.min(actualWidth, transformedX)),
-			y: Math.max(0, Math.min(actualHeight, transformedY)),
+			x: Math.max(0, Math.min(actualWidth, pos.x)),
+			y: Math.max(0, Math.min(actualHeight, pos.y)),
 		};
-	}, [actualWidth, actualHeight, zoom, panOffset]);
+	}, [actualWidth, actualHeight]);
 
 
 
@@ -408,7 +424,7 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		if (path.length > 0) {
 			setSelectionPath(path);
 		}
-	}, [actualWidth, actualHeight, magicWandTolerance, setSelectionPath, updateAuxCanvases]);
+	}, [actualWidth, actualHeight, brushSettings.tolerance, setSelectionPath, updateAuxCanvases]);
 
 	const handleCloneBrush = useCallback((targetX: number, targetY: number) => {
 		if (!cloneSourcePoint.current || !shapeStartPoint.current || !tempContext) return;
@@ -453,20 +469,75 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		tempContext.putImageData(imgData, x - size / 2, y - size / 2);
 	}, [brushSettings.size, tempContext, updateAuxCanvases]);
 
+	const applyDodgeBrush = useCallback((x: number, y: number) => {
+		if (!tempContext) return;
+		updateAuxCanvases();
+		const ctx = floodFillContext.current;
+		if (!ctx) return;
+		const size = brushSettings.size;
+		const intensity = (brushSettings.dodgeIntensity || 50) / 200; // Scaled down for smoothness
+		const imgData = ctx.getImageData(x - size / 2, y - size / 2, size, size);
+		const d = imgData.data;
+		for (let i = 0; i < d.length; i += 4) {
+			d[i] = Math.min(255, d[i] + 255 * intensity);
+			d[i + 1] = Math.min(255, d[i + 1] + 255 * intensity);
+			d[i + 2] = Math.min(255, d[i + 2] + 255 * intensity);
+		}
+		tempContext.putImageData(imgData, x - size / 2, y - size / 2);
+	}, [brushSettings.size, brushSettings.dodgeIntensity, tempContext, updateAuxCanvases]);
+
+	const applyBurnBrush = useCallback((x: number, y: number) => {
+		if (!tempContext) return;
+		updateAuxCanvases();
+		const ctx = floodFillContext.current;
+		if (!ctx) return;
+		const size = brushSettings.size;
+		const intensity = (brushSettings.burnIntensity || 50) / 200;
+		const imgData = ctx.getImageData(x - size / 2, y - size / 2, size, size);
+		const d = imgData.data;
+		for (let i = 0; i < d.length; i += 4) {
+			d[i] = Math.max(0, d[i] - 255 * intensity);
+			d[i + 1] = Math.max(0, d[i + 1] - 255 * intensity);
+			d[i + 2] = Math.max(0, d[i + 2] - 255 * intensity);
+		}
+		tempContext.putImageData(imgData, x - size / 2, y - size / 2);
+	}, [brushSettings.size, brushSettings.burnIntensity, tempContext, updateAuxCanvases]);
+
+	const applyCrop = useCallback(() => {
+		if (activeTool !== "crop" || !selectionBounds) return;
+		const { x, y, width, height } = selectionBounds;
+		if (width <= 0 || height <= 0) return;
+
+		setCanvasSize({ width, height, backgroundColor: actualBackground });
+		setLines(lines.map(l => ({ ...l, points: l.points.map((p, i) => i % 2 === 0 ? p - x : p - y) })));
+		setShapes(shapes.map(s => ({ ...s, x: s.x - (s.x ? x : 0), y: s.y - (s.y ? y : 0) })));
+		setImages(images.map(img => ({ ...img, x: img.x - x, y: img.y - y })));
+		setGradients(gradients.map(g => ({ ...g, x0: g.x0 - x, y0: g.y0 - y, x1: g.x1 - x, y1: g.y1 - y })));
+
+		setSelectionBounds(null);
+		saveCanvasState("Canvas cropped");
+		toast.success("Canvas cropped");
+	}, [activeTool, selectionBounds, actualBackground, lines, shapes, images, gradients, setCanvasSize, setLines, setShapes, setImages, setGradients, saveCanvasState]);
+
 	/* --- AUXILIARY TOOL HANDLERS --- */
 
 	const handleEyedropper = useCallback((x: number, y: number, isAltPressed: boolean = false) => {
 		updateAuxCanvases();
 		if (!eyedropperContext.current) return;
 		const ctx = eyedropperContext.current;
+		// Since updateAuxCanvases draws the stage to the canvas, we can sample directly
 		const pixel = ctx.getImageData(Math.floor(x), Math.floor(y), 1, 1).data;
 		const color = `rgba(${pixel[0]}, ${pixel[1]}, ${pixel[2]}, ${pixel[3] / 255})`;
+
+		// Convert to Hex for better UX if needed, but rgba is fine
+		const hex = "#" + ((1 << 24) + (pixel[0] << 16) + (pixel[1] << 8) + pixel[2]).toString(16).slice(1);
+
 		if (isAltPressed) {
-			setSecondaryColor(color);
+			setSecondaryColor(hex);
 		} else {
-			setPrimaryColor(color);
+			setPrimaryColor(hex);
 		}
-		toast.success(`Color picked: ${color}`);
+		toast.success(`Color picked: ${hex}`);
 	}, [setPrimaryColor, setSecondaryColor, updateAuxCanvases]);
 
 	const floodFill = useCallback((startX: number, startY: number, fillColor: string) => {
@@ -507,16 +578,20 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		};
 		setImages((prev) => [...prev, fillImage]);
 		saveCanvasState("Flood Fill applied");
-	}, [actualWidth, actualHeight, activeLayerId, saveCanvasState, setImages]);
+	}, [actualWidth, actualHeight, activeLayerId, saveCanvasState, setImages, updateAuxCanvases]);
 
 	const parseColorToRgb = (color: string) => {
-		const div = document.createElement("div");
-		div.style.color = color;
-		document.body.appendChild(div);
-		const computed = getComputedStyle(div).color;
-		document.body.removeChild(div);
-		const match = computed.match(/\d+/g);
-		return match ? { r: parseInt(match[0]), g: parseInt(match[1]), b: parseInt(match[2]) } : { r: 0, g: 0, b: 0 };
+		if (color.startsWith("#")) {
+			const r = parseInt(color.slice(1, 3), 16);
+			const g = parseInt(color.slice(3, 5), 16);
+			const b = parseInt(color.slice(5, 7), 16);
+			return { r, g, b };
+		}
+		if (color.startsWith("rgb")) {
+			const match = color.match(/\d+/g);
+			if (match) return { r: parseInt(match[0]), g: parseInt(match[1]), b: parseInt(match[2]) };
+		}
+		return { r: 255, g: 255, b: 255 };
 	};
 
 	const handleTextTool = useCallback((pos: { x: number; y: number }) => {
@@ -545,7 +620,7 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 	}, [restoreCanvasState]);
 
 	const startDrawing = useCallback((pos: { x: number; y: number }) => {
-		const drawingTools = ["brush", "pencil", "eraser", "clone", "healing", "blur"];
+		const drawingTools = ["brush", "pencil", "eraser", "clone", "healing", "blur", "dodge", "burn"];
 		if (!drawingTools.includes(activeTool)) return;
 
 		if (activeTool === "clone" && !cloneSourcePoint.current) {
@@ -586,7 +661,13 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		if (activeTool === "blur") {
 			applyBlurBrush(pos.x, pos.y);
 		}
-	}, [activeTool, primaryColor, brushSettings.size, activeLayerId, tempContext, handleCloneBrush, applyHealingBrush, applyBlurBrush]);
+		if (activeTool === "dodge") {
+			applyDodgeBrush(pos.x, pos.y);
+		}
+		if (activeTool === "burn") {
+			applyBurnBrush(pos.x, pos.y);
+		}
+	}, [activeTool, primaryColor, brushSettings.size, activeLayerId, tempContext, handleCloneBrush, applyHealingBrush, applyBlurBrush, applyDodgeBrush, applyBurnBrush]);
 
 	const continueDrawing = useCallback((pos: { x: number; y: number }) => {
 		if (!isDrawing || !activeDrawingLine) return;
@@ -597,6 +678,10 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			applyHealingBrush(pos.x, pos.y);
 		} else if (activeTool === "blur") {
 			applyBlurBrush(pos.x, pos.y);
+		} else if (activeTool === "dodge") {
+			applyDodgeBrush(pos.x, pos.y);
+		} else if (activeTool === "burn") {
+			applyBurnBrush(pos.x, pos.y);
 		} else if (tempContext) {
 			tempContext.lineTo(pos.x, pos.y);
 			tempContext.stroke();
@@ -628,37 +713,27 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 	}, [currentPenLine, saveCanvasState]);
 
 	const finishPolygonDrawing = useCallback(() => {
-		if (polygonPoints.length >= 6) {
-			const polygonShape: ShapeObject = {
-				id: generateId("polygon"),
-				type: "polygon",
-				points: [...polygonPoints],
-				x: 0, y: 0,
-				stroke: primaryColor,
-				strokeWidth: brushSettings.strokeWidth || 2,
-				fill: `${primaryColor}40`,
-				layerId: activeLayerId || "layer-1",
-			};
-			setShapes((prev) => [...prev, polygonShape]);
+		if (currentShape && currentShape.type === "polygon") {
+			setShapes((prev) => [...prev, currentShape]);
 			saveCanvasState("Polygon created");
 		}
+		setCurrentShape(null);
 		setIsDrawingPolygon(false);
-		setPolygonPoints([]);
-	}, [polygonPoints, primaryColor, brushSettings.strokeWidth, activeLayerId, saveCanvasState]);
+	}, [currentShape, saveCanvasState]);
 
 	const handleMouseDown = (e: Konva.KonvaEventObject<MouseEvent>) => {
 		const pos = getCanvasPosition(e.evt.clientX, e.evt.clientY);
 		if (!pos) return;
 
-		const selectionTools: Tool[] = ["select", "move", "marquee", "lasso", "magicwand"];
+		const selectionTools: Tool[] = ["select", "move", "marquee", "lasso", "magicwand", "crop"];
 		if (selectionTools.includes(activeTool)) {
 			if (activeTool === "select" || activeTool === "move") {
-				if (e.target === stageRef.current || e.target.name() === "background") {
+				if (e.target === stageRef.current || (e.target.name() && e.target.name() === "background")) {
 					setSelectedId(null);
 					clearSelection();
 				}
 			}
-			if (activeTool === "marquee") {
+			if (activeTool === "marquee" || activeTool === "crop") {
 				setIsSelecting(true);
 				setSelectionStartPoint(pos);
 				setSelectionBounds({ x: pos.x, y: pos.y, width: 0, height: 0 });
@@ -682,7 +757,9 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				x0: pos.x, y0: pos.y, x1: pos.x, y1: pos.y,
 				colorStops: (brushSettings.gradientStops || []).map(s => ({ offset: s.position, color: s.color })),
 				layerId: activeLayerId || "layer-1",
-			};
+				// Adding angle and scale for potential use in rendering logic
+				...(brushSettings.gradientType === "linear" ? { angle: brushSettings.gradientAngle } : { scale: brushSettings.gradientScale })
+			} as any;
 			setCurrentGradient(newGradient);
 			return;
 		}
@@ -711,12 +788,26 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 
 		if (activeTool === "polygon") {
 			if (e.evt.button === 0) {
-				if (!isDrawingPolygon) {
-					setIsDrawingPolygon(true);
-					setPolygonPoints([pos.x, pos.y]);
-				} else {
-					setPolygonPoints((prev) => [...prev, pos.x, pos.y]);
+				shapeStartPoint.current = pos;
+				const sides = brushSettings.sides || 5;
+				const radius = 5; // Initial radius
+				const points: number[] = [];
+				for (let i = 0; i < sides; i++) {
+					const angle = (i * 2 * Math.PI) / sides - Math.PI / 2;
+					points.push(pos.x + radius * Math.cos(angle), pos.y + radius * Math.sin(angle));
 				}
+
+				const polygonShape: ShapeObject = {
+					id: generateId("polygon"),
+					type: "polygon",
+					points: points,
+					x: 0, y: 0,
+					stroke: primaryColor,
+					strokeWidth: brushSettings.strokeWidth || 2,
+					fill: brushSettings.fillType === "none" ? "transparent" : (brushSettings.fillType === "gradient" ? "transparent" : `${primaryColor}40`),
+					layerId: activeLayerId || "layer-1",
+				};
+				setCurrentShape(polygonShape);
 			}
 			return;
 		}
@@ -771,29 +862,28 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		}
 
 		if (activeTool === "zoom") {
-			const zoomStep = 20;
+			const zoomStep = 0.2; // 20%
 			const isZoomOut = e.evt.altKey;
-			const oldZoom = zoom / 100;
-			const newZoomVal = isZoomOut ? Math.max(10, zoom - zoomStep) : Math.min(800, zoom + zoomStep);
-			const newZoom = newZoomVal / 100;
+			const oldScale = stageRef.current?.scaleX() || 1;
+			const newScale = isZoomOut ? Math.max(0.1, oldScale - zoomStep) : Math.min(8, oldScale + zoomStep);
 
-			// Zoom towards mouse logic
-			const pointer = stageRef.current?.getPointerPosition();
-			if (pointer) {
-				const mousePointTo = {
-					x: (pointer.x / oldZoom) - panOffset.x,
-					y: (pointer.y / oldZoom) - panOffset.y,
-				};
+			const stage = stageRef.current;
+			if (stage) {
+				const pointer = stage.getPointerPosition();
+				if (pointer) {
+					const mousePointTo = {
+						x: (pointer.x - stage.x()) / oldScale,
+						y: (pointer.y - stage.y()) / oldScale,
+					};
 
-				const newOffset = {
-					x: (pointer.x / newZoom) - mousePointTo.x,
-					y: (pointer.y / newZoom) - mousePointTo.y,
-				};
+					const newPos = {
+						x: pointer.x - mousePointTo.x * newScale,
+						y: pointer.y - mousePointTo.y * newScale,
+					};
 
-				setZoom(newZoomVal);
-				setPanOffset(newOffset);
-			} else {
-				setZoom(newZoomVal);
+					setZoom(newScale * 100);
+					setPanOffset(newPos);
+				}
 			}
 			return;
 		}
@@ -804,7 +894,7 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		if (!pos) return;
 
 		if (isSelecting && selectionStartPoint) {
-			if (activeTool === "marquee") {
+			if (activeTool === "marquee" || activeTool === "crop") {
 				const x = Math.min(selectionStartPoint.x, pos.x);
 				const y = Math.min(selectionStartPoint.y, pos.y);
 				const width = Math.abs(pos.x - selectionStartPoint.x);
@@ -862,12 +952,30 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			});
 		}
 
+		if (currentShape && shapeStartPoint.current && activeTool === "polygon") {
+			const startX = shapeStartPoint.current.x;
+			const startY = shapeStartPoint.current.y;
+			const radius = Math.sqrt((pos.x - startX) ** 2 + (pos.y - startY) ** 2);
+			const rotation = Math.atan2(pos.y - startY, pos.x - startX);
+			const sides = brushSettings.sides || 5;
+			const points: number[] = [];
+			for (let i = 0; i < sides; i++) {
+				const angle = (i * 2 * Math.PI) / sides - Math.PI / 2 + rotation;
+				points.push(startX + radius * Math.cos(angle), startY + radius * Math.sin(angle));
+			}
+			setCurrentShape({
+				...currentShape,
+				points: points
+			});
+		}
+
 		if (isPanning.current) {
 			const deltaX = e.evt.clientX - lastPanPos.current.x;
 			const deltaY = e.evt.clientY - lastPanPos.current.y;
+
 			setPanOffset({
-				x: panOffset.x + deltaX / (zoom / 100),
-				y: panOffset.y + deltaY / (zoom / 100)
+				x: panOffset.x + deltaX,
+				y: panOffset.y + deltaY
 			});
 			lastPanPos.current = { x: e.evt.clientX, y: e.evt.clientY };
 		}
@@ -878,9 +986,7 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			setIsSelecting(false);
 			if (activeTool === "marquee" && selectionBounds) {
 				const { x, y, width, height } = selectionBounds;
-				// Better selection logic: find all overlapping shapes/images
 				const selectedShapes = shapes.filter(s => {
-					// Handle different shape types
 					if (s.type === "rect") {
 						return s.x < x + width && s.x + (s.width || 0) > x && s.y < y + height && s.y + (s.height || 0) > y;
 					}
@@ -897,7 +1003,6 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				else if (selectedImgs.length > 0) setSelectedId(selectedImgs[selectedImgs.length - 1].id);
 				else setSelectedId(null);
 			} else if (activeTool === "lasso" && selectionPath && selectionPath.length >= 6) {
-				// Simple check: is object origin inside bounding box of lasso
 				let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
 				for (let i = 0; i < selectionPath.length; i += 2) {
 					minX = Math.min(minX, selectionPath[i]);
@@ -905,8 +1010,8 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 					maxX = Math.max(maxX, selectionPath[i]);
 					maxY = Math.max(maxY, selectionPath[i + 1]);
 				}
-				const selectedShapes = shapes.filter(s => s.x >= minX && s.x <= maxX && s.y >= minY && s.y <= maxY);
-				const selectedImgs = images.filter(img => img.x >= minX && img.x <= maxX && img.y >= minY && img.y <= maxY);
+				const selectedShapes = shapes.filter(s => s.x < maxX && s.x + (s.width || 0) > minX && s.y < maxY && s.y + (s.height || 0) > minY);
+				const selectedImgs = images.filter(img => img.x < maxX && img.x + img.width > minX && img.y < maxY && img.y + img.height > minY);
 
 				if (selectedShapes.length > 0) setSelectedId(selectedShapes[selectedShapes.length - 1].id);
 				else if (selectedImgs.length > 0) setSelectedId(selectedImgs[selectedImgs.length - 1].id);
@@ -915,7 +1020,7 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			setSelectionStartPoint(null);
 		}
 		if (isDrawing) stopDrawing();
-		if (currentShape && (currentShape.type === "rect" || currentShape.type === "ellipse" || currentShape.type === "line" as any)) {
+		if (currentShape && (currentShape.type === "rect" || currentShape.type === "ellipse" || currentShape.type === "polygon" || currentShape.type === "line" as any)) {
 			setShapes((prev) => [...prev, currentShape]);
 			setCurrentShape(null);
 			saveCanvasState(`${currentShape.type} created`);
@@ -926,8 +1031,11 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			setCurrentGradient(null);
 			saveCanvasState("Gradient added");
 		}
-		if (activeTool === "clone" || activeTool === "healing" || activeTool === "blur") {
+		if (activeTool === "clone" || activeTool === "healing" || activeTool === "blur" || activeTool === "dodge" || activeTool === "burn") {
 			if (tempContext) {
+				// Optimization: instead of full canvas, just save the part that was modified?
+				// For now, let's stick to full canvas but maybe a lower quality or better management.
+				// Better: Use a permanent hidden canvas for these effects and just draw it.
 				const imgData = tempContext.canvas.toDataURL();
 				const newImg: ImageObject = {
 					id: generateId("pixel-stroke"),
@@ -936,6 +1044,7 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 					layerId: activeLayerId || "layer-1",
 				};
 				setImages((prev) => [...prev, newImg]);
+				// Don't clear if we want to keep it? No, we add it to shapes so we clear temp.
 				tempContext.clearRect(0, 0, actualWidth, actualHeight);
 				saveCanvasState(`${activeTool} stroke applied`);
 			}
@@ -946,10 +1055,22 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 	const handleDblClick = () => {
 		if (isDrawingPolygon) finishPolygonDrawing();
 		if (currentPenLine) finishPenDrawing();
+		if (activeTool === "crop") applyCrop();
 	};
 
-	const handleObjectClick = (id: string) => {
-		if (activeTool === "select" || activeTool === "move") setSelectedId(id);
+	const handleObjectClick = (id: string, e?: Konva.KonvaEventObject<MouseEvent>) => {
+		if (activeTool === "select" || activeTool === "move") {
+			setSelectedId(id);
+		} else if (activeTool === "text") {
+			const shape = shapes.find(s => s.id === id);
+			if (shape && shape.type === "text") {
+				const newText = prompt("Edit text:", shape.text);
+				if (newText !== null) {
+					setShapes(shapes.map(s => s.id === id ? { ...s, text: newText } : s));
+					saveCanvasState("Text edited");
+				}
+			}
+		}
 	};
 
 	const isLayerVisible = (id: string) => layers.find(l => l.id === id)?.visible !== false;
@@ -958,16 +1079,17 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		if (activeTool === "hand") return isPanning.current ? "grabbing" : "grab";
 		if (activeTool === "zoom") return "zoom-in";
 		if (["brush", "pencil", "eraser", "healing", "blur", "clone"].includes(activeTool)) return "crosshair";
-		if (["marquee", "lasso", "magicwand"].includes(activeTool)) return "cell";
+		if (["marquee", "lasso", "magicwand"].includes(activeTool)) return "crosshair";
 		if (activeTool === "text") return "text";
 		if (activeTool === "move") return "move";
-		if (activeTool === "eyedropper") return "wait";
+		if (activeTool === "eyedropper") return "copy";
+		if (activeTool === "fill") return "alias";
 		return "default";
 	};
 
 	return (
 		<div ref={containerRef} className="flex-1 overflow-hidden bg-canvas relative flex items-center justify-center" style={{ cursor: getCursor() }}>
-			<div className="absolute inset-0 opacity-20" style={{
+			<div className="absolute inset-0 opacity-20 pointer-events-none" style={{
 				backgroundImage: `
 					linear-gradient(45deg, hsl(var(--muted)) 25%, transparent 25%),
 					linear-gradient(-45deg, hsl(var(--muted)) 25%, transparent 25%),
@@ -985,15 +1107,20 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				</div>
 			)}
 
-			<div className="relative shadow-2xl rounded-sm overflow-hidden" style={{
-				transform: `scale(${zoom / 100}) translate(${panOffset.x}px, ${panOffset.y}px)`,
-				transformOrigin: "center center",
-				transition: "transform 0.1s ease-out",
-			}}>
+			<div className="relative shadow-2xl rounded-sm overflow-hidden bg-white">
 				<Stage
-					ref={stageRef} width={actualWidth} height={actualHeight}
-					onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp}
-					onMouseLeave={handleMouseUp} onDblClick={handleDblClick}
+					ref={stageRef}
+					width={actualWidth}
+					height={actualHeight}
+					scaleX={zoom / 100}
+					scaleY={zoom / 100}
+					x={panOffset.x}
+					y={panOffset.y}
+					onMouseDown={handleMouseDown}
+					onMouseMove={handleMouseMove}
+					onMouseUp={handleMouseUp}
+					onMouseLeave={handleMouseUp}
+					onDblClick={handleDblClick}
 				>
 					<Layer ref={layerRef}>
 						<Rect name="background" x={0} y={0} width={actualWidth} height={actualHeight} fill={actualBackground} />
@@ -1020,6 +1147,13 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 							if (shape.type === "ellipse") return <Ellipse key={shape.id} id={shape.id} x={shape.x} y={shape.y} radiusX={shape.radiusX || 0} radiusY={shape.radiusY || 0} fill={shape.fill} stroke={shape.stroke} strokeWidth={shape.strokeWidth} rotation={shape.rotation} scaleX={shape.scaleX} scaleY={shape.scaleY} {...commonProps} />;
 							if (shape.type === "polygon") return <Line key={shape.id} id={shape.id} points={shape.points} closed fill={shape.fill} stroke={shape.stroke} strokeWidth={shape.strokeWidth} rotation={shape.rotation} scaleX={shape.scaleX} scaleY={shape.scaleY} lineJoin="round" lineCap="round" {...commonProps} />;
 							if (shape.type === "text") return <Text key={shape.id} id={shape.id} text={shape.text} x={shape.x} y={shape.y} fontSize={shape.fontSize} fill={shape.fill} rotation={shape.rotation} scaleX={shape.scaleX} scaleY={shape.scaleY} {...commonProps} />;
+							if (shape.type === "line" as any) return <Line key={shape.id} id={shape.id} points={shape.points} stroke={shape.stroke} strokeWidth={shape.strokeWidth} lineCap="round" lineJoin="round" {...commonProps} />;
+							if (shape.type === "star" as any) {
+								const sides = (shape as any).sides || 5;
+								const outerRadius = (shape as any).radius || 50;
+								const innerRadius = outerRadius / 2.5;
+								return <Star key={shape.id} id={shape.id} x={shape.x} y={shape.y} numPoints={sides} innerRadius={innerRadius} outerRadius={outerRadius} fill={shape.fill} stroke={shape.stroke} strokeWidth={shape.strokeWidth} rotation={shape.rotation} scaleX={shape.scaleX} scaleY={shape.scaleY} {...commonProps as any} />;
+							}
 							return null;
 						})}
 
@@ -1043,6 +1177,7 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 						{currentShape && currentShape.type === "rect" && <Rect id="preview-rect" x={currentShape.x} y={currentShape.y} width={currentShape.width} height={currentShape.height} fill={currentShape.fill} stroke={currentShape.stroke} strokeWidth={currentShape.strokeWidth} />}
 						{currentShape && currentShape.type === "ellipse" && <Ellipse id="preview-ellipse" x={currentShape.x} y={currentShape.y} radiusX={currentShape.radiusX || 0} radiusY={currentShape.radiusY || 0} fill={currentShape.fill} stroke={currentShape.stroke} strokeWidth={currentShape.strokeWidth} />}
 						{currentShape && currentShape.type === "polygon" && <Line id="preview-polygon" points={currentShape.points} closed={false} stroke={currentShape.stroke} strokeWidth={currentShape.strokeWidth} lineJoin="round" lineCap="round" />}
+						{currentShape && (currentShape.type as any) === "line" && <Line id="preview-line" points={currentShape.points} stroke={currentShape.stroke} strokeWidth={currentShape.strokeWidth} />}
 
 						{currentPenLine && <Line points={currentPenLine.points} stroke={currentPenLine.stroke} strokeWidth={currentPenLine.strokeWidth} />}
 
@@ -1050,8 +1185,8 @@ export const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 
 						{currentGradient && <Rect x={0} y={0} width={actualWidth} height={actualHeight} fillLinearGradientStartPoint={{ x: currentGradient.x0, y: currentGradient.y0 }} fillLinearGradientEndPoint={{ x: currentGradient.x1, y: currentGradient.y1 }} fillLinearGradientColorStops={(currentGradient.colorStops || []).flatMap(s => [s.offset, s.color])} listening={false} />}
 
-						{selectionBounds && <Rect {...selectionBounds} stroke="#3b82f6" strokeWidth={1} dash={[4, 2]} fill="rgba(59, 130, 246, 0.1)" />}
-						{selectionPath && selectionPath.length >= 4 && <Line points={selectionPath} stroke="#3b82f6" strokeWidth={1} dash={[5, 5]} closed fill="rgba(59, 130, 246, 0.1)" />}
+						{selectionBounds && <Rect {...selectionBounds} stroke="#3b82f6" strokeWidth={1} dash={[4, 2]} fill="rgba(59, 130, 246, 0.1)" listening={false} />}
+						{selectionPath && selectionPath.length >= 4 && <Line points={selectionPath} stroke="#3b82f6" strokeWidth={1} dash={[5, 5]} closed fill="rgba(59, 130, 246, 0.1)" listening={false} />}
 
 						{selectedId && <Transformer ref={transformerRef} />}
 					</Layer>

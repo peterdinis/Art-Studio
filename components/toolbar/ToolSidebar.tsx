@@ -27,6 +27,10 @@ import {
 	Spline,
 	Trash2,
 	Move,
+	Crop,
+	Sun,
+	Moon,
+	Star as StarIcon,
 } from "lucide-react";
 import { useArtStudioStore, Tool } from "@/stores/artStudioStore";
 import {
@@ -98,6 +102,14 @@ const tools: ToolConfig[] = [
 		description: "Select areas of similar color. Adjust tolerance in options.",
 		category: "selection",
 	},
+	{
+		id: "crop",
+		icon: Crop,
+		label: "Crop Tool",
+		shortcut: "C",
+		description: "Trim the canvas to a specific area. Double-click or press Enter to apply.",
+		category: "selection",
+	},
 
 	// Drawing Tools
 	{
@@ -128,7 +140,7 @@ const tools: ToolConfig[] = [
 		id: "fill",
 		icon: PaintBucket,
 		label: "Paint Bucket",
-		shortcut: "G",
+		shortcut: "F",
 		description: "Fill areas with foreground color. Adjust tolerance for color matching.",
 		category: "drawing",
 	},
@@ -136,7 +148,7 @@ const tools: ToolConfig[] = [
 		id: "gradient",
 		icon: Blend,
 		label: "Gradient Tool",
-		shortcut: "H",
+		shortcut: "G",
 		description: "Create smooth color transitions. Click and drag to define direction.",
 		category: "drawing",
 	},
@@ -172,6 +184,22 @@ const tools: ToolConfig[] = [
 		description: "Soften edges and reduce detail for depth of field effects.",
 		category: "drawing",
 	},
+	{
+		id: "dodge",
+		icon: Sun,
+		label: "Dodge Tool",
+		shortcut: "O",
+		description: "Lighten areas of the image by painting over them.",
+		category: "drawing",
+	},
+	{
+		id: "burn",
+		icon: Moon,
+		label: "Burn Tool",
+		shortcut: "O",
+		description: "Darken areas of the image by painting over them.",
+		category: "drawing",
+	},
 
 	// Shape Tools
 	{
@@ -202,8 +230,16 @@ const tools: ToolConfig[] = [
 		id: "line",
 		icon: Minus,
 		label: "Line Tool",
-		shortcut: "U",
-		description: "Draw straight lines. Hold Shift for 45° angles.",
+		shortcut: "O",
+		description: "Draw straight lines.",
+		category: "shape",
+	},
+	{
+		id: "star",
+		icon: StarIcon,
+		label: "Star Tool",
+		shortcut: "S",
+		description: "Create star shapes. Adjust number of points in options.",
 		category: "shape",
 	},
 	{
@@ -293,7 +329,7 @@ export const ToolSidebar: React.FC = () => {
 	// Funkcia pre undo s bezpečnou kontrolou
 	const handleUndo = async () => {
 		if (!canUndo()) return;
-		
+
 		try {
 			const entry = await undo();
 			if (entry && entry.canvasData) {
@@ -315,7 +351,7 @@ export const ToolSidebar: React.FC = () => {
 	// Funkcia pre redo s bezpečnou kontrolou
 	const handleRedo = async () => {
 		if (!canRedo()) return;
-		
+
 		try {
 			const entry = await redo();
 			if (entry && entry.canvasData) {
@@ -343,7 +379,7 @@ export const ToolSidebar: React.FC = () => {
 
 		// Odoslať custom event pre vymazanie plátna
 		window.dispatchEvent(new CustomEvent("artstudio:clear-canvas"));
-		
+
 		// Pridať do histórie
 		try {
 			useArtStudioStore.getState().addToHistory(
@@ -354,7 +390,7 @@ export const ToolSidebar: React.FC = () => {
 		} catch (error) {
 			console.error("Error adding to history:", error);
 		}
-		
+
 		setShowClearAlert(false);
 	};
 
@@ -418,7 +454,7 @@ export const ToolSidebar: React.FC = () => {
 						return t.id === "rectangle";
 					}
 				}
-				
+
 				// Kontrola priamej zhody
 				return t.shortcut.toUpperCase() === key;
 			});
@@ -468,7 +504,7 @@ export const ToolSidebar: React.FC = () => {
 
 		window.addEventListener("keydown", handleKeyDown);
 		window.addEventListener("keyup", handleKeyUp);
-		
+
 		return () => {
 			window.removeEventListener("keydown", handleKeyDown);
 			window.removeEventListener("keyup", handleKeyUp);
@@ -617,7 +653,7 @@ export const ToolSidebar: React.FC = () => {
 					<Tooltip delayDuration={400}>
 						<TooltipTrigger asChild>
 							<AlertDialogTrigger asChild>
-								<button 
+								<button
 									className="tool-button text-red-500 hover:text-red-600 hover:bg-red-50"
 								>
 									<Trash2 className="w-5 h-5" />
