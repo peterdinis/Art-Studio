@@ -168,6 +168,10 @@ interface ArtStudioState {
 	fillPreview: { x: number; y: number; color: string } | null;
 	healingSource: { x: number; y: number } | null;
 
+	// Selection
+	selectedId: string | null;
+	setSelectedId: (id: string | null) => void;
+
 	// Actions
 	setRenderingEngine: (engine: RenderingEngine) => void;
 	setActiveTool: (tool: Tool) => void;
@@ -424,6 +428,7 @@ export const useArtStudioStore = create<ArtStudioState>()(
 			showGuides: false,
 			fillPreview: null,
 			healingSource: null,
+			selectedId: null,
 
 			// ========== SESSION MANAGEMENT ==========
 
@@ -587,6 +592,7 @@ export const useArtStudioStore = create<ArtStudioState>()(
 						selectionPath: null,
 						fillPreview: null,
 						healingSource: null,
+						selectedId: null,
 					});
 
 					// Start fresh session
@@ -1150,6 +1156,8 @@ export const useArtStudioStore = create<ArtStudioState>()(
 					1000,
 				);
 			},
+
+			setSelectedId: (id) => set({ selectedId: id }),
 
 			mergeLayers: (layerIds) => {
 				const { layers } = get();

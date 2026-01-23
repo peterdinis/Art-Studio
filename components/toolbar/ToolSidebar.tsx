@@ -51,6 +51,9 @@ import {
 	AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { GradientOptionsPanel } from "../panels/GradientOptionsPanel";
+import { ShapeOptionsPanel } from "../panels/ShapeOptionsPanel";
+import { CropPanel } from "../panels/CropPanel";
+import { TransformPanel } from "../panels/TransformPanel";
 
 interface ToolConfig {
 	id: Tool;
@@ -779,7 +782,19 @@ export const ToolSidebar: React.FC = () => {
 			{/* Gradient options panel when gradient tool is active */}
 			{shouldShowGradientOptions && (
 				<div className="w-64 border-l border-border/50">
-					<GradientOptionsPanel />
+					{/* Tool-specific panels */}
+					{activeTool === "gradient" && (
+						<GradientOptionsPanel />
+					)}
+					{["rectangle", "ellipse", "polygon", "line", "star"].includes(activeTool) && (
+						<ShapeOptionsPanel />
+					)}
+					{activeTool === "crop" && (
+						<CropPanel />
+					)}
+					{["select", "move"].includes(activeTool) && (
+						<TransformPanel />
+					)}
 				</div>
 			)}
 		</div>
