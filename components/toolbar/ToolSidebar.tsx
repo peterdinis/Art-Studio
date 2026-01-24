@@ -762,22 +762,6 @@ export const ToolSidebar: React.FC = () => {
 					</Tooltip>
 				</div>
 			</div>
-
-			{/* Tool-specific panels */}
-			{(shouldShowGradientOptions || shouldShowTextOptions || 
-			  ["rectangle", "ellipse", "polygon", "line", "star"].includes(activeTool) ||
-			  activeTool === "crop" || ["select", "move"].includes(activeTool)) && (
-				<div className="w-64 border-l border-border/50">
-					{/* Tool-specific panels */}
-					{activeTool === "gradient" && <GradientOptionsPanel />}
-					{activeTool === "text" && <TextOptionsPanel />}
-					{["rectangle", "ellipse", "polygon", "line", "star"].includes(activeTool) && (
-						<ShapeOptionsPanel />
-					)}
-					{activeTool === "crop" && <CropPanel />}
-					{["select", "move"].includes(activeTool) && <TransformPanel />}
-				</div>
-			)}
 		</div>
 	);
 };
