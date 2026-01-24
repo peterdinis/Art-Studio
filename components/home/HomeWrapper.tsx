@@ -7,6 +7,8 @@ import { BrushPanel } from "@/components/panels/BrushPanel";
 import { ColorPanel } from "@/components/panels/ColorPanel";
 import { LayersPanel } from "@/components/panels/LayersPanel";
 import { HistoryPanel } from "@/components/panels/HistoryPanel";
+import { StarPanel } from "@/components/panels/StarPanel";
+import { LineOptionsPanel } from "@/components/panels/LineOptionsPanel";
 import { useArtStudioStore } from "@/stores/artStudioStore";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useEffect, useState } from "react";
@@ -26,6 +28,9 @@ const HomeWrapper = () => {
 		showColorsPanel,
 		showLayersPanel,
 		showHistoryPanel,
+		showStarPanel,
+		showLinePanel,
+		activeTool, // Pridané na sledovanie aktívneho nástroja
 		initializeSession,
 		saveSession,
 		sessionId,
@@ -56,7 +61,7 @@ const HomeWrapper = () => {
 		initSession();
 	}, [initializeSession, isClient]);
 
-	// Auto-save effect - periodické ukladanie
+	// Auto-save effect
 	useEffect(() => {
 		if (!isClient || !isSessionInitialized || !sessionId) return;
 
@@ -67,9 +72,8 @@ const HomeWrapper = () => {
 			} catch (error) {
 				console.error("Auto-save failed:", error);
 			}
-		}, 30000); // Každých 30 sekúnd
+		}, 30000);
 
-		// Uložiť pred zatvorením okna
 		const handleBeforeUnload = () => {
 			saveSession().catch(console.error);
 		};
@@ -89,8 +93,6 @@ const HomeWrapper = () => {
 		const checkSessionExpiry = async () => {
 			if (!sessionId) return;
 
-			// Môžete pridať logiku na kontrolu expirácie session
-			// Napríklad, ak sessionId začína na 'temp-' a je staršia ako 1 hodina
 			if (sessionId.startsWith("temp-")) {
 				const timestamp = parseInt(sessionId.split("-")[1]);
 				const age = Date.now() - timestamp;
@@ -220,6 +222,8 @@ const HomeWrapper = () => {
 							{showColorsPanel && <ColorPanel />}
 							{showLayersPanel && <LayersPanel />}
 							{showHistoryPanel && <HistoryPanel />}
+							{showStarPanel && <StarPanel />}
+							{activeTool === "line" && <LineOptionsPanel />}
 						</div>
 					</div>
 				)}

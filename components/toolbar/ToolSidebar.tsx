@@ -54,6 +54,7 @@ import { GradientOptionsPanel } from "../panels/GradientOptionsPanel";
 import { ShapeOptionsPanel } from "../panels/ShapeOptionsPanel";
 import { CropPanel } from "../panels/CropPanel";
 import { TransformPanel } from "../panels/TransformPanel";
+import { TextOptionsPanel } from "../panels/TextOptionsPanel";
 
 interface ToolConfig {
 	id: Tool;
@@ -70,7 +71,8 @@ const tools: ToolConfig[] = [
 		icon: Move,
 		label: "Move Tool",
 		shortcut: "V",
-		description: "Move selected objects on the canvas. Hold Ctrl/Cmd for multi-select.",
+		description:
+			"Move selected objects on the canvas. Hold Ctrl/Cmd for multi-select.",
 		category: "selection",
 	},
 	{
@@ -86,7 +88,8 @@ const tools: ToolConfig[] = [
 		icon: RectangleHorizontal,
 		label: "Rectangular Marquee",
 		shortcut: "M",
-		description: "Create rectangular selections. Hold Shift for square, Alt for center origin.",
+		description:
+			"Create rectangular selections. Hold Shift for square, Alt for center origin.",
 		category: "selection",
 	},
 	{
@@ -94,7 +97,8 @@ const tools: ToolConfig[] = [
 		icon: Lasso,
 		label: "Lasso Tool",
 		shortcut: "L",
-		description: "Draw freehand selections. Double-click or press Enter to close.",
+		description:
+			"Draw freehand selections. Double-click or press Enter to close.",
 		category: "selection",
 	},
 	{
@@ -110,7 +114,8 @@ const tools: ToolConfig[] = [
 		icon: Crop,
 		label: "Crop Tool",
 		shortcut: "C",
-		description: "Trim the canvas to a specific area. Double-click or press Enter to apply.",
+		description:
+			"Trim the canvas to a specific area. Double-click or press Enter to apply.",
 		category: "selection",
 	},
 
@@ -120,7 +125,8 @@ const tools: ToolConfig[] = [
 		icon: Paintbrush,
 		label: "Brush Tool",
 		shortcut: "B",
-		description: "Paint strokes with customizable brushes. Use [ ] to adjust size.",
+		description:
+			"Paint strokes with customizable brushes. Use [ ] to adjust size.",
 		category: "drawing",
 	},
 	{
@@ -144,7 +150,8 @@ const tools: ToolConfig[] = [
 		icon: PaintBucket,
 		label: "Paint Bucket",
 		shortcut: "F",
-		description: "Fill areas with foreground color. Adjust tolerance for color matching.",
+		description:
+			"Fill areas with foreground color. Adjust tolerance for color matching.",
 		category: "drawing",
 	},
 	{
@@ -152,7 +159,8 @@ const tools: ToolConfig[] = [
 		icon: Blend,
 		label: "Gradient Tool",
 		shortcut: "G",
-		description: "Create smooth color transitions. Click and drag to define direction.",
+		description:
+			"Create smooth color transitions. Click and drag to define direction.",
 		category: "drawing",
 	},
 	{
@@ -160,7 +168,8 @@ const tools: ToolConfig[] = [
 		icon: Pipette,
 		label: "Eyedropper",
 		shortcut: "I",
-		description: "Sample colors from canvas. Click for primary, Ctrl+click for secondary.",
+		description:
+			"Sample colors from canvas. Click for primary, Ctrl+click for secondary.",
 		category: "drawing",
 	},
 	{
@@ -168,7 +177,8 @@ const tools: ToolConfig[] = [
 		icon: Stamp,
 		label: "Clone Stamp",
 		shortcut: "C",
-		description: "Paint with pixels from another area. Alt+click to set source.",
+		description:
+			"Paint with pixels from another area. Alt+click to set source.",
 		category: "drawing",
 	},
 	{
@@ -258,26 +268,9 @@ const tools: ToolConfig[] = [
 		icon: Type,
 		label: "Text Tool",
 		shortcut: "T",
-		description: "Add and edit text layers. Click for point text, drag for area text.",
+		description:
+			"Add and edit text layers. Click for point text, drag for area text.",
 		category: "shape",
-	},
-
-	// Navigation Tools
-	{
-		id: "hand",
-		icon: Hand,
-		label: "Hand Tool",
-		shortcut: "H",
-		description: "Pan around canvas. Hold Space with any tool for quick access.",
-		category: "navigation",
-	},
-	{
-		id: "zoom",
-		icon: ZoomIn,
-		label: "Zoom Tool",
-		shortcut: "Z",
-		description: "Zoom in and out of canvas. Alt+click to zoom out.",
-		category: "navigation",
 	},
 ];
 
@@ -305,7 +298,7 @@ export const ToolSidebar: React.FC = () => {
 		// Jednoduchá funkcia na kontrolu canvasu
 		const checkCanvas = () => {
 			// Skontrolujeme, či existuje nejaký canvas element v DOM
-			const canvasElement = document.querySelector('canvas');
+			const canvasElement = document.querySelector("canvas");
 			setCanvasAvailable(!!canvasElement);
 		};
 
@@ -317,14 +310,14 @@ export const ToolSidebar: React.FC = () => {
 		observer.observe(document.body, { childList: true, subtree: true });
 
 		// Pridať event listener na zmenu veľkosti okna (môže spôsobiť re-render canvasu)
-		window.addEventListener('resize', checkCanvas);
+		window.addEventListener("resize", checkCanvas);
 
 		// Interval pre periodickú kontrolu (pre istotu)
 		const interval = setInterval(checkCanvas, 3000);
 
 		return () => {
 			observer.disconnect();
-			window.removeEventListener('resize', checkCanvas);
+			window.removeEventListener("resize", checkCanvas);
 			clearInterval(interval);
 		};
 	}, []);
@@ -385,11 +378,9 @@ export const ToolSidebar: React.FC = () => {
 
 		// Pridať do histórie
 		try {
-			useArtStudioStore.getState().addToHistory(
-				JSON.stringify({ objects: [] }),
-				"",
-				"clear_canvas"
-			);
+			useArtStudioStore
+				.getState()
+				.addToHistory(JSON.stringify({ objects: [] }), "", "clear_canvas");
 		} catch (error) {
 			console.error("Error adding to history:", error);
 		}
@@ -563,6 +554,7 @@ export const ToolSidebar: React.FC = () => {
 	};
 
 	const shouldShowGradientOptions = activeTool === "gradient";
+	const shouldShowTextOptions = activeTool === "text";
 
 	return (
 		<div className="flex h-full">
@@ -656,9 +648,7 @@ export const ToolSidebar: React.FC = () => {
 					<Tooltip delayDuration={400}>
 						<TooltipTrigger asChild>
 							<AlertDialogTrigger asChild>
-								<button
-									className="tool-button text-red-500 hover:text-red-600 hover:bg-red-50"
-								>
+								<button className="tool-button text-red-500 hover:text-red-600 hover:bg-red-50">
 									<Trash2 className="w-5 h-5" />
 								</button>
 							</AlertDialogTrigger>
@@ -688,7 +678,9 @@ export const ToolSidebar: React.FC = () => {
 								Vymazať plátno
 							</AlertDialogTitle>
 							<AlertDialogDescription>
-								Ste si istí, že chcete vymazať celé plátno? Táto akcia odstráni všetky kresby, tvary a obrázky. Túto akciu nie je možné vrátiť späť.
+								Ste si istí, že chcete vymazať celé plátno? Táto akcia odstráni
+								všetky kresby, tvary a obrázky. Túto akciu nie je možné vrátiť
+								späť.
 							</AlertDialogDescription>
 						</AlertDialogHeader>
 						<AlertDialogFooter>
@@ -765,7 +757,8 @@ export const ToolSidebar: React.FC = () => {
 									</kbd>
 								</div>
 								<p className="text-xs text-muted-foreground leading-relaxed">
-									Kliknite na farby pre zmenu. Kliknite medzi nimi pre výmenu, alebo stlačte X pre výmenu, D pre reset na predvolené.
+									Kliknite na farby pre zmenu. Kliknite medzi nimi pre výmenu,
+									alebo stlačte X pre výmenu, D pre reset na predvolené.
 								</p>
 								<button
 									onClick={() => setShowColorsPanel(true)}
@@ -778,25 +771,6 @@ export const ToolSidebar: React.FC = () => {
 					</Tooltip>
 				</div>
 			</div>
-
-			{/* Gradient options panel when gradient tool is active */}
-			{shouldShowGradientOptions && (
-				<div className="w-64 border-l border-border/50">
-					{/* Tool-specific panels */}
-					{activeTool === "gradient" && (
-						<GradientOptionsPanel />
-					)}
-					{["rectangle", "ellipse", "polygon", "line", "star"].includes(activeTool) && (
-						<ShapeOptionsPanel />
-					)}
-					{activeTool === "crop" && (
-						<CropPanel />
-					)}
-					{["select", "move"].includes(activeTool) && (
-						<TransformPanel />
-					)}
-				</div>
-			)}
 		</div>
 	);
 };
