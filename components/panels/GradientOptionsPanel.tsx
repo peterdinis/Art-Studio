@@ -196,9 +196,10 @@ export const GradientOptionsPanel: React.FC = () => {
 	};
 
 	const handleCopyGradientCSS = () => {
-		const css = brushSettings.gradientType === "linear"
-			? `linear-gradient(${gradientAngle}deg, ${gradientStops.map((s) => `${s.color} ${s.position * 100}%`).join(", ")})`
-			: `radial-gradient(circle, ${gradientStops.map((s) => `${s.color} ${s.position * 100}%`).join(", ")})`;
+		const css =
+			brushSettings.gradientType === "linear"
+				? `linear-gradient(${gradientAngle}deg, ${gradientStops.map((s) => `${s.color} ${s.position * 100}%`).join(", ")})`
+				: `radial-gradient(circle, ${gradientStops.map((s) => `${s.color} ${s.position * 100}%`).join(", ")})`;
 
 		navigator.clipboard.writeText(css).then(() => {
 			// You could add a toast notification here
@@ -206,9 +207,9 @@ export const GradientOptionsPanel: React.FC = () => {
 	};
 
 	const handleFlipGradient = (direction: "horizontal" | "vertical") => {
-		const newStops = gradientStops.map(stop => ({
+		const newStops = gradientStops.map((stop) => ({
 			...stop,
-			position: direction === "horizontal" ? 1 - stop.position : stop.position
+			position: direction === "horizontal" ? 1 - stop.position : stop.position,
 		}));
 		setBrushSettings({ gradientStops: newStops });
 	};
@@ -236,7 +237,9 @@ export const GradientOptionsPanel: React.FC = () => {
 							}}
 						/>
 						<div className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
-							{brushSettings.gradientType === "linear" ? `${gradientAngle}°` : `${gradientScale}%`}
+							{brushSettings.gradientType === "linear"
+								? `${gradientAngle}°`
+								: `${gradientScale}%`}
 						</div>
 					</div>
 				</div>
@@ -253,8 +256,12 @@ export const GradientOptionsPanel: React.FC = () => {
 								}
 							>
 								<TabsList className="w-full">
-									<TabsTrigger value="linear" className="flex-1">Linear</TabsTrigger>
-									<TabsTrigger value="radial" className="flex-1">Radial</TabsTrigger>
+									<TabsTrigger value="linear" className="flex-1">
+										Linear
+									</TabsTrigger>
+									<TabsTrigger value="radial" className="flex-1">
+										Radial
+									</TabsTrigger>
 								</TabsList>
 							</Tabs>
 						</div>
@@ -321,7 +328,11 @@ export const GradientOptionsPanel: React.FC = () => {
 					<div className="flex items-center justify-between">
 						<h3 className="font-semibold text-sm">Controls</h3>
 						<div className="flex gap-1">
-							<Button size="sm" variant="ghost" onClick={handleGenerateRandomGradient}>
+							<Button
+								size="sm"
+								variant="ghost"
+								onClick={handleGenerateRandomGradient}
+							>
 								<Sparkles className="w-4 h-4" />
 							</Button>
 							<Button size="sm" variant="ghost" onClick={handleResetGradient}>
@@ -378,7 +389,9 @@ export const GradientOptionsPanel: React.FC = () => {
 									max={200}
 									step={1}
 									value={[gradientScale]}
-									onValueChange={([value]) => setBrushSettings({ gradientScale: value })}
+									onValueChange={([value]) =>
+										setBrushSettings({ gradientScale: value })
+									}
 								/>
 							</div>
 							<div>
@@ -391,7 +404,9 @@ export const GradientOptionsPanel: React.FC = () => {
 										max={100}
 										value={brushSettings.gradientCenterX || 50}
 										onChange={(e) =>
-											setBrushSettings({ gradientCenterX: parseInt(e.target.value) })
+											setBrushSettings({
+												gradientCenterX: parseInt(e.target.value),
+											})
 										}
 									/>
 									<Input
@@ -401,7 +416,9 @@ export const GradientOptionsPanel: React.FC = () => {
 										max={100}
 										value={brushSettings.gradientCenterY || 50}
 										onChange={(e) =>
-											setBrushSettings({ gradientCenterY: parseInt(e.target.value) })
+											setBrushSettings({
+												gradientCenterY: parseInt(e.target.value),
+											})
 										}
 									/>
 								</div>
@@ -500,7 +517,12 @@ export const GradientOptionsPanel: React.FC = () => {
 						</div>
 
 						<div className="flex gap-2">
-							<Button size="sm" variant="outline" className="flex-1" onClick={handleExportGradient}>
+							<Button
+								size="sm"
+								variant="outline"
+								className="flex-1"
+								onClick={handleExportGradient}
+							>
 								<Download className="w-4 h-4 mr-2" />
 								Export
 							</Button>
@@ -534,9 +556,10 @@ export const GradientOptionsPanel: React.FC = () => {
 									<div
 										className="w-full h-8 rounded mb-1"
 										style={{
-											background: gradient.type === "linear"
-												? `linear-gradient(90deg, ${(gradient.colorStops || []).map((s: any) => `${s.color} ${s.offset * 100}%`).join(", ")})`
-												: `radial-gradient(circle, ${(gradient.colorStops || []).map((s: any) => `${s.color} ${s.offset * 100}%`).join(", ")})`,
+											background:
+												gradient.type === "linear"
+													? `linear-gradient(90deg, ${(gradient.colorStops || []).map((s: any) => `${s.color} ${s.offset * 100}%`).join(", ")})`
+													: `radial-gradient(circle, ${(gradient.colorStops || []).map((s: any) => `${s.color} ${s.offset * 100}%`).join(", ")})`,
 										}}
 									/>
 									<span className="text-[10px] truncate w-full">
@@ -656,7 +679,9 @@ export const GradientOptionsPanel: React.FC = () => {
 							/>
 						</div>
 						<div>
-							<Label className="text-xs">Noise: {brushSettings.gradientNoise || 0}%</Label>
+							<Label className="text-xs">
+								Noise: {brushSettings.gradientNoise || 0}%
+							</Label>
 							<Slider
 								min={0}
 								max={50}

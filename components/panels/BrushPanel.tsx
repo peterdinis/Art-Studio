@@ -111,8 +111,18 @@ export const BrushPanel: React.FC = () => {
 					"Controls the diameter of the brush tip. Use [ and ] keys to quickly adjust.",
 				min: 1,
 				max: 500,
-				value: activeTool === "healing" ? brushSettings.healingSize : (activeTool === "blur" ? brushSettings.blurSize : brushSettings.size),
-				onChange: (value) => activeTool === "healing" ? setBrushSettings({ healingSize: value }) : (activeTool === "blur" ? setBrushSettings({ blurSize: value }) : setBrushSettings({ size: value })),
+				value:
+					activeTool === "healing"
+						? brushSettings.healingSize
+						: activeTool === "blur"
+							? brushSettings.blurSize
+							: brushSettings.size,
+				onChange: (value) =>
+					activeTool === "healing"
+						? setBrushSettings({ healingSize: value })
+						: activeTool === "blur"
+							? setBrushSettings({ blurSize: value })
+							: setBrushSettings({ size: value }),
 				unit: "px",
 			},
 			{
@@ -120,8 +130,18 @@ export const BrushPanel: React.FC = () => {
 				description: "Controls the transparency of each stroke.",
 				min: 1,
 				max: 100,
-				value: activeTool === "healing" ? brushSettings.healingOpacity : (activeTool === "clone" ? brushSettings.cloneOpacity : brushSettings.opacity),
-				onChange: (value) => activeTool === "healing" ? setBrushSettings({ healingOpacity: value }) : (activeTool === "clone" ? setBrushSettings({ cloneOpacity: value }) : setBrushSettings({ opacity: value })),
+				value:
+					activeTool === "healing"
+						? brushSettings.healingOpacity
+						: activeTool === "clone"
+							? brushSettings.cloneOpacity
+							: brushSettings.opacity,
+				onChange: (value) =>
+					activeTool === "healing"
+						? setBrushSettings({ healingOpacity: value })
+						: activeTool === "clone"
+							? setBrushSettings({ cloneOpacity: value })
+							: setBrushSettings({ opacity: value }),
 				unit: "%",
 			},
 			{
@@ -130,8 +150,14 @@ export const BrushPanel: React.FC = () => {
 					"Controls the edge softness of the brush. 100% = hard edge.",
 				min: 0,
 				max: 100,
-				value: activeTool === "healing" ? brushSettings.healingHardness : brushSettings.hardness,
-				onChange: (value) => activeTool === "healing" ? setBrushSettings({ healingHardness: value }) : setBrushSettings({ hardness: value }),
+				value:
+					activeTool === "healing"
+						? brushSettings.healingHardness
+						: brushSettings.hardness,
+				onChange: (value) =>
+					activeTool === "healing"
+						? setBrushSettings({ healingHardness: value })
+						: setBrushSettings({ hardness: value }),
 				unit: "%",
 			},
 		];
@@ -152,18 +178,21 @@ export const BrushPanel: React.FC = () => {
 			<div className="space-y-4">
 				{options.map(renderSliderWithTooltip)}
 
-				{(activeTool === "healing") && (
+				{activeTool === "healing" && (
 					<div className="space-y-2">
-						<Label className="text-xs text-muted-foreground">Healing Mode</Label>
+						<Label className="text-xs text-muted-foreground">
+							Healing Mode
+						</Label>
 						<div className="grid grid-cols-2 gap-1">
 							{["clone", "texture", "lighten", "darken"].map((mode) => (
 								<button
 									key={mode}
 									onClick={() => setBrushSettings({ healingMode: mode as any })}
-									className={`px-2 py-1 text-[10px] rounded transition-colors capitalize ${brushSettings.healingMode === mode
+									className={`px-2 py-1 text-[10px] rounded transition-colors capitalize ${
+										brushSettings.healingMode === mode
 											? "bg-primary/20 border border-primary/30"
 											: "bg-muted/50 hover:bg-muted"
-										}`}
+									}`}
 								>
 									{mode}
 								</button>
@@ -176,12 +205,18 @@ export const BrushPanel: React.FC = () => {
 					<div className="flex items-center justify-between pt-2">
 						<Label className="text-xs text-muted-foreground">Aligned</Label>
 						<button
-							onClick={() => setBrushSettings({ cloneAligned: !brushSettings.cloneAligned })}
-							className={`w-10 h-5 rounded-full transition-colors relative ${brushSettings.cloneAligned ? "bg-primary" : "bg-muted"
-								}`}
+							onClick={() =>
+								setBrushSettings({ cloneAligned: !brushSettings.cloneAligned })
+							}
+							className={`w-10 h-5 rounded-full transition-colors relative ${
+								brushSettings.cloneAligned ? "bg-primary" : "bg-muted"
+							}`}
 						>
-							<div className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-all ${brushSettings.cloneAligned ? "left-6" : "left-1"
-								}`} />
+							<div
+								className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-all ${
+									brushSettings.cloneAligned ? "left-6" : "left-1"
+								}`}
+							/>
 						</button>
 					</div>
 				)}
@@ -275,28 +310,31 @@ export const BrushPanel: React.FC = () => {
 				<div className="flex gap-1">
 					<button
 						onClick={() => setBrushSettings({ fillType: "solid" })}
-						className={`flex-1 px-2 py-1.5 text-xs rounded transition-colors flex items-center justify-center gap-1 ${brushSettings.fillType === "solid"
+						className={`flex-1 px-2 py-1.5 text-xs rounded transition-colors flex items-center justify-center gap-1 ${
+							brushSettings.fillType === "solid"
 								? "bg-primary/20 border border-primary/30"
 								: "bg-muted/50 hover:bg-muted"
-							}`}
+						}`}
 					>
 						<Square className="w-3 h-3" /> Solid
 					</button>
 					<button
 						onClick={() => setBrushSettings({ fillType: "gradient" })}
-						className={`flex-1 px-2 py-1.5 text-xs rounded transition-colors flex items-center justify-center gap-1 ${brushSettings.fillType === "gradient"
+						className={`flex-1 px-2 py-1.5 text-xs rounded transition-colors flex items-center justify-center gap-1 ${
+							brushSettings.fillType === "gradient"
 								? "bg-primary/20 border border-primary/30"
 								: "bg-muted/50 hover:bg-muted"
-							}`}
+						}`}
 					>
 						<Blend className="w-3 h-3" /> Gradient
 					</button>
 					<button
 						onClick={() => setBrushSettings({ fillType: "none" })}
-						className={`flex-1 px-2 py-1.5 text-xs rounded transition-colors flex items-center justify-center gap-1 ${brushSettings.fillType === "none"
+						className={`flex-1 px-2 py-1.5 text-xs rounded transition-colors flex items-center justify-center gap-1 ${
+							brushSettings.fillType === "none"
 								? "bg-primary/20 border border-primary/30"
 								: "bg-muted/50 hover:bg-muted"
-							}`}
+						}`}
 					>
 						<Circle className="w-3 h-3" /> None
 					</button>
@@ -348,11 +386,15 @@ export const BrushPanel: React.FC = () => {
 					<div className="space-y-2">
 						<div className="flex justify-between items-center mb-1">
 							<Label className="text-xs text-muted-foreground">Tolerance</Label>
-							<span className="text-xs font-mono">{brushSettings.fillTolerance}</span>
+							<span className="text-xs font-mono">
+								{brushSettings.fillTolerance}
+							</span>
 						</div>
 						<Slider
 							value={[brushSettings.fillTolerance]}
-							onValueChange={([val]) => setBrushSettings({ fillTolerance: val })}
+							onValueChange={([val]) =>
+								setBrushSettings({ fillTolerance: val })
+							}
 							min={0}
 							max={255}
 							step={1}
@@ -362,19 +404,29 @@ export const BrushPanel: React.FC = () => {
 					<div className="flex items-center justify-between">
 						<Label className="text-xs text-muted-foreground">Contiguous</Label>
 						<button
-							onClick={() => setBrushSettings({ fillContiguous: !brushSettings.fillContiguous })}
-							className={`w-10 h-5 rounded-full transition-colors relative ${brushSettings.fillContiguous ? "bg-primary" : "bg-muted"
-								}`}
+							onClick={() =>
+								setBrushSettings({
+									fillContiguous: !brushSettings.fillContiguous,
+								})
+							}
+							className={`w-10 h-5 rounded-full transition-colors relative ${
+								brushSettings.fillContiguous ? "bg-primary" : "bg-muted"
+							}`}
 						>
-							<div className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-all ${brushSettings.fillContiguous ? "left-6" : "left-1"
-								}`} />
+							<div
+								className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-all ${
+									brushSettings.fillContiguous ? "left-6" : "left-1"
+								}`}
+							/>
 						</button>
 					</div>
 
 					<div className="space-y-2">
 						<div className="flex justify-between items-center mb-1">
 							<Label className="text-xs text-muted-foreground">Opacity</Label>
-							<span className="text-xs font-mono">{brushSettings.fillOpacity}%</span>
+							<span className="text-xs font-mono">
+								{brushSettings.fillOpacity}%
+							</span>
 						</div>
 						<Slider
 							value={[brushSettings.fillOpacity]}

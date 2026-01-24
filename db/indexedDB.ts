@@ -38,9 +38,9 @@ class SessionDBManager {
 		"current-session": Map<string, any>;
 		"session-history": Map<string, any>;
 	} = {
-			"current-session": new Map(),
-			"session-history": new Map(),
-		};
+		"current-session": new Map(),
+		"session-history": new Map(),
+	};
 
 	constructor() {
 		// Check if we're in a browser environment

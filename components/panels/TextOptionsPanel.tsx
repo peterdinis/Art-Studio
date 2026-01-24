@@ -60,7 +60,8 @@ const FONT_FAMILIES = [
 ];
 
 const FONT_SIZES = [
-	8, 9, 10, 11, 12, 14, 16, 18, 20, 22, 24, 26, 28, 32, 36, 40, 48, 56, 64, 72, 96, 120,
+	8, 9, 10, 11, 12, 14, 16, 18, 20, 22, 24, 26, 28, 32, 36, 40, 48, 56, 64, 72,
+	96, 120,
 ];
 
 interface TextObject {
@@ -150,18 +151,18 @@ export const TextOptionsPanel: React.FC = () => {
 	// Načítanie textových objektov z canvasu
 	useEffect(() => {
 		const handleGetTextObjects = () => {
-			window.dispatchEvent(
-				new CustomEvent("artstudio:request-text-objects")
-			);
+			window.dispatchEvent(new CustomEvent("artstudio:request-text-objects"));
 		};
 
 		const handleTextObjectsReceived = (e: CustomEvent) => {
 			if (e.detail?.textObjects) {
 				setTextObjects(e.detail.textObjects);
-				
+
 				// Ak je vybraný text, nastavíme ho ako aktívny
 				if (selectedId) {
-					const text = e.detail.textObjects.find((t: TextObject) => t.id === selectedId);
+					const text = e.detail.textObjects.find(
+						(t: TextObject) => t.id === selectedId,
+					);
 					if (text) {
 						setActiveTextId(text.id);
 						setEditText(text.text);
@@ -174,8 +175,11 @@ export const TextOptionsPanel: React.FC = () => {
 			}
 		};
 
-		window.addEventListener("artstudio:text-objects", handleTextObjectsReceived as EventListener);
-		
+		window.addEventListener(
+			"artstudio:text-objects",
+			handleTextObjectsReceived as EventListener,
+		);
+
 		// Požiadame o textové objekty
 		handleGetTextObjects();
 
@@ -183,7 +187,10 @@ export const TextOptionsPanel: React.FC = () => {
 		const interval = setInterval(handleGetTextObjects, 2000);
 
 		return () => {
-			window.removeEventListener("artstudio:text-objects", handleTextObjectsReceived as EventListener);
+			window.removeEventListener(
+				"artstudio:text-objects",
+				handleTextObjectsReceived as EventListener,
+			);
 			clearInterval(interval);
 		};
 	}, [selectedId]);
@@ -243,7 +250,7 @@ export const TextOptionsPanel: React.FC = () => {
 		window.dispatchEvent(
 			new CustomEvent("artstudio:add-text", {
 				detail: { textObject: newText },
-			})
+			}),
 		);
 
 		setActiveTextId(newText.id);
@@ -256,7 +263,7 @@ export const TextOptionsPanel: React.FC = () => {
 
 	// Začatie editácie existujúceho textu
 	const startEditing = (textId: string) => {
-		const text = textObjects.find(t => t.id === textId);
+		const text = textObjects.find((t) => t.id === textId);
 		if (!text) return;
 
 		setActiveTextId(textId);
@@ -268,7 +275,7 @@ export const TextOptionsPanel: React.FC = () => {
 		window.dispatchEvent(
 			new CustomEvent("artstudio:start-text-edit", {
 				detail: { textId },
-			})
+			}),
 		);
 	};
 
@@ -286,7 +293,9 @@ export const TextOptionsPanel: React.FC = () => {
 				transformedText = editText.toLowerCase();
 				break;
 			case "capitalize":
-				transformedText = editText.replace(/\b\w/g, (char) => char.toUpperCase());
+				transformedText = editText.replace(/\b\w/g, (char) =>
+					char.toUpperCase(),
+				);
 				break;
 		}
 
@@ -310,17 +319,33 @@ export const TextOptionsPanel: React.FC = () => {
 						wrap: safeBrushSettings.textWrap,
 						padding: safeBrushSettings.textPadding,
 						opacity: safeBrushSettings.textOpacity,
-						shadowColor: safeBrushSettings.textShadow ? safeBrushSettings.textShadowColor : undefined,
-						shadowBlur: safeBrushSettings.textShadow ? safeBrushSettings.textShadowBlur : undefined,
-						shadowOffsetX: safeBrushSettings.textShadow ? safeBrushSettings.textShadowOffsetX : undefined,
-						shadowOffsetY: safeBrushSettings.textShadow ? safeBrushSettings.textShadowOffsetY : undefined,
-						outlineColor: safeBrushSettings.textOutline ? safeBrushSettings.textOutlineColor : undefined,
-						outlineWidth: safeBrushSettings.textOutline ? safeBrushSettings.textOutlineWidth : undefined,
-						backgroundColor: safeBrushSettings.textBackground ? safeBrushSettings.textBackgroundColor : undefined,
-						backgroundOpacity: safeBrushSettings.textBackground ? safeBrushSettings.textBackgroundOpacity : undefined,
+						shadowColor: safeBrushSettings.textShadow
+							? safeBrushSettings.textShadowColor
+							: undefined,
+						shadowBlur: safeBrushSettings.textShadow
+							? safeBrushSettings.textShadowBlur
+							: undefined,
+						shadowOffsetX: safeBrushSettings.textShadow
+							? safeBrushSettings.textShadowOffsetX
+							: undefined,
+						shadowOffsetY: safeBrushSettings.textShadow
+							? safeBrushSettings.textShadowOffsetY
+							: undefined,
+						outlineColor: safeBrushSettings.textOutline
+							? safeBrushSettings.textOutlineColor
+							: undefined,
+						outlineWidth: safeBrushSettings.textOutline
+							? safeBrushSettings.textOutlineWidth
+							: undefined,
+						backgroundColor: safeBrushSettings.textBackground
+							? safeBrushSettings.textBackgroundColor
+							: undefined,
+						backgroundOpacity: safeBrushSettings.textBackground
+							? safeBrushSettings.textBackgroundOpacity
+							: undefined,
 					},
 				},
-			})
+			}),
 		);
 
 		setIsEditing(false);
@@ -334,7 +359,7 @@ export const TextOptionsPanel: React.FC = () => {
 			window.dispatchEvent(
 				new CustomEvent("artstudio:cancel-text-edit", {
 					detail: { textId: activeTextId },
-				})
+				}),
 			);
 		}
 	};
@@ -347,7 +372,7 @@ export const TextOptionsPanel: React.FC = () => {
 			window.dispatchEvent(
 				new CustomEvent("artstudio:delete-text", {
 					detail: { textId: activeTextId },
-				})
+				}),
 			);
 
 			setActiveTextId(null);
@@ -363,7 +388,7 @@ export const TextOptionsPanel: React.FC = () => {
 	const duplicateText = () => {
 		if (!activeTextId) return;
 
-		const originalText = textObjects.find(t => t.id === activeTextId);
+		const originalText = textObjects.find((t) => t.id === activeTextId);
 		if (!originalText) return;
 
 		const duplicatedText: TextObject = {
@@ -377,7 +402,7 @@ export const TextOptionsPanel: React.FC = () => {
 		window.dispatchEvent(
 			new CustomEvent("artstudio:add-text", {
 				detail: { textObject: duplicatedText },
-			})
+			}),
 		);
 
 		setActiveTextId(duplicatedText.id);
@@ -404,20 +429,36 @@ export const TextOptionsPanel: React.FC = () => {
 			wrap: safeBrushSettings.textWrap,
 			padding: safeBrushSettings.textPadding,
 			opacity: safeBrushSettings.textOpacity,
-			shadowColor: safeBrushSettings.textShadow ? safeBrushSettings.textShadowColor : undefined,
-			shadowBlur: safeBrushSettings.textShadow ? safeBrushSettings.textShadowBlur : undefined,
-			shadowOffsetX: safeBrushSettings.textShadow ? safeBrushSettings.textShadowOffsetX : undefined,
-			shadowOffsetY: safeBrushSettings.textShadow ? safeBrushSettings.textShadowOffsetY : undefined,
-			outlineColor: safeBrushSettings.textOutline ? safeBrushSettings.textOutlineColor : undefined,
-			outlineWidth: safeBrushSettings.textOutline ? safeBrushSettings.textOutlineWidth : undefined,
-			backgroundColor: safeBrushSettings.textBackground ? safeBrushSettings.textBackgroundColor : undefined,
-			backgroundOpacity: safeBrushSettings.textBackground ? safeBrushSettings.textBackgroundOpacity : undefined,
+			shadowColor: safeBrushSettings.textShadow
+				? safeBrushSettings.textShadowColor
+				: undefined,
+			shadowBlur: safeBrushSettings.textShadow
+				? safeBrushSettings.textShadowBlur
+				: undefined,
+			shadowOffsetX: safeBrushSettings.textShadow
+				? safeBrushSettings.textShadowOffsetX
+				: undefined,
+			shadowOffsetY: safeBrushSettings.textShadow
+				? safeBrushSettings.textShadowOffsetY
+				: undefined,
+			outlineColor: safeBrushSettings.textOutline
+				? safeBrushSettings.textOutlineColor
+				: undefined,
+			outlineWidth: safeBrushSettings.textOutline
+				? safeBrushSettings.textOutlineWidth
+				: undefined,
+			backgroundColor: safeBrushSettings.textBackground
+				? safeBrushSettings.textBackgroundColor
+				: undefined,
+			backgroundOpacity: safeBrushSettings.textBackground
+				? safeBrushSettings.textBackgroundOpacity
+				: undefined,
 		};
 
 		window.dispatchEvent(
 			new CustomEvent("artstudio:update-text", {
 				detail: { textId: activeTextId, updates },
-			})
+			}),
 		);
 
 		toast.success("Nastavenia aplikované na text");
@@ -428,7 +469,7 @@ export const TextOptionsPanel: React.FC = () => {
 		if (textObjects.length === 0) return;
 
 		if (confirm("Aplikovať nastavenia na všetky texty?")) {
-			textObjects.forEach(text => {
+			textObjects.forEach((text) => {
 				const updates = {
 					fontFamily: safeBrushSettings.fontFamily,
 					fontSize: safeBrushSettings.fontSize,
@@ -447,7 +488,7 @@ export const TextOptionsPanel: React.FC = () => {
 				window.dispatchEvent(
 					new CustomEvent("artstudio:update-text", {
 						detail: { textId: text.id, updates },
-					})
+					}),
 				);
 			});
 
@@ -482,7 +523,7 @@ export const TextOptionsPanel: React.FC = () => {
 	};
 
 	// Aktívny text objekt
-	const activeText = textObjects.find(t => t.id === activeTextId);
+	const activeText = textObjects.find((t) => t.id === activeTextId);
 
 	// Transform text preview
 	const getTransformedText = (text: string) => {
@@ -514,7 +555,11 @@ export const TextOptionsPanel: React.FC = () => {
 						className="h-7 w-7 p-0"
 						title={showPreview ? "Skryť náhľad" : "Zobraziť náhľad"}
 					>
-						{showPreview ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+						{showPreview ? (
+							<EyeOff className="w-3 h-3" />
+						) : (
+							<Eye className="w-3 h-3" />
+						)}
 					</Button>
 				</div>
 			</div>
@@ -548,7 +593,9 @@ export const TextOptionsPanel: React.FC = () => {
 			{textObjects.length > 0 && (
 				<div className="space-y-2">
 					<div className="flex items-center justify-between">
-						<Label className="text-xs text-muted-foreground">Textové objekty ({textObjects.length})</Label>
+						<Label className="text-xs text-muted-foreground">
+							Textové objekty ({textObjects.length})
+						</Label>
 						<Button
 							variant="ghost"
 							size="sm"
@@ -567,12 +614,12 @@ export const TextOptionsPanel: React.FC = () => {
 									setActiveTextId(text.id);
 									setEditText(text.text);
 									setSelectedId(text.id);
-									
+
 									// Označiť text v canvase
 									window.dispatchEvent(
 										new CustomEvent("artstudio:select-text", {
 											detail: { textId: text.id },
-										})
+										}),
 									);
 								}}
 								onDoubleClick={() => startEditing(text.id)}
@@ -583,7 +630,9 @@ export const TextOptionsPanel: React.FC = () => {
 											<div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
 										)}
 										<span className="font-medium" style={{ color: text.color }}>
-											{text.text.length > 20 ? text.text.substring(0, 20) + "..." : text.text}
+											{text.text.length > 20
+												? text.text.substring(0, 20) + "..."
+												: text.text}
 										</span>
 									</div>
 									<div className="text-muted-foreground text-[10px]">
@@ -627,7 +676,7 @@ export const TextOptionsPanel: React.FC = () => {
 							</Button>
 						</div>
 					</div>
-					
+
 					<Textarea
 						ref={textareaRef}
 						value={editText}
@@ -635,15 +684,15 @@ export const TextOptionsPanel: React.FC = () => {
 						className="min-h-20 text-sm font-mono"
 						placeholder="Zadajte text..."
 						onKeyDown={(e) => {
-							if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+							if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
 								saveTextEdit();
 							}
-							if (e.key === 'Escape') {
+							if (e.key === "Escape") {
 								cancelTextEdit();
 							}
 						}}
 					/>
-					
+
 					<div className="flex items-center justify-between text-xs text-muted-foreground">
 						<span>{editText.length} znakov</span>
 						<Button
@@ -661,7 +710,7 @@ export const TextOptionsPanel: React.FC = () => {
 			{/* Základné nastavenia */}
 			<div className="space-y-3">
 				<Label className="text-xs font-medium">Základné nastavenia</Label>
-				
+
 				<div className="grid grid-cols-2 gap-3">
 					{/* Font Family */}
 					<div className="space-y-2">
@@ -721,7 +770,10 @@ export const TextOptionsPanel: React.FC = () => {
 								value={safeBrushSettings.fontSize}
 								onChange={(e) =>
 									setBrushSettings({
-										fontSize: Math.max(6, Math.min(200, parseInt(e.target.value) || 16)),
+										fontSize: Math.max(
+											6,
+											Math.min(200, parseInt(e.target.value) || 16),
+										),
 									})
 								}
 								className="h-7 text-xs text-center"
@@ -899,7 +951,7 @@ export const TextOptionsPanel: React.FC = () => {
 			{/* Pokročilé nastavenia */}
 			<div className="space-y-3">
 				<Label className="text-xs font-medium">Pokročilé nastavenia</Label>
-				
+
 				{/* Line Height */}
 				<div className="space-y-2">
 					<div className="flex justify-between items-center">
@@ -921,7 +973,9 @@ export const TextOptionsPanel: React.FC = () => {
 				{/* Letter Spacing */}
 				<div className="space-y-2">
 					<div className="flex justify-between items-center">
-						<Label className="text-xs text-muted-foreground">Medzery medzi písmenami</Label>
+						<Label className="text-xs text-muted-foreground">
+							Medzery medzi písmenami
+						</Label>
 						<span className="text-xs font-mono">
 							{safeBrushSettings.letterSpacing}px
 						</span>
@@ -940,21 +994,31 @@ export const TextOptionsPanel: React.FC = () => {
 
 				{/* Text Transform */}
 				<div className="space-y-2">
-					<Label className="text-xs text-muted-foreground">Transformácia textu</Label>
+					<Label className="text-xs text-muted-foreground">
+						Transformácia textu
+					</Label>
 					<Select
 						value={safeBrushSettings.textTransform}
-						onValueChange={(value: "none" | "uppercase" | "lowercase" | "capitalize") =>
-							setBrushSettings({ textTransform: value })
-						}
+						onValueChange={(
+							value: "none" | "uppercase" | "lowercase" | "capitalize",
+						) => setBrushSettings({ textTransform: value })}
 					>
 						<SelectTrigger className="w-full h-8 text-xs">
 							<SelectValue placeholder="Transformácia" />
 						</SelectTrigger>
 						<SelectContent>
-							<SelectItem value="none" className="text-xs">Žiadna (normálny text)</SelectItem>
-							<SelectItem value="uppercase" className="text-xs">VŠETKO VEĽKÉ</SelectItem>
-							<SelectItem value="lowercase" className="text-xs">všetko malé</SelectItem>
-							<SelectItem value="capitalize" className="text-xs">Prvé Veľké</SelectItem>
+							<SelectItem value="none" className="text-xs">
+								Žiadna (normálny text)
+							</SelectItem>
+							<SelectItem value="uppercase" className="text-xs">
+								VŠETKO VEĽKÉ
+							</SelectItem>
+							<SelectItem value="lowercase" className="text-xs">
+								všetko malé
+							</SelectItem>
+							<SelectItem value="capitalize" className="text-xs">
+								Prvé Veľké
+							</SelectItem>
 						</SelectContent>
 					</Select>
 				</div>
@@ -962,12 +1026,18 @@ export const TextOptionsPanel: React.FC = () => {
 				{/* Opacity */}
 				<div className="space-y-2">
 					<div className="flex justify-between items-center">
-						<Label className="text-xs text-muted-foreground">Priehľadnosť</Label>
-						<span className="text-xs font-mono">{safeBrushSettings.textOpacity}%</span>
+						<Label className="text-xs text-muted-foreground">
+							Priehľadnosť
+						</Label>
+						<span className="text-xs font-mono">
+							{safeBrushSettings.textOpacity}%
+						</span>
 					</div>
 					<Slider
 						value={[safeBrushSettings.textOpacity]}
-						onValueChange={([value]) => setBrushSettings({ textOpacity: value })}
+						onValueChange={([value]) =>
+							setBrushSettings({ textOpacity: value })
+						}
 						min={10}
 						max={100}
 						step={5}
@@ -979,7 +1049,7 @@ export const TextOptionsPanel: React.FC = () => {
 			{/* Efekty */}
 			<div className="space-y-3">
 				<Label className="text-xs font-medium">Efekty</Label>
-				
+
 				{/* Text Shadow */}
 				<div className="space-y-2">
 					<div className="flex items-center justify-between">
@@ -1017,11 +1087,17 @@ export const TextOptionsPanel: React.FC = () => {
 						<div className="pl-6 space-y-2">
 							<div className="grid grid-cols-2 gap-2">
 								<div className="space-y-1">
-									<Label className="text-xs text-muted-foreground">Rozmazanie</Label>
+									<Label className="text-xs text-muted-foreground">
+										Rozmazanie
+									</Label>
 									<Input
 										type="number"
 										value={safeBrushSettings.textShadowBlur}
-										onChange={(e) => setBrushSettings({ textShadowBlur: parseInt(e.target.value) })}
+										onChange={(e) =>
+											setBrushSettings({
+												textShadowBlur: parseInt(e.target.value),
+											})
+										}
 										className="h-7 text-xs"
 										min="0"
 										max="50"
@@ -1032,7 +1108,11 @@ export const TextOptionsPanel: React.FC = () => {
 									<Input
 										type="number"
 										value={safeBrushSettings.textShadowOffsetX}
-										onChange={(e) => setBrushSettings({ textShadowOffsetX: parseInt(e.target.value) })}
+										onChange={(e) =>
+											setBrushSettings({
+												textShadowOffsetX: parseInt(e.target.value),
+											})
+										}
 										className="h-7 text-xs"
 										min="-20"
 										max="20"
@@ -1079,10 +1159,14 @@ export const TextOptionsPanel: React.FC = () => {
 					{safeBrushSettings.textOutline && (
 						<div className="pl-6 space-y-2">
 							<div className="space-y-1">
-								<Label className="text-xs text-muted-foreground">Šírka obrysu</Label>
+								<Label className="text-xs text-muted-foreground">
+									Šírka obrysu
+								</Label>
 								<Slider
 									value={[safeBrushSettings.textOutlineWidth]}
-									onValueChange={([value]) => setBrushSettings({ textOutlineWidth: value })}
+									onValueChange={([value]) =>
+										setBrushSettings({ textOutlineWidth: value })
+									}
 									min={1}
 									max={10}
 									step={0.5}
@@ -1129,10 +1213,14 @@ export const TextOptionsPanel: React.FC = () => {
 					{safeBrushSettings.textBackground && (
 						<div className="pl-6 space-y-2">
 							<div className="space-y-1">
-								<Label className="text-xs text-muted-foreground">Priehľadnosť pozadia</Label>
+								<Label className="text-xs text-muted-foreground">
+									Priehľadnosť pozadia
+								</Label>
 								<Slider
 									value={[safeBrushSettings.textBackgroundOpacity]}
-									onValueChange={([value]) => setBrushSettings({ textBackgroundOpacity: value })}
+									onValueChange={([value]) =>
+										setBrushSettings({ textBackgroundOpacity: value })
+									}
 									min={5}
 									max={100}
 									step={5}
@@ -1153,32 +1241,38 @@ export const TextOptionsPanel: React.FC = () => {
 							variant="ghost"
 							size="sm"
 							className="h-6 text-xs"
-							onClick={() => setBrushSettings({ 
-								fontFamily: "Arial",
-								fontSize: 16,
-								fontWeight: "normal",
-								fontStyle: "normal",
-								textDecoration: "none",
-								textAlign: "left",
-								lineHeight: 1.2,
-								letterSpacing: 0,
-								textTransform: "none",
-								textOpacity: 100,
-								textShadow: false,
-								textOutline: false,
-								textBackground: false,
-							})}
+							onClick={() =>
+								setBrushSettings({
+									fontFamily: "Arial",
+									fontSize: 16,
+									fontWeight: "normal",
+									fontStyle: "normal",
+									textDecoration: "none",
+									textAlign: "left",
+									lineHeight: 1.2,
+									letterSpacing: 0,
+									textTransform: "none",
+									textOpacity: 100,
+									textShadow: false,
+									textOutline: false,
+									textBackground: false,
+								})
+							}
 						>
 							<RotateCcw className="w-3 h-3 mr-1" />
 							Reset
 						</Button>
 					</div>
-					<div 
+					<div
 						className="min-h-32 p-4 bg-muted/30 rounded-md border border-border/50 flex items-center justify-center relative"
 						style={{
-							backgroundColor: safeBrushSettings.textBackground 
-								? `${safeBrushSettings.textBackgroundColor}${Math.round(safeBrushSettings.textBackgroundOpacity * 2.55).toString(16).padStart(2, '0')}`
-								: 'transparent'
+							backgroundColor: safeBrushSettings.textBackground
+								? `${safeBrushSettings.textBackgroundColor}${Math.round(
+										safeBrushSettings.textBackgroundOpacity * 2.55,
+									)
+										.toString(16)
+										.padStart(2, "0")}`
+								: "transparent",
 						}}
 					>
 						<div
@@ -1195,18 +1289,25 @@ export const TextOptionsPanel: React.FC = () => {
 								color: primaryColor,
 								padding: `${safeBrushSettings.textPadding}px`,
 								opacity: `${safeBrushSettings.textOpacity}%`,
-								maxWidth: '100%',
-								wordWrap: safeBrushSettings.textWrap === 'none' ? 'normal' : 'break-word',
-								textShadow: safeBrushSettings.textShadow 
+								maxWidth: "100%",
+								wordWrap:
+									safeBrushSettings.textWrap === "none"
+										? "normal"
+										: "break-word",
+								textShadow: safeBrushSettings.textShadow
 									? `${safeBrushSettings.textShadowOffsetX}px ${safeBrushSettings.textShadowOffsetY}px ${safeBrushSettings.textShadowBlur}px ${safeBrushSettings.textShadowColor}`
-									: 'none',
+									: "none",
 								WebkitTextStroke: safeBrushSettings.textOutline
 									? `${safeBrushSettings.textOutlineWidth}px ${safeBrushSettings.textOutlineColor}`
-									: 'none',
-								paintOrder: safeBrushSettings.textOutline ? 'stroke fill' : 'normal',
+									: "none",
+								paintOrder: safeBrushSettings.textOutline
+									? "stroke fill"
+									: "normal",
 							}}
 						>
-							{getTransformedText(editText || "The quick brown fox jumps over the lazy dog")}
+							{getTransformedText(
+								editText || "The quick brown fox jumps over the lazy dog",
+							)}
 						</div>
 						{isEditing && (
 							<div className="absolute top-2 right-2 px-2 py-1 bg-green-500 text-white text-xs rounded-full animate-pulse">
@@ -1215,7 +1316,8 @@ export const TextOptionsPanel: React.FC = () => {
 						)}
 					</div>
 					<div className="text-xs text-muted-foreground mt-2 text-center">
-						{safeBrushSettings.fontFamily} | {safeBrushSettings.fontSize}px | {editText.length} znakov
+						{safeBrushSettings.fontFamily} | {safeBrushSettings.fontSize}px |{" "}
+						{editText.length} znakov
 					</div>
 				</div>
 			)}
@@ -1223,7 +1325,9 @@ export const TextOptionsPanel: React.FC = () => {
 			{/* Akcie pre vybraný text */}
 			{activeText && (
 				<div className="pt-3 border-t">
-					<Label className="text-xs font-medium mb-2 block">Akcie pre vybraný text</Label>
+					<Label className="text-xs font-medium mb-2 block">
+						Akcie pre vybraný text
+					</Label>
 					<div className="grid grid-cols-2 gap-2">
 						<Button
 							onClick={applySettingsToText}
@@ -1259,7 +1363,7 @@ export const TextOptionsPanel: React.FC = () => {
 								window.dispatchEvent(
 									new CustomEvent("artstudio:select-text", {
 										detail: { textId: activeTextId },
-									})
+									}),
 								);
 							}}
 							size="sm"
