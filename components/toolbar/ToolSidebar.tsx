@@ -261,16 +261,6 @@ const tools: ToolConfig[] = [
 		description: "Add and edit text layers. Click for point text, drag for area text.",
 		category: "shape",
 	},
-
-	// Navigation Tools
-	{
-		id: "hand",
-		icon: Hand,
-		label: "Hand Tool",
-		shortcut: "H",
-		description: "Pan around canvas. Hold Space with any tool for quick access.",
-		category: "navigation",
-	},
 ];
 
 export const ToolSidebar: React.FC = () => {
