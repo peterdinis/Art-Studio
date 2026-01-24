@@ -271,14 +271,6 @@ const tools: ToolConfig[] = [
 		description: "Pan around canvas. Hold Space with any tool for quick access.",
 		category: "navigation",
 	},
-	{
-		id: "zoom",
-		icon: ZoomIn,
-		label: "Zoom Tool",
-		shortcut: "Z",
-		description: "Zoom in and out of canvas. Alt+click to zoom out.",
-		category: "navigation",
-	},
 ];
 
 export const ToolSidebar: React.FC = () => {

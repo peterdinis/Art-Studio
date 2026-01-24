@@ -146,62 +146,6 @@ export const StatusBar: React.FC = () => {
 					</TooltipContent>
 				</Tooltip>
 			</div>
-
-			{/* Right: Zoom Controls */}
-			<div className="flex items-center gap-2">
-				<Tooltip delayDuration={300}>
-					<TooltipTrigger asChild>
-						<button onClick={handleZoomOut} className="tool-button w-6 h-6">
-							<ZoomOut className="w-3.5 h-3.5" />
-						</button>
-					</TooltipTrigger>
-					<TooltipContent side="top">
-						<div className="space-y-0.5">
-							<p className="font-medium">Zoom Out</p>
-							<p className="text-xs text-muted-foreground">
-								Decrease magnification level (⌘-)
-							</p>
-						</div>
-					</TooltipContent>
-				</Tooltip>
-
-				<Tooltip delayDuration={300}>
-					<TooltipTrigger asChild>
-						<button
-							onClick={() => setZoom(100)}
-							className="min-w-15 text-center font-mono hover:text-foreground transition-colors"
-						>
-							{zoom.toFixed(0)}%
-						</button>
-					</TooltipTrigger>
-					<TooltipContent side="top">
-						<div className="space-y-0.5">
-							<p className="font-medium">Zoom Level</p>
-							<p className="text-xs text-muted-foreground">
-								Click to reset to 100%. Scroll to adjust.
-							</p>
-						</div>
-					</TooltipContent>
-				</Tooltip>
-
-				<Tooltip delayDuration={300}>
-					<TooltipTrigger asChild>
-						<button onClick={handleZoomIn} className="tool-button w-6 h-6">
-							<ZoomIn className="w-3.5 h-3.5" />
-						</button>
-					</TooltipTrigger>
-					<TooltipContent side="top">
-						<div className="space-y-0.5">
-							<p className="font-medium">Zoom In</p>
-							<p className="text-xs text-muted-foreground">
-								Increase magnification level (⌘+)
-							</p>
-						</div>
-					</TooltipContent>
-				</Tooltip>
-
-				<div className="w-px h-4 bg-border mx-1" />
-			</div>
 		</div>
 	);
 };
