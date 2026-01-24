@@ -47,6 +47,12 @@ export const GradientOptionsPanel: React.FC = () => {
 	const [blendMode, setBlendMode] = React.useState("normal");
 	const [gradientName, setGradientName] = React.useState("Custom Gradient");
 
+	// Ensure gradientStops has a default value
+	const gradientStops = brushSettings.gradientStops || [
+		{ color: primaryColor, position: 0 },
+		{ color: secondaryColor, position: 1 },
+	];
+
 	const handleGradientTypeChange = (type: "linear" | "radial") => {
 		setBrushSettings({ gradientType: type });
 	};
@@ -57,7 +63,7 @@ export const GradientOptionsPanel: React.FC = () => {
 
 	const handleAddColorStop = () => {
 		const newStops = [
-			...brushSettings.gradientStops,
+			...gradientStops,
 			{ color: primaryColor, position: 0.5 },
 		].sort((a, b) => a.position - b.position);
 
@@ -65,9 +71,9 @@ export const GradientOptionsPanel: React.FC = () => {
 	};
 
 	const handleRemoveColorStop = (index: number) => {
-		if (brushSettings.gradientStops.length <= 2) return;
+		if (gradientStops.length <= 2) return;
 
-		const newStops = [...brushSettings.gradientStops];
+		const newStops = [...gradientStops];
 		newStops.splice(index, 1);
 		setBrushSettings({ gradientStops: newStops });
 	};
@@ -76,14 +82,14 @@ export const GradientOptionsPanel: React.FC = () => {
 		index: number,
 		updates: Partial<{ color: string; position: number }>,
 	) => {
-		const newStops = [...brushSettings.gradientStops];
+		const newStops = [...gradientStops];
 		newStops[index] = { ...newStops[index], ...updates };
 		newStops.sort((a, b) => a.position - b.position);
 		setBrushSettings({ gradientStops: newStops });
 	};
 
 	const handleReverseGradient = () => {
-		const reversedStops = brushSettings.gradientStops
+		const reversedStops = gradientStops
 			.map((stop) => ({
 				...stop,
 				position: 1 - stop.position,
@@ -118,7 +124,7 @@ export const GradientOptionsPanel: React.FC = () => {
 			id: `gradient-${Date.now()}`,
 			name: gradientName || "Custom Gradient",
 			type: brushSettings.gradientType,
-			stops: brushSettings.gradientStops,
+			stops: gradientStops,
 			angle: gradientAngle,
 			scale: gradientScale,
 			repeat: repeatMode,
@@ -157,7 +163,7 @@ export const GradientOptionsPanel: React.FC = () => {
 		const gradientData = {
 			name: gradientName,
 			type: brushSettings.gradientType,
-			stops: brushSettings.gradientStops,
+			stops: gradientStops,
 			angle: gradientAngle,
 			scale: gradientScale,
 			repeat: repeatMode,
@@ -191,8 +197,8 @@ export const GradientOptionsPanel: React.FC = () => {
 
 	const handleCopyGradientCSS = () => {
 		const css = brushSettings.gradientType === "linear"
-			? `linear-gradient(${gradientAngle}deg, ${brushSettings.gradientStops.map((s) => `${s.color} ${s.position * 100}%`).join(", ")})`
-			: `radial-gradient(circle, ${brushSettings.gradientStops.map((s) => `${s.color} ${s.position * 100}%`).join(", ")})`;
+			? `linear-gradient(${gradientAngle}deg, ${gradientStops.map((s) => `${s.color} ${s.position * 100}%`).join(", ")})`
+			: `radial-gradient(circle, ${gradientStops.map((s) => `${s.color} ${s.position * 100}%`).join(", ")})`;
 
 		navigator.clipboard.writeText(css).then(() => {
 			// You could add a toast notification here
@@ -200,7 +206,7 @@ export const GradientOptionsPanel: React.FC = () => {
 	};
 
 	const handleFlipGradient = (direction: "horizontal" | "vertical") => {
-		const newStops = brushSettings.gradientStops.map(stop => ({
+		const newStops = gradientStops.map(stop => ({
 			...stop,
 			position: direction === "horizontal" ? 1 - stop.position : stop.position
 		}));
@@ -224,8 +230,8 @@ export const GradientOptionsPanel: React.FC = () => {
 							style={{
 								background:
 									brushSettings.gradientType === "linear"
-										? `linear-gradient(${gradientAngle}deg, ${(brushSettings.gradientStops || []).map((s) => `${s.color} ${s.position * 100}%`).join(", ")})`
-										: `radial-gradient(circle at ${gradientScale}%, ${(brushSettings.gradientStops || []).map((s) => `${s.color} ${s.position * 100}%`).join(", ")})`,
+										? `linear-gradient(${gradientAngle}deg, ${gradientStops.map((s) => `${s.color} ${s.position * 100}%`).join(", ")})`
+										: `radial-gradient(circle at ${gradientScale}%, ${gradientStops.map((s) => `${s.color} ${s.position * 100}%`).join(", ")})`,
 								backgroundBlendMode: blendMode,
 							}}
 						/>
@@ -422,7 +428,7 @@ export const GradientOptionsPanel: React.FC = () => {
 					</div>
 
 					<div className="space-y-2 max-h-40 overflow-y-auto">
-						{brushSettings.gradientStops.map((stop, index) => (
+						{gradientStops.map((stop, index) => (
 							<div key={index} className="space-y-2 p-2 border rounded-md">
 								<div className="flex items-center justify-between">
 									<div className="flex items-center gap-2">
@@ -440,7 +446,7 @@ export const GradientOptionsPanel: React.FC = () => {
 											variant="ghost"
 											className="h-6 w-6 p-0"
 											onClick={() => handleRemoveColorStop(index)}
-											disabled={brushSettings.gradientStops.length <= 2}
+											disabled={gradientStops.length <= 2}
 										>
 											<Trash2 className="w-3 h-3" />
 										</Button>
