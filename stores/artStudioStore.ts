@@ -24,7 +24,11 @@ export type Tool =
 	| "magicwand"
 	| "move"
 	| "hand"
-	| "zoom";
+	| "zoom"
+	| "crop"
+	| "dodge"
+	| "burn"
+	| "star";
 
 export interface Layer {
 	id: string;
@@ -72,6 +76,17 @@ export interface BrushSettings {
 	blurSize: number;
 	blurMode: "gaussian" | "box" | "motion";
 	blurQuality: "low" | "medium" | "high";
+	gradientOpacity?: number;
+	gradientDithering?: boolean;
+	gradientAntiAlias?: boolean;
+	gradientNoise?: number;
+	gradientCenterX?: number;
+	gradientCenterY?: number;
+	gradientAngle: number;
+	gradientScale: number;
+	dodgeIntensity: number;
+	burnIntensity: number;
+	cropRect: { x: number; y: number; width: number; height: number } | null;
 }
 
 export interface GradientObject {
@@ -82,7 +97,8 @@ export interface GradientObject {
 	x1: number;
 	y1: number;
 	colorStops: { offset: number; color: string }[];
-	layerId?: string;
+	layerId: string;
+	name?: string;
 }
 
 export interface HistoryEntry {
@@ -130,6 +146,7 @@ interface ArtStudioState {
 		width: number;
 		height: number;
 	} | null;
+	selectionPath: number[] | null;
 
 	// UI state (persistent in localStorage)
 	showColorPicker: boolean;
@@ -150,6 +167,10 @@ interface ArtStudioState {
 	// Preview
 	fillPreview: { x: number; y: number; color: string } | null;
 	healingSource: { x: number; y: number } | null;
+
+	// Selection
+	selectedId: string | null;
+	setSelectedId: (id: string | null) => void;
 
 	// Actions
 	setRenderingEngine: (engine: RenderingEngine) => void;
@@ -197,6 +218,7 @@ interface ArtStudioState {
 	canRedo: () => boolean;
 	restoreToHistoryIndex: (index: number) => Promise<void>;
 	clearHistory: () => void;
+	clearSessionHistory: () => Promise<void>;
 
 	// Session management
 	initializeSession: () => Promise<void>;
@@ -206,10 +228,10 @@ interface ArtStudioState {
 	exportSessionData: () => Promise<any>;
 	importSessionData: (data: any) => Promise<boolean>;
 
-	// Other actions
 	setSelectionBounds: (
 		bounds: { x: number; y: number; width: number; height: number } | null,
 	) => void;
+	setSelectionPath: (path: number[] | null) => void;
 	clearSelection: () => void;
 	setShowColorPicker: (show: boolean) => void;
 	setShowLeftPanel: (show: boolean) => void;
@@ -276,6 +298,11 @@ const defaultBrushSettings: BrushSettings = {
 	blurSize: 20,
 	blurMode: "gaussian",
 	blurQuality: "medium",
+	gradientAngle: 90,
+	gradientScale: 100,
+	dodgeIntensity: 50,
+	burnIntensity: 50,
+	cropRect: null,
 };
 
 // Helper to serialize canvas state (excluding UI)
@@ -298,6 +325,7 @@ const serializeCanvasState = (state: any) => {
 		fillPreview,
 		healingSource,
 		selectionBounds,
+		selectionPath,
 		history,
 		historyIndex,
 		sessionId,
@@ -319,6 +347,7 @@ const serializeCanvasState = (state: any) => {
 		recentColors: canvasState.recentColors,
 		brushSettings: canvasState.brushSettings,
 		selectionBounds: canvasState.selectionBounds,
+		selectionPath: canvasState.selectionPath,
 	};
 };
 
@@ -340,6 +369,7 @@ const deserializeCanvasState = (data: any, currentState: any) => {
 		recentColors: data.recentColors || currentState.recentColors,
 		brushSettings: data.brushSettings || currentState.brushSettings,
 		selectionBounds: data.selectionBounds || currentState.selectionBounds,
+		selectionPath: data.selectionPath || currentState.selectionPath,
 	};
 };
 
@@ -348,7 +378,7 @@ export const useArtStudioStore = create<ArtStudioState>()(
 		(set, get) => ({
 			// Initial state
 			sessionId: null,
-			renderingEngine: "fabric",
+			renderingEngine: "konva",
 			activeTool: "brush",
 			primaryColor: "#ffffff",
 			secondaryColor: "#000000",
@@ -381,6 +411,7 @@ export const useArtStudioStore = create<ArtStudioState>()(
 			history: [],
 			historyIndex: -1,
 			selectionBounds: null,
+			selectionPath: null,
 			showColorPicker: false,
 			showLeftPanel: true,
 			showRightPanel: true,
@@ -397,6 +428,7 @@ export const useArtStudioStore = create<ArtStudioState>()(
 			showGuides: false,
 			fillPreview: null,
 			healingSource: null,
+			selectedId: null,
 
 			// ========== SESSION MANAGEMENT ==========
 
@@ -557,8 +589,10 @@ export const useArtStudioStore = create<ArtStudioState>()(
 						history: [],
 						historyIndex: -1,
 						selectionBounds: null,
+						selectionPath: null,
 						fillPreview: null,
 						healingSource: null,
+						selectedId: null,
 					});
 
 					// Start fresh session
@@ -682,7 +716,7 @@ export const useArtStudioStore = create<ArtStudioState>()(
 					setTimeout(() => {
 						get()
 							.saveSession()
-							.catch(() => {});
+							.catch(() => { });
 					}, 1000);
 				}
 			},
@@ -792,10 +826,40 @@ export const useArtStudioStore = create<ArtStudioState>()(
 			},
 
 			clearHistory: () => {
+				// Len čistí lokálny state, ale nie IndexedDB
 				set({
 					history: [],
 					historyIndex: -1,
 				});
+			},
+
+			clearSessionHistory: async () => {
+				try {
+					const { sessionId } = get();
+
+					if (sessionId) {
+						// Vymaž históriu z IndexedDB pre aktuálnu session
+						await sessionDB.deleteAllHistoryForSession(sessionId);
+					}
+
+					// Vymaž lokálny state
+					set({
+						history: [],
+						historyIndex: -1,
+					});
+
+					// Upozorni canvas, že história bola vymazaná
+					window.dispatchEvent(
+						new CustomEvent("artstudio:history-cleared", {
+							detail: { sessionId },
+						}),
+					);
+
+					console.log("Session history cleared from IndexedDB");
+				} catch (error) {
+					console.error("Error clearing session history:", error);
+					throw error;
+				}
 			},
 
 			// ========== TOOL AND CANVAS ACTIONS ==========
@@ -810,7 +874,7 @@ export const useArtStudioStore = create<ArtStudioState>()(
 					() =>
 						get()
 							.saveSession()
-							.catch(() => {}),
+							.catch(() => { }),
 					2000,
 				);
 			},
@@ -822,7 +886,7 @@ export const useArtStudioStore = create<ArtStudioState>()(
 					() =>
 						get()
 							.saveSession()
-							.catch(() => {}),
+							.catch(() => { }),
 					2000,
 				);
 			},
@@ -833,7 +897,7 @@ export const useArtStudioStore = create<ArtStudioState>()(
 					() =>
 						get()
 							.saveSession()
-							.catch(() => {}),
+							.catch(() => { }),
 					2000,
 				);
 			},
@@ -845,7 +909,7 @@ export const useArtStudioStore = create<ArtStudioState>()(
 					() =>
 						get()
 							.saveSession()
-							.catch(() => {}),
+							.catch(() => { }),
 					2000,
 				);
 			},
@@ -950,6 +1014,13 @@ export const useArtStudioStore = create<ArtStudioState>()(
 							blurQuality: "medium",
 						};
 						break;
+					case "star":
+						newSettings = {
+							strokeWidth: 2,
+							sides: 5,
+							fillType: "solid",
+						};
+						break;
 					case "magicwand":
 						newSettings = {
 							tolerance: 32,
@@ -980,7 +1051,7 @@ export const useArtStudioStore = create<ArtStudioState>()(
 					() =>
 						get()
 							.saveSession()
-							.catch(() => {}),
+							.catch(() => { }),
 					1000,
 				);
 			},
@@ -998,7 +1069,7 @@ export const useArtStudioStore = create<ArtStudioState>()(
 					() =>
 						get()
 							.saveSession()
-							.catch(() => {}),
+							.catch(() => { }),
 					1000,
 				);
 			},
@@ -1052,7 +1123,7 @@ export const useArtStudioStore = create<ArtStudioState>()(
 					() =>
 						get()
 							.saveSession()
-							.catch(() => {}),
+							.catch(() => { }),
 					1000,
 				);
 			},
@@ -1067,7 +1138,7 @@ export const useArtStudioStore = create<ArtStudioState>()(
 					() =>
 						get()
 							.saveSession()
-							.catch(() => {}),
+							.catch(() => { }),
 					1000,
 				);
 			},
@@ -1081,10 +1152,12 @@ export const useArtStudioStore = create<ArtStudioState>()(
 					() =>
 						get()
 							.saveSession()
-							.catch(() => {}),
+							.catch(() => { }),
 					1000,
 				);
 			},
+
+			setSelectedId: (id) => set({ selectedId: id }),
 
 			mergeLayers: (layerIds) => {
 				const { layers } = get();
@@ -1093,7 +1166,7 @@ export const useArtStudioStore = create<ArtStudioState>()(
 					() =>
 						get()
 							.saveSession()
-							.catch(() => {}),
+							.catch(() => { }),
 					1000,
 				);
 			},
@@ -1145,7 +1218,7 @@ export const useArtStudioStore = create<ArtStudioState>()(
 					() =>
 						get()
 							.saveSession()
-							.catch(() => {}),
+							.catch(() => { }),
 					500,
 				);
 			},
@@ -1154,7 +1227,9 @@ export const useArtStudioStore = create<ArtStudioState>()(
 
 			setSelectionBounds: (bounds) => set({ selectionBounds: bounds }),
 
-			clearSelection: () => set({ selectionBounds: null }),
+			setSelectionPath: (path) => set({ selectionPath: path }),
+
+			clearSelection: () => set({ selectionBounds: null, selectionPath: null }),
 
 			// ========== UI ACTIONS ==========
 

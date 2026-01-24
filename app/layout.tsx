@@ -108,7 +108,6 @@ export default function RootLayout({
 			className={`${ubuntu.variable}`}
 		>
 			<head>
-				{/* Preconnect for external resources */}
 				<link rel="preconnect" href="https://fonts.googleapis.com" />
 				<link
 					rel="preconnect"

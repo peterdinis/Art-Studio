@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
 	Paintbrush,
 	Eraser,
@@ -26,6 +26,11 @@ import {
 	Hexagon,
 	Spline,
 	Trash2,
+	Move,
+	Crop,
+	Sun,
+	Moon,
+	Star as StarIcon,
 } from "lucide-react";
 import { useArtStudioStore, Tool } from "@/stores/artStudioStore";
 import {
@@ -34,7 +39,6 @@ import {
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Separator } from "@/components/ui/separator";
-import { TextOptionsPanel } from "@/components/panels/TextOptionsPanel";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -47,6 +51,9 @@ import {
 	AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { GradientOptionsPanel } from "../panels/GradientOptionsPanel";
+import { ShapeOptionsPanel } from "../panels/ShapeOptionsPanel";
+import { CropPanel } from "../panels/CropPanel";
+import { TransformPanel } from "../panels/TransformPanel";
 
 interface ToolConfig {
 	id: Tool;
@@ -59,12 +66,19 @@ interface ToolConfig {
 
 const tools: ToolConfig[] = [
 	{
-		id: "select",
-		icon: MousePointer,
+		id: "move",
+		icon: Move,
 		label: "Move Tool",
 		shortcut: "V",
-		description:
-			"Select and move layers, selections, and other elements on the canvas.",
+		description: "Move selected objects on the canvas. Hold Ctrl/Cmd for multi-select.",
+		category: "selection",
+	},
+	{
+		id: "select",
+		icon: MousePointer,
+		label: "Select Tool",
+		shortcut: "S",
+		description: "Select and manipulate individual objects on the canvas.",
 		category: "selection",
 	},
 	{
@@ -72,8 +86,7 @@ const tools: ToolConfig[] = [
 		icon: RectangleHorizontal,
 		label: "Rectangular Marquee",
 		shortcut: "M",
-		description:
-			"Create rectangular selections. Hold Shift for square, Alt for center origin.",
+		description: "Create rectangular selections. Hold Shift for square, Alt for center origin.",
 		category: "selection",
 	},
 	{
@@ -81,8 +94,7 @@ const tools: ToolConfig[] = [
 		icon: Lasso,
 		label: "Lasso Tool",
 		shortcut: "L",
-		description:
-			"Draw freehand selections around objects. Double-click or press Enter to close.",
+		description: "Draw freehand selections. Double-click or press Enter to close.",
 		category: "selection",
 	},
 	{
@@ -90,8 +102,15 @@ const tools: ToolConfig[] = [
 		icon: Wand2,
 		label: "Magic Wand",
 		shortcut: "W",
-		description:
-			"Select areas of similar color. Adjust tolerance in options to control sensitivity.",
+		description: "Select areas of similar color. Adjust tolerance in options.",
+		category: "selection",
+	},
+	{
+		id: "crop",
+		icon: Crop,
+		label: "Crop Tool",
+		shortcut: "C",
+		description: "Trim the canvas to a specific area. Double-click or press Enter to apply.",
 		category: "selection",
 	},
 
@@ -101,17 +120,15 @@ const tools: ToolConfig[] = [
 		icon: Paintbrush,
 		label: "Brush Tool",
 		shortcut: "B",
-		description:
-			"Paint strokes with customizable brush tips. Use [ ] to adjust size, Shift+click for straight lines.",
+		description: "Paint strokes with customizable brushes. Use [ ] to adjust size.",
 		category: "drawing",
 	},
 	{
 		id: "pencil",
 		icon: Pen,
 		label: "Pencil Tool",
-		shortcut: "N",
-		description:
-			"Draw hard-edged freehand lines. Ideal for pixel art and precise work.",
+		shortcut: "P",
+		description: "Draw hard-edged lines. Ideal for pixel art and precise work.",
 		category: "drawing",
 	},
 	{
@@ -119,26 +136,23 @@ const tools: ToolConfig[] = [
 		icon: Eraser,
 		label: "Eraser Tool",
 		shortcut: "E",
-		description:
-			"Erase pixels to transparency or background color. Hold Alt to sample background.",
+		description: "Erase pixels to transparency. Hold Alt to sample background.",
 		category: "drawing",
 	},
 	{
 		id: "fill",
 		icon: PaintBucket,
 		label: "Paint Bucket",
-		shortcut: "G",
-		description:
-			"Fill areas with the foreground color. Adjust tolerance for color matching range.",
+		shortcut: "F",
+		description: "Fill areas with foreground color. Adjust tolerance for color matching.",
 		category: "drawing",
 	},
 	{
 		id: "gradient",
 		icon: Blend,
 		label: "Gradient Tool",
-		shortcut: "Shift+G",
-		description:
-			"Create smooth color transitions. Click and drag to define gradient direction.",
+		shortcut: "G",
+		description: "Create smooth color transitions. Click and drag to define direction.",
 		category: "drawing",
 	},
 	{
@@ -146,17 +160,15 @@ const tools: ToolConfig[] = [
 		icon: Pipette,
 		label: "Eyedropper",
 		shortcut: "I",
-		description:
-			"Sample colors from the canvas. Click to set primary color, Ctrl/Cmd+click to set secondary color.",
+		description: "Sample colors from canvas. Click for primary, Ctrl+click for secondary.",
 		category: "drawing",
 	},
 	{
 		id: "clone",
 		icon: Stamp,
 		label: "Clone Stamp",
-		shortcut: "S",
-		description:
-			"Paint with pixels from another area. Alt+click to set source point.",
+		shortcut: "C",
+		description: "Paint with pixels from another area. Alt+click to set source.",
 		category: "drawing",
 	},
 	{
@@ -164,8 +176,7 @@ const tools: ToolConfig[] = [
 		icon: Droplet,
 		label: "Healing Brush",
 		shortcut: "J",
-		description:
-			"Remove imperfections by blending with surrounding pixels. Great for photo retouching.",
+		description: "Remove imperfections by blending with surrounding pixels.",
 		category: "drawing",
 	},
 	{
@@ -173,8 +184,23 @@ const tools: ToolConfig[] = [
 		icon: Sparkles,
 		label: "Blur Tool",
 		shortcut: "R",
-		description:
-			"Soften edges and reduce detail. Useful for depth of field effects.",
+		description: "Soften edges and reduce detail for depth of field effects.",
+		category: "drawing",
+	},
+	{
+		id: "dodge",
+		icon: Sun,
+		label: "Dodge Tool",
+		shortcut: "O",
+		description: "Lighten areas of the image by painting over them.",
+		category: "drawing",
+	},
+	{
+		id: "burn",
+		icon: Moon,
+		label: "Burn Tool",
+		shortcut: "O",
+		description: "Darken areas of the image by painting over them.",
 		category: "drawing",
 	},
 
@@ -200,25 +226,31 @@ const tools: ToolConfig[] = [
 		icon: Hexagon,
 		label: "Polygon Tool",
 		shortcut: "U",
-		description:
-			"Create multi-sided shapes. Set number of sides in tool options.",
+		description: "Create multi-sided shapes. Set sides count in options.",
 		category: "shape",
 	},
 	{
 		id: "line",
 		icon: Minus,
 		label: "Line Tool",
-		shortcut: "U",
-		description: "Draw straight lines. Hold Shift to constrain to 45° angles.",
+		shortcut: "O",
+		description: "Draw straight lines.",
+		category: "shape",
+	},
+	{
+		id: "star",
+		icon: StarIcon,
+		label: "Star Tool",
+		shortcut: "S",
+		description: "Create star shapes. Adjust number of points in options.",
 		category: "shape",
 	},
 	{
 		id: "pen",
 		icon: Spline,
 		label: "Pen Tool",
-		shortcut: "P",
-		description:
-			"Create precise paths with anchor points. Essential for complex selections and shapes.",
+		shortcut: "Q",
+		description: "Create precise paths with anchor points for complex shapes.",
 		category: "shape",
 	},
 	{
@@ -226,8 +258,7 @@ const tools: ToolConfig[] = [
 		icon: Type,
 		label: "Text Tool",
 		shortcut: "T",
-		description:
-			"Add and edit text layers. Click for point text, drag for area text.",
+		description: "Add and edit text layers. Click for point text, drag for area text.",
 		category: "shape",
 	},
 
@@ -237,8 +268,7 @@ const tools: ToolConfig[] = [
 		icon: Hand,
 		label: "Hand Tool",
 		shortcut: "H",
-		description:
-			"Pan around the canvas. Hold Space with any tool for quick access.",
+		description: "Pan around canvas. Hold Space with any tool for quick access.",
 		category: "navigation",
 	},
 	{
@@ -246,7 +276,7 @@ const tools: ToolConfig[] = [
 		icon: ZoomIn,
 		label: "Zoom Tool",
 		shortcut: "Z",
-		description: "Zoom in and out of the canvas. Alt+click to zoom out.",
+		description: "Zoom in and out of canvas. Alt+click to zoom out.",
 		category: "navigation",
 	},
 ];
@@ -267,47 +297,168 @@ export const ToolSidebar: React.FC = () => {
 		setShowColorsPanel,
 	} = useArtStudioStore();
 
-	const [showClearAlert, setShowClearAlert] = React.useState(false);
+	const [showClearAlert, setShowClearAlert] = useState(false);
+	const [canvasAvailable, setCanvasAvailable] = useState(true); // Predvolená hodnota true
 
-	// Pokud je aktivní text tool, zobrazte text options v sidebaru
-	const shouldShowTextOptions = activeTool === "text";
-	const shouldShowGradientOptions = activeTool === "gradient";
+	// Funkcia na kontrolu dostupnosti canvasu - oveľa jednoduchšia
+	useEffect(() => {
+		// Jednoduchá funkcia na kontrolu canvasu
+		const checkCanvas = () => {
+			// Skontrolujeme, či existuje nejaký canvas element v DOM
+			const canvasElement = document.querySelector('canvas');
+			setCanvasAvailable(!!canvasElement);
+		};
 
-	// Funkce pro vymazání plátna
+		// Okamžite skontrolovať
+		checkCanvas();
+
+		// Pridať event listener na zmenu DOM
+		const observer = new MutationObserver(checkCanvas);
+		observer.observe(document.body, { childList: true, subtree: true });
+
+		// Pridať event listener na zmenu veľkosti okna (môže spôsobiť re-render canvasu)
+		window.addEventListener('resize', checkCanvas);
+
+		// Interval pre periodickú kontrolu (pre istotu)
+		const interval = setInterval(checkCanvas, 3000);
+
+		return () => {
+			observer.disconnect();
+			window.removeEventListener('resize', checkCanvas);
+			clearInterval(interval);
+		};
+	}, []);
+
+	// Funkcia pre undo s bezpečnou kontrolou
+	const handleUndo = async () => {
+		if (!canUndo()) return;
+
+		try {
+			const entry = await undo();
+			if (entry && entry.canvasData) {
+				// Odoslať event do canvas komponentu
+				window.dispatchEvent(
+					new CustomEvent("artstudio:undo", {
+						detail: {
+							canvasData: entry.canvasData,
+							timestamp: entry.timestamp,
+						},
+					}),
+				);
+			}
+		} catch (error) {
+			console.error("Error during undo:", error);
+		}
+	};
+
+	// Funkcia pre redo s bezpečnou kontrolou
+	const handleRedo = async () => {
+		if (!canRedo()) return;
+
+		try {
+			const entry = await redo();
+			if (entry && entry.canvasData) {
+				// Odoslať event do canvas komponentu
+				window.dispatchEvent(
+					new CustomEvent("artstudio:redo", {
+						detail: {
+							canvasData: entry.canvasData,
+							timestamp: entry.timestamp,
+						},
+					}),
+				);
+			}
+		} catch (error) {
+			console.error("Error during redo:", error);
+		}
+	};
+
+	// Funkcia pre vymazanie plátna
 	const handleClearCanvas = () => {
-		// Odeslání custom eventu pro vymazání plátna
+		if (!canvasAvailable) {
+			console.warn("Canvas not available");
+			return;
+		}
+
+		// Odoslať custom event pre vymazanie plátna
 		window.dispatchEvent(new CustomEvent("artstudio:clear-canvas"));
+
+		// Pridať do histórie
+		try {
+			useArtStudioStore.getState().addToHistory(
+				JSON.stringify({ objects: [] }),
+				"",
+				"clear_canvas"
+			);
+		} catch (error) {
+			console.error("Error adding to history:", error);
+		}
+
 		setShowClearAlert(false);
 	};
 
-	// Keyboard shortcuts - using capture phase for priority
-	React.useEffect(() => {
+	// Keyboard shortcuts
+	useEffect(() => {
 		const handleKeyDown = (e: KeyboardEvent) => {
-			// Skip if user is typing in an input field
+			// Preskočiť, ak používateľ píše do vstupného poľa
 			if (
 				e.target instanceof HTMLInputElement ||
-				e.target instanceof HTMLTextAreaElement
+				e.target instanceof HTMLTextAreaElement ||
+				(e.target as HTMLElement).isContentEditable
 			)
 				return;
 
 			const key = e.key.toUpperCase();
 
-			// Handle special shortcuts
-			if (key === "G" && e.shiftKey) {
-				e.preventDefault();
-				e.stopPropagation();
-				setActiveTool("gradient");
+			// Spracovať Ctrl/Cmd skratky
+			if (e.ctrlKey || e.metaKey) {
+				switch (key) {
+					case "Z":
+						e.preventDefault();
+						e.stopPropagation();
+						if (e.shiftKey) {
+							handleRedo();
+						} else {
+							handleUndo();
+						}
+						return;
+					case "Y":
+						e.preventDefault();
+						e.stopPropagation();
+						handleRedo();
+						return;
+					case "D":
+						e.preventDefault();
+						e.stopPropagation();
+						if (e.shiftKey) {
+							setShowClearAlert(true);
+						}
+						return;
+				}
 				return;
 			}
 
-			// Skip if modifier keys are pressed (except for specific combos)
-			if (e.ctrlKey || e.metaKey || e.altKey) return;
+			// Preskočiť, ak je stlačená klávesa Alt
+			if (e.altKey) return;
 
+			// Nájsť nástroj podľa skratky
 			const tool = tools.find((t) => {
-				// Handle special case for G (both fill and gradient)
-				if (t.shortcut.toUpperCase() === "G" && !e.shiftKey) {
-					return t.id === "fill";
+				// Špeciálne prípady pre nástroje zdieľajúce skratky
+				if (t.shortcut.toUpperCase() === "U") {
+					// Pre klávesu U cyklujeme cez tvarové nástroje
+					const shapeTools = ["rectangle", "ellipse", "polygon", "line"];
+					if (shapeTools.includes(activeTool) && key === "U") {
+						const currentIndex = shapeTools.indexOf(activeTool);
+						const nextIndex = (currentIndex + 1) % shapeTools.length;
+						return t.id === shapeTools[nextIndex];
+					}
+					// Ak nie sme v tvarových nástrojoch, prepni na rectangle
+					if (!shapeTools.includes(activeTool) && key === "U") {
+						return t.id === "rectangle";
+					}
 				}
+
+				// Kontrola priamej zhody
 				return t.shortcut.toUpperCase() === key;
 			});
 
@@ -315,13 +466,13 @@ export const ToolSidebar: React.FC = () => {
 				e.preventDefault();
 				e.stopPropagation();
 				setActiveTool(tool.id);
+				console.log(`Prepnuté na nástroj: ${tool.label}`);
 			}
 
-			// Additional shortcuts
+			// Ďalšie skratky pre farby
 			if (key === "X") {
 				e.preventDefault();
-				const store = useArtStudioStore.getState();
-				store.swapColors();
+				swapColors();
 			}
 
 			if (key === "D") {
@@ -331,19 +482,40 @@ export const ToolSidebar: React.FC = () => {
 				store.setSecondaryColor("#000000");
 			}
 
-			// Shortcut pro vymazání plátna (Ctrl+Shift+D)
-			if ((e.ctrlKey || e.metaKey) && e.shiftKey && key === "D") {
+			// Klávesa Space pre hand tool (dočasná aktivácia)
+			if (key === " " && !e.shiftKey) {
 				e.preventDefault();
-				setShowClearAlert(true);
+				const store = useArtStudioStore.getState();
+				if (store.activeTool !== "hand") {
+					// Uložiť aktuálny nástroj a dočasne prepnúť na hand
+					window.dispatchEvent(
+						new CustomEvent("artstudio:temp-tool-change", {
+							detail: { tool: "hand", originalTool: store.activeTool },
+						}),
+					);
+				}
 			}
 		};
 
-		// Use capture phase for higher priority
-		window.addEventListener("keydown", handleKeyDown, true);
-		return () => window.removeEventListener("keydown", handleKeyDown, true);
-	}, [setActiveTool]);
+		const handleKeyUp = (e: KeyboardEvent) => {
+			// Klávesa Space - vrátiť sa k pôvodnému nástroju
+			if (e.key === " ") {
+				e.preventDefault();
+				window.dispatchEvent(new CustomEvent("artstudio:temp-tool-reset"));
+			}
+		};
 
-	const renderToolGroup = (category: ToolConfig["category"], title: string) => {
+		window.addEventListener("keydown", handleKeyDown);
+		window.addEventListener("keyup", handleKeyUp);
+
+		return () => {
+			window.removeEventListener("keydown", handleKeyDown);
+			window.removeEventListener("keyup", handleKeyUp);
+		};
+	}, [setActiveTool, activeTool, swapColors]);
+
+	// Funkcia pre vykreslenie skupiny nástrojov
+	const renderToolGroup = (category: ToolConfig["category"]) => {
 		const categoryTools = tools.filter((t) => t.category === category);
 
 		return (
@@ -352,8 +524,12 @@ export const ToolSidebar: React.FC = () => {
 					<Tooltip key={tool.id} delayDuration={400}>
 						<TooltipTrigger asChild>
 							<button
-								onClick={() => setActiveTool(tool.id)}
+								onClick={() => {
+									console.log(`Tool clicked: ${tool.id}`);
+									setActiveTool(tool.id);
+								}}
 								className={`tool-button ${activeTool === tool.id ? "active" : ""}`}
+								title={`${tool.label} (${tool.shortcut})`}
 							>
 								<tool.icon className="w-5 h-5" />
 							</button>
@@ -365,14 +541,19 @@ export const ToolSidebar: React.FC = () => {
 						>
 							<div className="space-y-1.5">
 								<div className="flex items-center justify-between gap-4">
-									<span className="font-semibold text-black">{tool.label}</span>
-									<kbd className="px-1.5 py-0.5 text-xs text-blue-100 bg-muted rounded font-mono">
+									<span className="font-semibold">{tool.label}</span>
+									<kbd className="px-1.5 py-0.5 text-xs bg-muted rounded font-mono">
 										{tool.shortcut}
 									</kbd>
 								</div>
-								<p className="text-xs text-black leading-relaxed">
+								<p className="text-xs text-muted-foreground leading-relaxed">
 									{tool.description}
 								</p>
+								{!canvasAvailable && (
+									<p className="text-xs text-yellow-600 mt-1">
+										Canvas sa načítava...
+									</p>
+								)}
 							</div>
 						</TooltipContent>
 					</Tooltip>
@@ -381,34 +562,36 @@ export const ToolSidebar: React.FC = () => {
 		);
 	};
 
+	const shouldShowGradientOptions = activeTool === "gradient";
+
 	return (
 		<div className="flex h-full">
-			{/* Left sidebar with tools */}
+			{/* Ľavý sidebar s nástrojmi */}
 			<div className="w-14 h-full panel-glass flex flex-col items-center py-3 gap-1 animate-fade-in overflow-y-auto scrollbar-thin">
 				{/* Selection Tools */}
 				<div className="flex flex-col items-center gap-1">
-					{renderToolGroup("selection", "Selection")}
+					{renderToolGroup("selection")}
 				</div>
 
 				<Separator className="my-1.5 w-8" />
 
 				{/* Drawing Tools */}
 				<div className="flex flex-col items-center gap-1">
-					{renderToolGroup("drawing", "Drawing")}
+					{renderToolGroup("drawing")}
 				</div>
 
 				<Separator className="my-1.5 w-8" />
 
 				{/* Shape Tools */}
 				<div className="flex flex-col items-center gap-1">
-					{renderToolGroup("shape", "Shapes")}
+					{renderToolGroup("shape")}
 				</div>
 
 				<Separator className="my-1.5 w-8" />
 
 				{/* Navigation Tools */}
 				<div className="flex flex-col items-center gap-1">
-					{renderToolGroup("navigation", "Navigation")}
+					{renderToolGroup("navigation")}
 				</div>
 
 				<Separator className="my-1.5 w-8" />
@@ -417,29 +600,10 @@ export const ToolSidebar: React.FC = () => {
 				<Tooltip delayDuration={400}>
 					<TooltipTrigger asChild>
 						<button
-							onClick={() => {
-								const entry = undo() as any;
-								if (entry) {
-									const canvas = window.fabricCanvas || window.konvaStage;
-									if (canvas) {
-										if (window.fabricCanvas) {
-											canvas
-												.loadFromJSON(JSON.parse(entry.canvasData))
-												.then(() => {
-													canvas.renderAll();
-												});
-										} else if (window.konvaStage) {
-											window.dispatchEvent(
-												new CustomEvent("artstudio:restore-history", {
-													detail: { canvasData: entry.canvasData },
-												}),
-											);
-										}
-									}
-								}
-							}}
+							onClick={handleUndo}
 							disabled={!canUndo()}
 							className="tool-button disabled:opacity-30 disabled:cursor-not-allowed"
+							title="Undo (Ctrl+Z)"
 						>
 							<Undo2 className="w-5 h-5" />
 						</button>
@@ -447,13 +611,13 @@ export const ToolSidebar: React.FC = () => {
 					<TooltipContent side="right" className="max-w-70 p-3" sideOffset={8}>
 						<div className="space-y-1.5">
 							<div className="flex items-center justify-between gap-4">
-								<span className="font-semibold text-foreground">Undo</span>
+								<span className="font-semibold">Undo</span>
 								<kbd className="px-1.5 py-0.5 text-xs bg-muted rounded font-mono">
-									⌘Z
+									Ctrl+Z
 								</kbd>
 							</div>
 							<p className="text-xs text-muted-foreground leading-relaxed">
-								Reverse the last action. Use History panel for multiple steps.
+								Vrátiť späť poslednú akciu.
 							</p>
 						</div>
 					</TooltipContent>
@@ -462,29 +626,10 @@ export const ToolSidebar: React.FC = () => {
 				<Tooltip delayDuration={400}>
 					<TooltipTrigger asChild>
 						<button
-							onClick={() => {
-								const entry = redo() as any;
-								if (entry) {
-									const canvas = window.fabricCanvas || window.konvaStage;
-									if (canvas) {
-										if (window.fabricCanvas) {
-											canvas
-												.loadFromJSON(JSON.parse(entry.canvasData))
-												.then(() => {
-													canvas.renderAll();
-												});
-										} else if (window.konvaStage) {
-											window.dispatchEvent(
-												new CustomEvent("artstudio:restore-history", {
-													detail: { canvasData: entry.canvasData },
-												}),
-											);
-										}
-									}
-								}
-							}}
+							onClick={handleRedo}
 							disabled={!canRedo()}
 							className="tool-button disabled:opacity-30 disabled:cursor-not-allowed"
+							title="Redo (Ctrl+Y)"
 						>
 							<Redo2 className="w-5 h-5" />
 						</button>
@@ -492,13 +637,13 @@ export const ToolSidebar: React.FC = () => {
 					<TooltipContent side="right" className="max-w-70 p-3" sideOffset={8}>
 						<div className="space-y-1.5">
 							<div className="flex items-center justify-between gap-4">
-								<span className="font-semibold text-foreground">Redo</span>
+								<span className="font-semibold">Redo</span>
 								<kbd className="px-1.5 py-0.5 text-xs bg-muted rounded font-mono">
-									⇧⌘Z
+									Ctrl+Y
 								</kbd>
 							</div>
 							<p className="text-xs text-muted-foreground leading-relaxed">
-								Reapply an action that was previously undone.
+								Znovu aplikovať predtým vrátenú akciu.
 							</p>
 						</div>
 					</TooltipContent>
@@ -511,7 +656,9 @@ export const ToolSidebar: React.FC = () => {
 					<Tooltip delayDuration={400}>
 						<TooltipTrigger asChild>
 							<AlertDialogTrigger asChild>
-								<button className="tool-button text-red-500 hover:text-red-600 hover:bg-red-50">
+								<button
+									className="tool-button text-red-500 hover:text-red-600 hover:bg-red-50"
+								>
 									<Trash2 className="w-5 h-5" />
 								</button>
 							</AlertDialogTrigger>
@@ -523,13 +670,13 @@ export const ToolSidebar: React.FC = () => {
 						>
 							<div className="space-y-1.5">
 								<div className="flex items-center justify-between gap-4">
-									<span className="font-semibold text-black">Clear Canvas</span>
+									<span className="font-semibold">Vymazať plátno</span>
 									<kbd className="px-1.5 py-0.5 text-xs bg-muted rounded font-mono">
-										⌘⇧D
+										Ctrl+Shift+D
 									</kbd>
 								</div>
-								<p className="text-xs text-black leading-relaxed">
-									Remove all drawings, shapes, and images from the canvas.
+								<p className="text-xs text-muted-foreground leading-relaxed">
+									Odstráni všetky kresby, tvary a obrázky z plátna.
 								</p>
 							</div>
 						</TooltipContent>
@@ -538,21 +685,19 @@ export const ToolSidebar: React.FC = () => {
 					<AlertDialogContent>
 						<AlertDialogHeader>
 							<AlertDialogTitle className="text-red-600">
-								Clear Canvas
+								Vymazať plátno
 							</AlertDialogTitle>
 							<AlertDialogDescription>
-								Are you sure you want to clear the entire canvas? This will
-								remove all drawings, shapes, and images. This action cannot be
-								undone.
+								Ste si istí, že chcete vymazať celé plátno? Táto akcia odstráni všetky kresby, tvary a obrázky. Túto akciu nie je možné vrátiť späť.
 							</AlertDialogDescription>
 						</AlertDialogHeader>
 						<AlertDialogFooter>
-							<AlertDialogCancel>Cancel</AlertDialogCancel>
+							<AlertDialogCancel>Zrušiť</AlertDialogCancel>
 							<AlertDialogAction
 								onClick={handleClearCanvas}
 								className="bg-red-600 hover:bg-red-700 text-white"
 							>
-								Clear Canvas
+								Vymazať plátno
 							</AlertDialogAction>
 						</AlertDialogFooter>
 					</AlertDialogContent>
@@ -577,7 +722,7 @@ export const ToolSidebar: React.FC = () => {
 									}}
 									className="absolute top-0 left-0 w-6 h-6 rounded border-2 border-card bg-foreground z-10 cursor-pointer hover:scale-110 transition-transform"
 									style={{ backgroundColor: primaryColor }}
-									title="Primary Color - Click to change"
+									title="Primárna farba - Kliknite pre zmenu"
 								/>
 								{/* Secondary Color - Clickable */}
 								<button
@@ -593,17 +738,17 @@ export const ToolSidebar: React.FC = () => {
 									}}
 									className="absolute bottom-0 right-0 w-6 h-6 rounded border-2 border-card cursor-pointer hover:scale-110 transition-transform"
 									style={{ backgroundColor: secondaryColor }}
-									title="Secondary Color - Click to change"
+									title="Sekundárna farba - Kliknite pre zmenu"
 								/>
-								{/* Swap button overlay - double click to swap */}
+								{/* Swap button overlay */}
 								<button
-									onDoubleClick={(e) => {
+									onClick={(e) => {
 										e.preventDefault();
 										e.stopPropagation();
 										swapColors();
 									}}
-									className="absolute inset-0 z-20 cursor-pointer"
-									title="Double-click to swap colors"
+									className="absolute inset-0 z-20 cursor-pointer opacity-0 hover:opacity-100 transition-opacity bg-black/10 rounded"
+									title="Kliknite pre výmenu farieb"
 								/>
 							</div>
 						</TooltipTrigger>
@@ -614,20 +759,19 @@ export const ToolSidebar: React.FC = () => {
 						>
 							<div className="space-y-1.5">
 								<div className="flex items-center justify-between gap-4">
-									<span className="font-semibold text-foreground">Colors</span>
+									<span className="font-semibold">Farby</span>
 									<kbd className="px-1.5 py-0.5 text-xs bg-muted rounded font-mono">
 										X
 									</kbd>
 								</div>
 								<p className="text-xs text-muted-foreground leading-relaxed">
-									Click swatches to change colors. Double-click to swap, or
-									press X to swap, D to reset to defaults.
+									Kliknite na farby pre zmenu. Kliknite medzi nimi pre výmenu, alebo stlačte X pre výmenu, D pre reset na predvolené.
 								</p>
 								<button
 									onClick={() => setShowColorsPanel(true)}
 									className="text-xs text-primary hover:underline mt-2"
 								>
-									Open Color Panel →
+									Otvoriť panel farieb →
 								</button>
 							</div>
 						</TooltipContent>
@@ -635,17 +779,22 @@ export const ToolSidebar: React.FC = () => {
 				</div>
 			</div>
 
-			{/* Text options panel when text tool is active */}
-			{shouldShowTextOptions && (
-				<div className="w-64 border-l border-border/50">
-					<TextOptionsPanel />
-				</div>
-			)}
-
 			{/* Gradient options panel when gradient tool is active */}
 			{shouldShowGradientOptions && (
 				<div className="w-64 border-l border-border/50">
-					<GradientOptionsPanel />
+					{/* Tool-specific panels */}
+					{activeTool === "gradient" && (
+						<GradientOptionsPanel />
+					)}
+					{["rectangle", "ellipse", "polygon", "line", "star"].includes(activeTool) && (
+						<ShapeOptionsPanel />
+					)}
+					{activeTool === "crop" && (
+						<CropPanel />
+					)}
+					{["select", "move"].includes(activeTool) && (
+						<TransformPanel />
+					)}
 				</div>
 			)}
 		</div>
