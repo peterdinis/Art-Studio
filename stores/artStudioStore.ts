@@ -87,6 +87,24 @@ export interface BrushSettings {
 	dodgeIntensity: number;
 	burnIntensity: number;
 	cropRect: { x: number; y: number; width: number; height: number } | null;
+	
+	// Text-specific settings
+	textWrap: "word" | "char" | "none";
+	textPadding: number;
+	textOpacity: number;
+	textShadow: boolean;
+	textShadowColor: string;
+	textShadowBlur: number;
+	textShadowOffsetX: number;
+	textShadowOffsetY: number;
+	textOutline: boolean;
+	textOutlineColor: string;
+	textOutlineWidth: number;
+	textTransform: "none" | "uppercase" | "lowercase" | "capitalize";
+	textBackground: boolean;
+	textBackgroundColor: string;
+	textBackgroundOpacity: number;
+	textEditingMode: "inline" | "modal";
 }
 
 export interface GradientObject {
@@ -303,6 +321,24 @@ const defaultBrushSettings: BrushSettings = {
 	dodgeIntensity: 50,
 	burnIntensity: 50,
 	cropRect: null,
+	
+	// Text-specific default settings
+	textWrap: "word",
+	textPadding: 4,
+	textOpacity: 100,
+	textShadow: false,
+	textShadowColor: "#00000080",
+	textShadowBlur: 5,
+	textShadowOffsetX: 2,
+	textShadowOffsetY: 2,
+	textOutline: false,
+	textOutlineColor: "#ffffff",
+	textOutlineWidth: 1,
+	textTransform: "none",
+	textBackground: false,
+	textBackgroundColor: "#ffffff",
+	textBackgroundOpacity: 20,
+	textEditingMode: "inline",
 };
 
 // Helper to serialize canvas state (excluding UI)
@@ -709,6 +745,7 @@ export const useArtStudioStore = create<ArtStudioState>()(
 						"layer_delete",
 						"image_import",
 						"text_add",
+						"text_edit",
 						"selection",
 					].some((keyword) => action.includes(keyword));
 
@@ -977,6 +1014,19 @@ export const useArtStudioStore = create<ArtStudioState>()(
 							fontSize: 24,
 							fontFamily: "Arial",
 							fontWeight: "normal",
+							fontStyle: "normal",
+							textDecoration: "none",
+							textAlign: "left",
+							lineHeight: 1.2,
+							letterSpacing: 0,
+							textWrap: "word",
+							textPadding: 4,
+							textOpacity: 100,
+							textShadow: false,
+							textOutline: false,
+							textTransform: "none",
+							textBackground: false,
+							textEditingMode: "inline",
 						};
 						break;
 					case "rectangle":
@@ -1024,6 +1074,20 @@ export const useArtStudioStore = create<ArtStudioState>()(
 					case "magicwand":
 						newSettings = {
 							tolerance: 32,
+						};
+						break;
+					case "dodge":
+						newSettings = {
+							size: 20,
+							opacity: 100,
+							dodgeIntensity: 50,
+						};
+						break;
+					case "burn":
+						newSettings = {
+							size: 20,
+							opacity: 100,
+							burnIntensity: 50,
 						};
 						break;
 				}
@@ -1320,7 +1384,27 @@ export const useArtStudioStore = create<ArtStudioState>()(
 					fontFamily: state.brushSettings.fontFamily,
 					fontSize: state.brushSettings.fontSize,
 					fontWeight: state.brushSettings.fontWeight,
-					// Other settings that should persist
+					fontStyle: state.brushSettings.fontStyle,
+					textDecoration: state.brushSettings.textDecoration,
+					textAlign: state.brushSettings.textAlign,
+					lineHeight: state.brushSettings.lineHeight,
+					letterSpacing: state.brushSettings.letterSpacing,
+					textWrap: state.brushSettings.textWrap,
+					textPadding: state.brushSettings.textPadding,
+					textOpacity: state.brushSettings.textOpacity,
+					textShadow: state.brushSettings.textShadow,
+					textShadowColor: state.brushSettings.textShadowColor,
+					textShadowBlur: state.brushSettings.textShadowBlur,
+					textShadowOffsetX: state.brushSettings.textShadowOffsetX,
+					textShadowOffsetY: state.brushSettings.textShadowOffsetY,
+					textOutline: state.brushSettings.textOutline,
+					textOutlineColor: state.brushSettings.textOutlineColor,
+					textOutlineWidth: state.brushSettings.textOutlineWidth,
+					textTransform: state.brushSettings.textTransform,
+					textBackground: state.brushSettings.textBackground,
+					textBackgroundColor: state.brushSettings.textBackgroundColor,
+					textBackgroundOpacity: state.brushSettings.textBackgroundOpacity,
+					textEditingMode: state.brushSettings.textEditingMode,
 				},
 			}),
 		},

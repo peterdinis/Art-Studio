@@ -54,6 +54,7 @@ import { GradientOptionsPanel } from "../panels/GradientOptionsPanel";
 import { ShapeOptionsPanel } from "../panels/ShapeOptionsPanel";
 import { CropPanel } from "../panels/CropPanel";
 import { TransformPanel } from "../panels/TransformPanel";
+import { TextOptionsPanel } from "../panels/TextOptionsPanel";
 
 interface ToolConfig {
 	id: Tool;
@@ -545,6 +546,7 @@ export const ToolSidebar: React.FC = () => {
 	};
 
 	const shouldShowGradientOptions = activeTool === "gradient";
+	const shouldShowTextOptions = activeTool === "text";
 
 	return (
 		<div className="flex h-full">
@@ -761,22 +763,19 @@ export const ToolSidebar: React.FC = () => {
 				</div>
 			</div>
 
-			{/* Gradient options panel when gradient tool is active */}
-			{shouldShowGradientOptions && (
+			{/* Tool-specific panels */}
+			{(shouldShowGradientOptions || shouldShowTextOptions || 
+			  ["rectangle", "ellipse", "polygon", "line", "star"].includes(activeTool) ||
+			  activeTool === "crop" || ["select", "move"].includes(activeTool)) && (
 				<div className="w-64 border-l border-border/50">
 					{/* Tool-specific panels */}
-					{activeTool === "gradient" && (
-						<GradientOptionsPanel />
-					)}
+					{activeTool === "gradient" && <GradientOptionsPanel />}
+					{activeTool === "text" && <TextOptionsPanel />}
 					{["rectangle", "ellipse", "polygon", "line", "star"].includes(activeTool) && (
 						<ShapeOptionsPanel />
 					)}
-					{activeTool === "crop" && (
-						<CropPanel />
-					)}
-					{["select", "move"].includes(activeTool) && (
-						<TransformPanel />
-					)}
+					{activeTool === "crop" && <CropPanel />}
+					{["select", "move"].includes(activeTool) && <TransformPanel />}
 				</div>
 			)}
 		</div>
