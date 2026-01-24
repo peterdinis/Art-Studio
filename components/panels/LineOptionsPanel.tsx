@@ -4,57 +4,70 @@ import React, { useState, useEffect } from "react";
 import { useArtStudioStore } from "@/stores/artStudioStore";
 import { 
   Ruler, 
-  Move, 
   ArrowRight, 
-  ArrowUp, 
-  Zap, 
-  ZapOff,
+  Zap,
   Minus,
   Square,
   Circle,
   ChevronRight,
   ArrowRightCircle,
-  ArrowUpRight,
-  CornerUpRight,
-  CornerUpLeft,
-  CornerDownRight,
-  CornerDownLeft,
-  Type,
-  GripVertical
+  CornerUpRight
 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@radix-ui/react-label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
-import { Slider } from "../ui/slider";
-import { Button } from "../ui/button";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Slider } from "@/components/ui/slider";
+import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 
 interface LineOptionsPanelProps {
   className?: string;
+}
+
+type LineType = "solid" | "dashed" | "dotted" | "dash-dot";
+type ArrowType = "none" | "start" | "end" | "both";
+type CapType = "butt" | "round" | "square";
+type JoinType = "miter" | "round" | "bevel";
+type LineStyle = "straight" | "curved" | "freehand";
+
+interface LineOptionsState {
+  strokeWidth: number;
+  lineType: LineType;
+  arrowType: ArrowType;
+  dashPattern: string;
+  capType: CapType;
+  joinType: JoinType;
+  cornerRadius: number;
+  isPerfect: boolean;
+  startCap: string;
+  endCap: string;
+  lineStyle: LineStyle;
+  tension: number;
+  precision: number;
+  arrowSize: number;
 }
 
 export const LineOptionsPanel: React.FC<LineOptionsPanelProps> = ({ className }) => {
   const { 
     brushSettings, 
     setBrushSettings, 
-    primaryColor, 
-    secondaryColor,
+    primaryColor,
     activeTool 
   } = useArtStudioStore();
 
-  const [lineOptions, setLineOptions] = useState({
+  const [lineOptions, setLineOptions] = useState<LineOptionsState>({
     strokeWidth: brushSettings.strokeWidth || 2,
-    lineType: brushSettings.lineSettings?.type || "solid",
-    arrowType: brushSettings.lineSettings?.arrowType || "none",
+    lineType: (brushSettings.lineSettings?.type as LineType) || "solid",
+    arrowType: (brushSettings.lineSettings?.arrowType as ArrowType) || "none",
     dashPattern: brushSettings.lineSettings?.dashPattern || "5,5",
-    capType: brushSettings.lineSettings?.capType || "round",
-    joinType: brushSettings.lineSettings?.joinType || "round",
+    capType: (brushSettings.lineSettings?.capType as CapType) || "round",
+    joinType: (brushSettings.lineSettings?.joinType as JoinType) || "round",
     cornerRadius: brushSettings.cornerRadius || 0,
     isPerfect: brushSettings.lineSettings?.isPerfect || false,
     startCap: brushSettings.lineSettings?.startCap || "none",
     endCap: brushSettings.lineSettings?.endCap || "none",
-    lineStyle: brushSettings.lineSettings?.lineStyle || "straight",
+    lineStyle: (brushSettings.lineSettings?.lineStyle as LineStyle) || "straight",
     tension: brushSettings.lineSettings?.tension || 0.5,
     precision: brushSettings.lineSettings?.precision || 10,
     arrowSize: brushSettings.lineSettings?.arrowSize || 10,
@@ -64,16 +77,16 @@ export const LineOptionsPanel: React.FC<LineOptionsPanelProps> = ({ className })
   useEffect(() => {
     setLineOptions({
       strokeWidth: brushSettings.strokeWidth || 2,
-      lineType: brushSettings.lineSettings?.type || "solid",
-      arrowType: brushSettings.lineSettings?.arrowType || "none",
+      lineType: (brushSettings.lineSettings?.type as LineType) || "solid",
+      arrowType: (brushSettings.lineSettings?.arrowType as ArrowType) || "none",
       dashPattern: brushSettings.lineSettings?.dashPattern || "5,5",
-      capType: brushSettings.lineSettings?.capType || "round",
-      joinType: brushSettings.lineSettings?.joinType || "round",
+      capType: (brushSettings.lineSettings?.capType as CapType) || "round",
+      joinType: (brushSettings.lineSettings?.joinType as JoinType) || "round",
       cornerRadius: brushSettings.cornerRadius || 0,
       isPerfect: brushSettings.lineSettings?.isPerfect || false,
       startCap: brushSettings.lineSettings?.startCap || "none",
       endCap: brushSettings.lineSettings?.endCap || "none",
-      lineStyle: brushSettings.lineSettings?.lineStyle || "straight",
+      lineStyle: (brushSettings.lineSettings?.lineStyle as LineStyle) || "straight",
       tension: brushSettings.lineSettings?.tension || 0.5,
       precision: brushSettings.lineSettings?.precision || 10,
       arrowSize: brushSettings.lineSettings?.arrowSize || 10,
@@ -81,7 +94,7 @@ export const LineOptionsPanel: React.FC<LineOptionsPanelProps> = ({ className })
   }, [brushSettings]);
 
   // Apply line options to brush settings
-  const applyLineOptions = (options: Partial<typeof lineOptions>) => {
+  const applyLineOptions = (options: Partial<LineOptionsState>) => {
     const newOptions = { ...lineOptions, ...options };
     setLineOptions(newOptions);
     
@@ -106,33 +119,33 @@ export const LineOptionsPanel: React.FC<LineOptionsPanelProps> = ({ className })
     });
   };
 
-  const lineTypes = [
+  const lineTypes: Array<{id: LineType, label: string, icon: React.ReactNode}> = [
     { id: "solid", label: "Solid", icon: <Minus className="w-4 h-4" /> },
     { id: "dashed", label: "Dashed", icon: <ChevronRight className="w-4 h-4" /> },
     { id: "dotted", label: "Dotted", icon: <Circle className="w-3 h-3" /> },
     { id: "dash-dot", label: "Dash-Dot", icon: <Square className="w-4 h-4" /> },
   ];
 
-  const arrowTypes = [
+  const arrowTypes: Array<{id: ArrowType, label: string, icon: React.ReactNode}> = [
     { id: "none", label: "None", icon: <Minus className="w-4 h-4" /> },
     { id: "start", label: "Start", icon: <ArrowRight className="w-4 h-4 rotate-180" /> },
     { id: "end", label: "End", icon: <ArrowRight className="w-4 h-4" /> },
     { id: "both", label: "Both", icon: <ArrowRightCircle className="w-4 h-4" /> },
   ];
 
-  const capTypes = [
+  const capTypes: Array<{id: CapType, label: string, description: string}> = [
     { id: "butt", label: "Butt", description: "Flat ends" },
     { id: "round", label: "Round", description: "Rounded ends" },
     { id: "square", label: "Square", description: "Squared ends" },
   ];
 
-  const joinTypes = [
+  const joinTypes: Array<{id: JoinType, label: string, description: string}> = [
     { id: "miter", label: "Miter", description: "Sharp corners" },
     { id: "round", label: "Round", description: "Rounded corners" },
     { id: "bevel", label: "Bevel", description: "Beveled corners" },
   ];
 
-  const lineStyles = [
+  const lineStyles: Array<{id: LineStyle, label: string, icon: React.ReactNode}> = [
     { id: "straight", label: "Straight", icon: <Minus className="w-4 h-4" /> },
     { id: "curved", label: "Curved", icon: <CornerUpRight className="w-4 h-4" /> },
     { id: "freehand", label: "Freehand", icon: <Ruler className="w-4 h-4" /> },
@@ -317,7 +330,7 @@ export const LineOptionsPanel: React.FC<LineOptionsPanelProps> = ({ className })
           <Label className="text-xs font-medium">Line Cap</Label>
           <Select 
             value={lineOptions.capType}
-            onValueChange={(value: any) => applyLineOptions({ capType: value })}
+            onValueChange={(value: CapType) => applyLineOptions({ capType: value })}
           >
             <SelectTrigger className="w-full h-8 text-xs">
               <SelectValue />
@@ -339,7 +352,7 @@ export const LineOptionsPanel: React.FC<LineOptionsPanelProps> = ({ className })
           <Label className="text-xs font-medium">Line Join</Label>
           <Select 
             value={lineOptions.joinType}
-            onValueChange={(value: any) => applyLineOptions({ joinType: value })}
+            onValueChange={(value: JoinType) => applyLineOptions({ joinType: value })}
           >
             <SelectTrigger className="w-full h-8 text-xs">
               <SelectValue />
@@ -473,21 +486,22 @@ export const LineOptionsPanel: React.FC<LineOptionsPanelProps> = ({ className })
       <div className="pt-2">
         <Label className="text-xs font-medium mb-2 block">Preview</Label>
         <div className="h-20 border border-dashed border-border rounded-md flex items-center justify-center bg-muted/20">
-          <div className="relative w-32 h-2">
+          <div className="relative w-32">
             {/* Line preview based on settings */}
-            <div className={`absolute top-1/2 left-0 right-0 transform -translate-y-1/2 h-${Math.max(1, lineOptions.strokeWidth/2)} bg-gradient-to-r from-primary to-secondary ${
-              lineOptions.lineType === "dashed" ? "dashed" : 
-              lineOptions.lineType === "dotted" ? "dotted" : 
-              lineOptions.lineType === "dash-dot" ? "dash-dot" : ""
-            }`}
-            style={{
-              height: `${lineOptions.strokeWidth}px`,
-              borderTopWidth: `${lineOptions.strokeWidth}px`,
-              borderTopStyle: lineOptions.lineType === "dashed" ? "dashed" : 
-                           lineOptions.lineType === "dotted" ? "dotted" : 
-                           lineOptions.lineType === "dash-dot" ? "dash-dot" : "solid",
-              borderTopColor: primaryColor,
-            }}
+            <div 
+              className={`absolute top-1/2 left-0 right-0 transform -translate-y-1/2 ${
+                lineOptions.lineType === "dashed" ? "border-dashed" : 
+                lineOptions.lineType === "dotted" ? "border-dotted" : 
+                lineOptions.lineType === "dash-dot" ? "border-dashed" : ""
+              }`}
+              style={{
+                height: `${lineOptions.strokeWidth}px`,
+                borderTopWidth: `${lineOptions.strokeWidth}px`,
+                borderTopStyle: lineOptions.lineType === "dashed" ? "dashed" : 
+                             lineOptions.lineType === "dotted" ? "dotted" : 
+                             lineOptions.lineType === "dash-dot" ? "dashed" : "solid",
+                borderTopColor: primaryColor,
+              }}
             />
             
             {/* Arrow preview */}

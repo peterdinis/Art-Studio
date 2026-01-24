@@ -7,7 +7,8 @@ import { BrushPanel } from "@/components/panels/BrushPanel";
 import { ColorPanel } from "@/components/panels/ColorPanel";
 import { LayersPanel } from "@/components/panels/LayersPanel";
 import { HistoryPanel } from "@/components/panels/HistoryPanel";
-import { StarPanel } from "@/components/panels/StarPanel"; // Pridaný import
+import { StarPanel } from "@/components/panels/StarPanel";
+import { LineOptionsPanel } from "@/components/panels/LineOptionsPanel";
 import { useArtStudioStore } from "@/stores/artStudioStore";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useEffect, useState } from "react";
@@ -28,6 +29,8 @@ const HomeWrapper = () => {
 		showLayersPanel,
 		showHistoryPanel,
 		showStarPanel,
+		showLinePanel,
+		activeTool, // Pridané na sledovanie aktívneho nástroja
 		initializeSession,
 		saveSession,
 		sessionId,
@@ -220,6 +223,7 @@ const HomeWrapper = () => {
 							{showLayersPanel && <LayersPanel />}
 							{showHistoryPanel && <HistoryPanel />}
 							{showStarPanel && <StarPanel />}
+							{activeTool === "line" && <LineOptionsPanel />}
 						</div>
 					</div>
 				)}
