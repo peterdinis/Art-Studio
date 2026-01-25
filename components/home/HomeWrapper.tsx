@@ -13,6 +13,7 @@ import { useArtStudioStore } from "@/stores/artStudioStore";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useEffect, useState } from "react";
 import KonvaCanvas from "../canvas/KonvaCanvas";
+import { GradientOptionsPanel } from "../panels/GradientOptionsPanel";
 
 const HomeWrapper = () => {
   const [isSessionInitialized, setIsSessionInitialized] = useState(false);
@@ -224,6 +225,7 @@ const HomeWrapper = () => {
               {showHistoryPanel && <HistoryPanel />}
               {showStarPanel && <StarPanel />}
               {activeTool === "line" && <LineOptionsPanel />}
+              {activeTool === "gradient" && <GradientOptionsPanel />}
             </div>
           </div>
         )}
