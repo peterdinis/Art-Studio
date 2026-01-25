@@ -939,7 +939,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
         setActiveDrawingLine(newLine);
         setLines((prev) => [...prev, newLine]);
 
-        if (tempContext && activeTool !== "eraser") {
+        if (tempContext) {
           tempContext.strokeStyle = newLine.stroke;
           tempContext.lineWidth = newLine.strokeWidth;
           tempContext.lineCap = "round";
@@ -1067,9 +1067,9 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
         };
         setImages((prev) => [...prev, newImg]);
         // Reset temp canvas
-        tempContext.clearRect(0, 0, actualWidth, actualHeight);
-        tempContext.fillStyle = actualBackground;
-        tempContext.fillRect(0, 0, actualWidth, actualHeight);
+        tempContext!.clearRect(0, 0, actualWidth, actualHeight);
+        tempContext!.fillStyle = actualBackground;
+        tempContext!.fillRect(0, 0, actualWidth, actualHeight);
         setTempImage(null);
       } else if (tempCanvas && ["clone", "healing", "blur", "dodge", "burn"].includes(activeTool)) {
         const imgData = tempCanvas.toDataURL();
@@ -1084,9 +1084,9 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
         };
         setImages((prev) => [...prev, newImg]);
         // Reset temp canvas
-        tempContext.clearRect(0, 0, actualWidth, actualHeight);
-        tempContext.fillStyle = actualBackground;
-        tempContext.fillRect(0, 0, actualWidth, actualHeight);
+        tempContext!.clearRect(0, 0, actualWidth, actualHeight);
+        tempContext!.fillStyle = actualBackground;
+        tempContext!.fillRect(0, 0, actualWidth, actualHeight);
         setTempImage(null);
       }
       
