@@ -31,6 +31,7 @@ const HomeWrapper = () => {
     showHistoryPanel,
     showStarPanel,
     showLinePanel,
+    showGradientPanel,
     activeTool, // Pridané na sledovanie aktívneho nástroja
     initializeSession,
     saveSession,
@@ -225,7 +226,7 @@ const HomeWrapper = () => {
               {showHistoryPanel && <HistoryPanel />}
               {showStarPanel && <StarPanel />}
               {activeTool === "line" && <LineOptionsPanel />}
-              {activeTool === "gradient" && <GradientOptionsPanel />}
+              {showGradientPanel && <GradientOptionsPanel />}
             </div>
           </div>
         )}
