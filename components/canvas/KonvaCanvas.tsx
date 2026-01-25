@@ -197,7 +197,6 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
   const blurCanvas = useRef<HTMLCanvasElement | null>(null);
   const blurContext = useRef<CanvasRenderingContext2D | null>(null);
 
-  const floodFillImageData = useRef<ImageData | null>(null);
   const floodFillCanvas = useRef<HTMLCanvasElement | null>(null);
   const floodFillContext = useRef<CanvasRenderingContext2D | null>(null);
 
@@ -257,7 +256,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
     return `${prefix}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   }, []);
 
-  /* --- CORE UTILITIES (Hoisted) --- */
+  /* --- CORE UTILITIES --- */
 
   const saveCanvasState = useCallback(
     (action: string) => {
@@ -283,26 +282,31 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 
   const updateAuxCanvases = useCallback(() => {
     if (!stageRef.current) return;
+    
     const stage = stageRef.current;
     const tempCanvas = stage.toCanvas({ pixelRatio: 1 });
-    const canvases = [
-      floodFillCanvas,
-      eyedropperCanvas,
-      healingCanvas,
-      blurCanvas,
+    
+    // Zoznam všetkých pomocných canvasov
+    const auxCanvases = [
+      { ref: floodFillCanvas, ctx: floodFillContext },
+      { ref: eyedropperCanvas, ctx: eyedropperContext },
+      { ref: healingCanvas, ctx: healingContext },
+      { ref: blurCanvas, ctx: blurContext }
     ];
-    const contexts = [
-      floodFillContext,
-      eyedropperContext,
-      healingContext,
-      blurContext,
-    ];
-
-    contexts.forEach((ctxRef, i) => {
-      if (ctxRef.current) {
-        const ctx = ctxRef.current;
-        ctx.clearRect(0, 0, actualWidth, actualHeight);
-        ctx.drawImage(tempCanvas, 0, 0, actualWidth, actualHeight);
+    
+    // Inicializovať a aktualizovať každý canvas
+    auxCanvases.forEach(({ ref, ctx }) => {
+      if (!ref.current) {
+        ref.current = document.createElement('canvas');
+        ref.current.width = actualWidth;
+        ref.current.height = actualHeight;
+      }
+      if (ref.current && !ctx.current) {
+        ctx.current = ref.current.getContext('2d');
+      }
+      if (ctx.current) {
+        ctx.current.clearRect(0, 0, actualWidth, actualHeight);
+        ctx.current.drawImage(tempCanvas, 0, 0, actualWidth, actualHeight);
       }
     });
   }, [actualWidth, actualHeight]);
@@ -426,6 +430,217 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
     [brushSettings.size, brushSettings.burnIntensity, tempContext, updateAuxCanvases, tempCanvas]
   );
 
+  /* --- EYEDROPPER TOOL LOGIC --- */
+  const handleEyedropper = useCallback(
+    (x: number, y: number, isAltPressed: boolean = false) => {
+      updateAuxCanvases();
+      if (!eyedropperContext.current) return;
+      
+      const ctx = eyedropperContext.current;
+      const pixel = ctx.getImageData(Math.floor(x), Math.floor(y), 1, 1).data;
+      
+      // Konvertovať RGBA na hex
+      const toHex = (value: number) => {
+        const hex = value.toString(16);
+        return hex.length === 1 ? '0' + hex : hex;
+      };
+      
+      const hexColor = `#${toHex(pixel[0])}${toHex(pixel[1])}${toHex(pixel[2])}`;
+      
+      if (isAltPressed) {
+        setSecondaryColor(hexColor);
+        toast.success(`Secondary color picked: ${hexColor}`);
+      } else {
+        setPrimaryColor(hexColor);
+        toast.success(`Primary color picked: ${hexColor}`);
+      }
+    },
+    [setPrimaryColor, setSecondaryColor, updateAuxCanvases],
+  );
+
+  /* --- FLOOD FILL (PAINT BUCKET) LOGIC --- */
+  const floodFill = useCallback(
+    (startX: number, startY: number, fillColor: string) => {
+      // Aktualizovať pomocné canvasy
+      updateAuxCanvases();
+      
+      if (!floodFillContext.current) {
+        console.error('Flood fill context not available');
+        toast.error("Cannot perform fill - context not ready");
+        return;
+      }
+
+      const ctx = floodFillContext.current;
+      const imageData = ctx.getImageData(0, 0, actualWidth, actualHeight);
+      const { data, width, height } = imageData;
+      
+      // Konvertovať súradnice na celé čísla
+      const x = Math.floor(startX);
+      const y = Math.floor(startY);
+      
+      if (x < 0 || x >= width || y < 0 || y >= height) {
+        toast.error("Fill point is outside canvas");
+        return;
+      }
+      
+      const startIdx = (y * width + x) * 4;
+      
+      // Získať cieľovú farbu
+      const targetColor = {
+        r: data[startIdx],
+        g: data[startIdx + 1],
+        b: data[startIdx + 2],
+        a: data[startIdx + 3]
+      };
+
+      // Parsovať fillColor do RGB
+      let fillRGB: { r: number; g: number; b: number; a: number };
+      if (fillColor.startsWith('#')) {
+        const r = parseInt(fillColor.slice(1, 3), 16);
+        const g = parseInt(fillColor.slice(3, 5), 16);
+        const b = parseInt(fillColor.slice(5, 7), 16);
+        fillRGB = { r, g, b, a: 255 };
+      } else if (fillColor.startsWith('rgb')) {
+        const match = fillColor.match(/\d+/g);
+        if (match) {
+          fillRGB = {
+            r: parseInt(match[0]),
+            g: parseInt(match[1]),
+            b: parseInt(match[2]),
+            a: match[3] ? parseInt(match[3]) : 255
+          };
+        } else {
+          fillRGB = { r: 255, g: 255, b: 255, a: 255 };
+        }
+      } else {
+        fillRGB = { r: 255, g: 255, b: 255, a: 255 };
+      }
+
+      // Kontrola, či už nie je rovnaká farba
+      if (
+        fillRGB.r === targetColor.r &&
+        fillRGB.g === targetColor.g &&
+        fillRGB.b === targetColor.b &&
+        fillRGB.a === targetColor.a
+      ) {
+        toast.info("Area already filled with this color");
+        return;
+      }
+
+      // Nastaviť toleranciu
+      const tolerance = brushSettings.fillTolerance || 32;
+      
+      // Vytvoriť masku navštívených pixelov
+      const visited = new Uint8Array(width * height);
+      const stack: [number, number][] = [[x, y]];
+      const filledPixels: [number, number][] = [];
+
+      while (stack.length > 0) {
+        const [currentX, currentY] = stack.pop()!;
+        const idx = currentY * width + currentX;
+        
+        if (visited[idx]) continue;
+        visited[idx] = 1;
+
+        const pixelIdx = idx * 4;
+        const r = data[pixelIdx];
+        const g = data[pixelIdx + 1];
+        const b = data[pixelIdx + 2];
+        const a = data[pixelIdx + 3];
+
+        // Vypočítať vzdialenosť farieb
+        const colorDistance = Math.sqrt(
+          Math.pow(r - targetColor.r, 2) +
+          Math.pow(g - targetColor.g, 2) +
+          Math.pow(b - targetColor.b, 2) +
+          Math.pow(a - targetColor.a, 2)
+        );
+
+        if (colorDistance <= tolerance) {
+          // Pridať pixel do zoznamu vyplnených
+          filledPixels.push([currentX, currentY]);
+          
+          // Pridať susedné pixely do zásobníka
+          if (currentX > 0) stack.push([currentX - 1, currentY]);
+          if (currentX < width - 1) stack.push([currentX + 1, currentY]);
+          if (currentY > 0) stack.push([currentX, currentY - 1]);
+          if (currentY < height - 1) stack.push([currentX, currentY + 1]);
+        }
+      }
+
+      // Ak nebol vyplnený žiadny pixel
+      if (filledPixels.length === 0) {
+        toast.info("No area to fill within tolerance");
+        return;
+      }
+
+      // Aplikovať farbu na vyplnené pixely
+      filledPixels.forEach(([px, py]) => {
+        const idx = (py * width + px) * 4;
+        data[idx] = fillRGB.r;
+        data[idx + 1] = fillRGB.g;
+        data[idx + 2] = fillRGB.b;
+        data[idx + 3] = fillRGB.a;
+      });
+
+      // Aktualizovať obrázok na canvase
+      ctx.putImageData(imageData, 0, 0);
+
+      // Vytvoriť nový ImageObject s vyplnenou oblasťou
+      const fillImage: ImageObject = {
+        id: generateId("fill"),
+        src: ctx.canvas.toDataURL(),
+        x: 0,
+        y: 0,
+        width: actualWidth,
+        height: actualHeight,
+        layerId: activeLayerId || "layer-1",
+      };
+      
+      setImages((prev) => [...prev, fillImage]);
+      saveCanvasState("Flood Fill applied");
+      
+      toast.success(`Filled ${filledPixels.length} pixels`);
+    },
+    [
+      actualWidth,
+      actualHeight,
+      activeLayerId,
+      saveCanvasState,
+      setImages,
+      updateAuxCanvases,
+      brushSettings.fillTolerance,
+    ],
+  );
+
+  /* --- TEXT TOOL LOGIC --- */
+  const handleTextTool = useCallback(
+    (pos: { x: number; y: number }) => {
+      const text = prompt("Enter text:", "New Text");
+      if (text) {
+        const newText: ShapeObject = {
+          id: generateId("text"),
+          type: "text",
+          x: pos.x,
+          y: pos.y,
+          text,
+          fontSize: brushSettings.fontSize || 24,
+          fill: primaryColor,
+          layerId: activeLayerId || "layer-1",
+        };
+        setShapes((prev) => [...prev, newText]);
+        saveCanvasState("Text added");
+      }
+    },
+    [
+      primaryColor,
+      activeLayerId,
+      brushSettings.fontSize,
+      setShapes,
+      saveCanvasState,
+    ],
+  );
+
   useEffect(() => {
     if (selectedId && transformerRef.current && stageRef.current) {
       const node = stageRef.current.findOne(`#${selectedId}`);
@@ -484,6 +699,38 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
     };
     loadSessionAndState();
   }, [sessionId, initializeSession, setGradients]);
+
+  /* --- INITIALIZE AUXILIARY CANVASES --- */
+  useEffect(() => {
+    // Inicializácia pomocných canvasov
+    const initAuxCanvases = () => {
+      const auxCanvases = [
+        { ref: floodFillCanvas, ctx: floodFillContext },
+        { ref: eyedropperCanvas, ctx: eyedropperContext },
+        { ref: healingCanvas, ctx: healingContext },
+        { ref: blurCanvas, ctx: blurContext }
+      ];
+
+      auxCanvases.forEach(({ ref, ctx }) => {
+        if (!ref.current) {
+          const canvas = document.createElement('canvas');
+          canvas.width = actualWidth;
+          canvas.height = actualHeight;
+          canvas.style.display = 'none';
+          document.body.appendChild(canvas);
+          ref.current = canvas;
+        }
+        if (ref.current && !ctx.current) {
+          ctx.current = ref.current.getContext('2d');
+        }
+      });
+
+      // Naplniť pomocné canvasy aktuálnym stavom
+      updateAuxCanvases();
+    };
+
+    initAuxCanvases();
+  }, [actualWidth, actualHeight, updateAuxCanvases]);
 
   useEffect(() => {
     const handleClearCanvas = () => {
@@ -744,159 +991,6 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
     setCanvasSize,
     saveCanvasState,
   ]);
-
-  /* --- AUXILIARY TOOL HANDLERS --- */
-
-  const handleEyedropper = useCallback(
-    (x: number, y: number, isAltPressed: boolean = false) => {
-      updateAuxCanvases();
-      if (!eyedropperContext.current) return;
-      const ctx = eyedropperContext.current;
-      const pixel = ctx.getImageData(Math.floor(x), Math.floor(y), 1, 1).data;
-      const color = `rgba(${pixel[0]}, ${pixel[1]}, ${pixel[2]}, ${pixel[3] / 255})`;
-      const hex =
-        "#" +
-        ((1 << 24) + (pixel[0] << 16) + (pixel[1] << 8) + pixel[2])
-          .toString(16)
-          .slice(1);
-
-      if (isAltPressed) {
-        setSecondaryColor(hex);
-      } else {
-        setPrimaryColor(hex);
-      }
-      toast.success(`Color picked: ${hex}`);
-    },
-    [setPrimaryColor, setSecondaryColor, updateAuxCanvases],
-  );
-
-  const floodFill = useCallback(
-    (startX: number, startY: number, fillColor: string) => {
-      updateAuxCanvases();
-      if (!floodFillContext.current) return;
-      const ctx = floodFillContext.current;
-      const imageData = ctx.getImageData(0, 0, actualWidth, actualHeight);
-      const { data, width, height } = imageData;
-      const startIdx = (Math.floor(startY) * width + Math.floor(startX)) * 4;
-      const targetColor = [
-        data[startIdx],
-        data[startIdx + 1],
-        data[startIdx + 2],
-        data[startIdx + 3],
-      ];
-
-      const fillRGB = parseColorToRgb(fillColor);
-      if (
-        fillRGB.r === targetColor[0] &&
-        fillRGB.g === targetColor[1] &&
-        fillRGB.b === targetColor[2]
-      )
-        return;
-
-      const queue: [number, number][] = [
-        [Math.floor(startX), Math.floor(startY)],
-      ];
-      while (queue.length > 0) {
-        const [x, y] = queue.shift()!;
-        const idx = (y * width + x) * 4;
-        if (
-          data[idx] === targetColor[0] &&
-          data[idx + 1] === targetColor[1] &&
-          data[idx + 2] === targetColor[2]
-        ) {
-          data[idx] = fillRGB.r;
-          data[idx + 1] = fillRGB.g;
-          data[idx + 2] = fillRGB.b;
-          data[idx + 3] = 255;
-          if (x > 0) queue.push([x - 1, y]);
-          if (x < width - 1) queue.push([x + 1, y]);
-          if (y > 0) queue.push([x, y - 1]);
-          if (y < height - 1) queue.push([x, y + 1]);
-        }
-      }
-      ctx.putImageData(imageData, 0, 0);
-      const fillImage: ImageObject = {
-        id: generateId("fill"),
-        src: ctx.canvas.toDataURL(),
-        x: 0,
-        y: 0,
-        width,
-        height,
-        layerId: activeLayerId || "layer-1",
-      };
-      setImages((prev) => [...prev, fillImage]);
-      saveCanvasState("Flood Fill applied");
-    },
-    [
-      actualWidth,
-      actualHeight,
-      activeLayerId,
-      saveCanvasState,
-      setImages,
-      updateAuxCanvases,
-    ],
-  );
-
-  const parseColorToRgb = (color: string) => {
-    if (color.startsWith("#")) {
-      const r = parseInt(color.slice(1, 3), 16);
-      const g = parseInt(color.slice(3, 5), 16);
-      const b = parseInt(color.slice(5, 7), 16);
-      return { r, g, b };
-    }
-    if (color.startsWith("rgb")) {
-      const match = color.match(/\d+/g);
-      if (match)
-        return {
-          r: parseInt(match[0]),
-          g: parseInt(match[1]),
-          b: parseInt(match[2]),
-        };
-    }
-    return { r: 255, g: 255, b: 255 };
-  };
-
-  const handleTextTool = useCallback(
-    (pos: { x: number; y: number }) => {
-      const text = prompt("Enter text:", "New Text");
-      if (text) {
-        const newText: ShapeObject = {
-          id: generateId("text"),
-          type: "text",
-          x: pos.x,
-          y: pos.y,
-          text,
-          fontSize: brushSettings.fontSize || 24,
-          fill: primaryColor,
-          layerId: activeLayerId || "layer-1",
-        };
-        setShapes((prev) => [...prev, newText]);
-        saveCanvasState("Text added");
-      }
-    },
-    [
-      primaryColor,
-      activeLayerId,
-      brushSettings.fontSize,
-      setShapes,
-      saveCanvasState,
-    ],
-  );
-
-  useEffect(() => {
-    const handleRestoreHistory = (e: any) => {
-      if (e.detail?.canvasData) restoreCanvasState(e.detail.canvasData);
-    };
-    window.addEventListener(
-      "artstudio:restore-history",
-      handleRestoreHistory as EventListener,
-    );
-    return () =>
-      window.removeEventListener(
-        "artstudio:restore-history",
-        handleRestoreHistory as EventListener,
-      );
-  }, [restoreCanvasState]);
 
   /* --- IMPROVED START DRAWING --- */
   const startDrawing = useCallback(
@@ -1984,6 +2078,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
         Zoom: {zoom}% | {actualWidth} × {actualHeight}px
       </div>
 
+      {/* Hidden auxiliary canvases */}
       <canvas ref={floodFillCanvas} style={{ display: "none" }} />
       <canvas ref={eyedropperCanvas} style={{ display: "none" }} />
       <canvas ref={healingCanvas} style={{ display: "none" }} />
