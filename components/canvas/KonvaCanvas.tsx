@@ -312,34 +312,48 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
   );
 
   const updateAuxCanvases = useCallback(() => {
-    if (!stageRef.current) return;
+    if (!layerRef.current) return;
 
-    const stage = stageRef.current;
-    const tempCanvas = stage.toCanvas({ pixelRatio: 1 });
+    try {
+      // Use layer instead of stage to ignore zoom/pan and get raw content 1:1
+      const tempCanvas = layerRef.current.toCanvas({
+        pixelRatio: 1,
+        x: 0,
+        y: 0,
+        width: actualWidth,
+        height: actualHeight,
+      });
 
-    // Zoznam všetkých pomocných canvasov
-    const auxCanvases = [
-      { ref: floodFillCanvas, ctx: floodFillContext },
-      { ref: eyedropperCanvas, ctx: eyedropperContext },
-      { ref: healingCanvas, ctx: healingContext },
-      { ref: blurCanvas, ctx: blurContext }
-    ];
+      // Zoznam všetkých pomocných canvasov
+      const auxCanvases = [
+        { ref: floodFillCanvas, ctx: floodFillContext },
+        { ref: eyedropperCanvas, ctx: eyedropperContext },
+        { ref: healingCanvas, ctx: healingContext },
+        { ref: blurCanvas, ctx: blurContext }
+      ];
 
-    // Inicializovať a aktualizovať každý canvas
-    auxCanvases.forEach(({ ref, ctx }) => {
-      if (!ref.current) {
-        ref.current = document.createElement('canvas');
-        ref.current.width = actualWidth;
-        ref.current.height = actualHeight;
-      }
-      if (ref.current && !ctx.current) {
-        ctx.current = ref.current.getContext('2d');
-      }
-      if (ctx.current) {
-        ctx.current.clearRect(0, 0, actualWidth, actualHeight);
-        ctx.current.drawImage(tempCanvas, 0, 0, actualWidth, actualHeight);
-      }
-    });
+      // Inicializovať a aktualizovať každý canvas
+      auxCanvases.forEach(({ ref, ctx }) => {
+        if (!ref.current) {
+          ref.current = document.createElement('canvas');
+          ref.current.width = actualWidth;
+          ref.current.height = actualHeight;
+        }
+        if (ref.current && !ctx.current) {
+          ctx.current = ref.current.getContext('2d', { willReadFrequently: true });
+        }
+        if (ctx.current) {
+          ctx.current.clearRect(0, 0, actualWidth, actualHeight);
+          // Only draw if tempCanvas was successfully created
+          if (tempCanvas) {
+            ctx.current.drawImage(tempCanvas, 0, 0, actualWidth, actualHeight);
+          }
+        }
+      });
+    } catch (e) {
+      console.error("Failed to update aux canvases:", e);
+      toast.error("Could not read canvas data. Possible CORS issue with images.");
+    }
   }, [actualWidth, actualHeight]);
 
   const restoreCanvasState = useCallback(
@@ -558,8 +572,8 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
         return;
       }
 
-      // Nastaviť toleranciu
-      const tolerance = brushSettings.fillTolerance || 32;
+      // Nastaviť toleranciu - ensure at least some tolerance for compression artifacts
+      const tolerance = brushSettings.fillTolerance > 0 ? brushSettings.fillTolerance : 32;
 
       // Vytvoriť masku navštívených pixelov
       const visited = new Uint8Array(width * height);
@@ -691,9 +705,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
     tempCanvasEl.height = actualHeight;
     const tempCtx = tempCanvasEl.getContext("2d");
     if (tempCtx) {
-      // Nastaviť pozadie pre temp canvas
-      tempCtx.fillStyle = actualBackground;
-      tempCtx.fillRect(0, 0, actualWidth, actualHeight);
+      // Temp canvas should be transparent
       tempCtx.globalCompositeOperation = "source-over";
       setTempContext(tempCtx);
       setTempCanvas(tempCanvasEl);
@@ -1198,16 +1210,13 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 
         // Reset temp canvas
         tempContext!.clearRect(0, 0, actualWidth, actualHeight);
-        tempContext!.fillStyle = actualBackground;
         // Don't fill with background if we want transparency support in temp canvas? 
-        // Actually temp canvas background handling is a bit tricky, but for bitmapping tools it's fine.
-        tempContext!.fillRect(0, 0, actualWidth, actualHeight);
+        // Keep transparent
         setTempImage(null);
       } else if (tempContext) {
         // For vector tools (brush, eraser), just clear the temp preview
         tempContext.clearRect(0, 0, actualWidth, actualHeight);
-        tempContext.fillStyle = actualBackground;
-        tempContext.fillRect(0, 0, actualWidth, actualHeight);
+        // Keep transparent
         setTempImage(null);
       }
 
