@@ -1150,8 +1150,8 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
           ),
         );
 
-        // Preview update
-        if (tempCanvas) {
+        // Preview update - SKIP for eraser to avoid obscuring the view with temp background
+        if (tempCanvas && activeTool !== "eraser") {
           const img = new window.Image();
           img.src = tempCanvas.toDataURL();
           img.onload = () => {
