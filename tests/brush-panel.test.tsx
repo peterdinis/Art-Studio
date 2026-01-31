@@ -4,6 +4,42 @@ import { BrushPanel } from "@/components/panels/BrushPanel";
 import { useArtStudioStore } from "@/stores/artStudioStore";
 import React from "react";
 
+// Mock resize observer
+global.ResizeObserver = class ResizeObserver {
+	observe() { }
+	unobserve() { }
+	disconnect() { }
+};
+
+// Mock localStorage
+const localStorageMock = (() => {
+	let store: Record<string, string> = {};
+	return {
+		getItem: (key: string) => store[key] || null,
+		setItem: (key: string, value: string) => {
+			store[key] = value.toString();
+		},
+		removeItem: (key: string) => {
+			delete store[key];
+		},
+		clear: () => {
+			store = {};
+		},
+	};
+})();
+
+Object.defineProperty(window, "localStorage", {
+	value: localStorageMock,
+});
+
+vi.mock("@/stores/artStudioStore", async (importOriginal) => {
+	const actual = await importOriginal();
+	return {
+		...actual,
+		useArtStudioStore: actual.useArtStudioStore,
+	};
+});
+
 interface MockTooltipProps {
 	children: React.ReactNode;
 }
@@ -42,7 +78,7 @@ vi.mock("@/components/ui/slider", () => ({
 		return (
 			<input
 				type="range"
-				data-testid={`slider-${min}-${max}`}
+				data-testid={`slider - ${min} -${max} `}
 				value={val}
 				onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
 					onValueChange && onValueChange([parseInt(e.target.value, 10)])

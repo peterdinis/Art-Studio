@@ -39,6 +39,55 @@ const drawingTools: Tool[] = [
 const selectionTools: Tool[] = ["select", "marquee", "lasso", "magicwand"];
 const shapeTools: Tool[] = ["rectangle", "ellipse", "polygon", "line", "pen", "star"];
 
+const ZoomOptions: React.FC = () => {
+	const { zoom, setZoom, resetCanvasView } = useArtStudioStore();
+
+	return (
+		<div className="space-y-4">
+			<div className="space-y-2">
+				<div className="flex justify-between items-center mb-1">
+					<Label className="text-xs text-muted-foreground">Zoom Level</Label>
+					<span className="text-xs font-mono">{Math.round(zoom)}%</span>
+				</div>
+				<Slider
+					value={[zoom]}
+					onValueChange={([val]) => setZoom(val)}
+					min={10}
+					max={500}
+					step={10}
+				/>
+			</div>
+
+			<div className="grid grid-cols-2 gap-2">
+				<button
+					onClick={() => setZoom(Math.min(zoom + 25, 500))}
+					className="px-3 py-2 bg-muted/50 hover:bg-muted rounded text-xs transition-colors"
+				>
+					Zoom In
+				</button>
+				<button
+					onClick={() => setZoom(Math.max(zoom - 25, 10))}
+					className="px-3 py-2 bg-muted/50 hover:bg-muted rounded text-xs transition-colors"
+				>
+					Zoom Out
+				</button>
+				<button
+					onClick={() => setZoom(100)}
+					className="px-3 py-2 bg-muted/50 hover:bg-muted rounded text-xs transition-colors"
+				>
+					Actual Size
+				</button>
+				<button
+					onClick={resetCanvasView}
+					className="px-3 py-2 bg-muted/50 hover:bg-muted rounded text-xs transition-colors"
+				>
+					Fit Screen
+				</button>
+			</div>
+		</div>
+	);
+};
+
 export const BrushPanel: React.FC = () => {
 	const { brushSettings, setBrushSettings, activeTool } = useArtStudioStore();
 
@@ -485,8 +534,53 @@ export const BrushPanel: React.FC = () => {
 				</div>
 			);
 		}
+
+		if (activeTool === "eyedropper") {
+			return (
+				<div className="space-y-4">
+					<div className="bg-muted/30 p-3 rounded-md border border-border/50 text-xs space-y-2">
+						<p className="font-medium text-foreground">Usage:</p>
+						<ul className="list-disc list-inside space-y-1 text-muted-foreground">
+							<li><span className="text-foreground">Click</span> to pick Primary Color</li>
+							<li><span className="text-foreground">Alt + Click</span> to pick Secondary Color</li>
+						</ul>
+					</div>
+				</div>
+			);
+		}
+
 		return renderGenericOptions();
 	};
+
+	const renderNavigationOptions = () => {
+		if (activeTool === "zoom") {
+			// Need to access zoom functions from store, might need to update store usage in component if not spread
+			// Assuming setZoom and zoom are available from useArtStudioStore hook call at top of component
+			// We need to check if they are destructured. 
+			// Checking file content: const { brushSettings, setBrushSettings, activeTool } = useArtStudioStore();
+			// Only those were destructured. We need to grab zoom-related ones.
+
+			return (
+				<ZoomOptions />
+			);
+		}
+
+		if (activeTool === "hand") {
+			return (
+				<div className="space-y-4">
+					<div className="bg-muted/30 p-3 rounded-md border border-border/50 text-xs space-y-2">
+						<p className="font-medium text-foreground">Usage:</p>
+						<ul className="list-disc list-inside space-y-1 text-muted-foreground">
+							<li><span className="text-foreground">Click & Drag</span> to pan the canvas</li>
+							<li>Hold <span className="text-foreground">Spacebar</span> with any tool to temporarily switch to Hand tool</li>
+						</ul>
+					</div>
+				</div>
+			);
+		}
+
+		return renderGenericOptions();
+	}
 
 	const renderGenericOptions = () => (
 		<div className="text-center py-4">
@@ -516,12 +610,17 @@ export const BrushPanel: React.FC = () => {
 			{isDrawingTool && renderDrawingOptions()}
 			{isSelectionTool && renderSelectionOptions()}
 			{isShapeTool && renderShapeOptions()}
-			{activeTool === "fill" && renderUtilityOptions()}
+			{activeTool === "fill" || activeTool === "eyedropper" ? renderUtilityOptions() : null}
+			{(activeTool === "zoom" || activeTool === "hand") && renderNavigationOptions()}
+
 			{!isDrawingTool &&
 				!isSelectionTool &&
 				!isShapeTool &&
 				!isTextTool &&
 				activeTool !== "fill" &&
+				activeTool !== "eyedropper" &&
+				activeTool !== "zoom" &&
+				activeTool !== "hand" &&
 				renderGenericOptions()}
 
 			{isDrawingTool && (
