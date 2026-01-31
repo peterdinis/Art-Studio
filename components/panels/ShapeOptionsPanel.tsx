@@ -15,6 +15,7 @@ export const ShapeOptionsPanel = () => {
 		secondaryColor,
 		setPrimaryColor,
 		setSecondaryColor,
+		activeTool,
 	} = useArtStudioStore();
 
 	return (
@@ -81,7 +82,7 @@ export const ShapeOptionsPanel = () => {
 				/>
 			</div>
 
-			{/* Sides (for polygon/star) */}
+			{/* Sides/Points (for polygon/star) */}
 			<div className="space-y-2">
 				<Label className="text-xs">
 					Sides/Points: {brushSettings.sides || 5}
@@ -94,6 +95,36 @@ export const ShapeOptionsPanel = () => {
 					step={1}
 				/>
 			</div>
+
+			{activeTool === "star" && (
+				<>
+					<div className="space-y-2">
+						<Label className="text-xs">
+							Inner Radius: {brushSettings.starInnerRadius || 30}px
+						</Label>
+						<Slider
+							value={[brushSettings.starInnerRadius || 30]}
+							onValueChange={([value]) => setBrushSettings({ starInnerRadius: value })}
+							min={10}
+							max={200}
+							step={1}
+						/>
+					</div>
+
+					<div className="space-y-2">
+						<Label className="text-xs">
+							Outer Radius: {brushSettings.starOuterRadius || 60}px
+						</Label>
+						<Slider
+							value={[brushSettings.starOuterRadius || 60]}
+							onValueChange={([value]) => setBrushSettings({ starOuterRadius: value })}
+							min={10}
+							max={300}
+							step={1}
+						/>
+					</div>
+				</>
+			)}
 
 			{/* Colors */}
 			<div className="space-y-2">

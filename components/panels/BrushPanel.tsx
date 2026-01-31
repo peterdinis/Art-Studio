@@ -11,6 +11,10 @@ import {
 } from "@/components/ui/tooltip";
 import { HelpCircle, Blend, Circle, Square, Sparkles } from "lucide-react";
 import { TextOptionsPanel } from "@/components/panels/TextOptionsPanel";
+import { CropPanel } from "@/components/panels/CropPanel";
+import { LineOptionsPanel } from "@/components/panels/LineOptionsPanel";
+import { TransformPanel } from "@/components/panels/TransformPanel";
+import { GradientOptionsPanel } from "@/components/panels/GradientOptionsPanel";
 
 interface ToolOption {
 	name: string;
@@ -31,7 +35,7 @@ const drawingTools: Tool[] = [
 	"blur",
 ];
 const selectionTools: Tool[] = ["select", "marquee", "lasso", "magicwand"];
-const shapeTools: Tool[] = ["rectangle", "ellipse", "polygon", "line", "pen"];
+const shapeTools: Tool[] = ["rectangle", "ellipse", "polygon", "line", "pen", "star"];
 
 export const BrushPanel: React.FC = () => {
 	const { brushSettings, setBrushSettings, activeTool } = useArtStudioStore();
@@ -71,6 +75,22 @@ export const BrushPanel: React.FC = () => {
 	// Pokud je aktivní text tool, zobrazte TextOptionsPanel
 	if (isTextTool) {
 		return <TextOptionsPanel />;
+	}
+
+	if (activeTool === "crop") {
+		return <CropPanel />;
+	}
+
+	if (activeTool === "line") {
+		return <LineOptionsPanel />;
+	}
+
+	if (activeTool === "move" || activeTool === "select") {
+		return <TransformPanel />;
+	}
+
+	if (activeTool === "gradient") {
+		return <GradientOptionsPanel />;
 	}
 
 	const renderSliderWithTooltip = (option: ToolOption) => (
@@ -188,11 +208,10 @@ export const BrushPanel: React.FC = () => {
 								<button
 									key={mode}
 									onClick={() => setBrushSettings({ healingMode: mode as any })}
-									className={`px-2 py-1 text-[10px] rounded transition-colors capitalize ${
-										brushSettings.healingMode === mode
-											? "bg-primary/20 border border-primary/30"
-											: "bg-muted/50 hover:bg-muted"
-									}`}
+									className={`px-2 py-1 text-[10px] rounded transition-colors capitalize ${brushSettings.healingMode === mode
+										? "bg-primary/20 border border-primary/30"
+										: "bg-muted/50 hover:bg-muted"
+										}`}
 								>
 									{mode}
 								</button>
@@ -208,14 +227,12 @@ export const BrushPanel: React.FC = () => {
 							onClick={() =>
 								setBrushSettings({ cloneAligned: !brushSettings.cloneAligned })
 							}
-							className={`w-10 h-5 rounded-full transition-colors relative ${
-								brushSettings.cloneAligned ? "bg-primary" : "bg-muted"
-							}`}
+							className={`w-10 h-5 rounded-full transition-colors relative ${brushSettings.cloneAligned ? "bg-primary" : "bg-muted"
+								}`}
 						>
 							<div
-								className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-all ${
-									brushSettings.cloneAligned ? "left-6" : "left-1"
-								}`}
+								className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-all ${brushSettings.cloneAligned ? "left-6" : "left-1"
+									}`}
 							/>
 						</button>
 					</div>
@@ -310,31 +327,28 @@ export const BrushPanel: React.FC = () => {
 				<div className="flex gap-1">
 					<button
 						onClick={() => setBrushSettings({ fillType: "solid" })}
-						className={`flex-1 px-2 py-1.5 text-xs rounded transition-colors flex items-center justify-center gap-1 ${
-							brushSettings.fillType === "solid"
-								? "bg-primary/20 border border-primary/30"
-								: "bg-muted/50 hover:bg-muted"
-						}`}
+						className={`flex-1 px-2 py-1.5 text-xs rounded transition-colors flex items-center justify-center gap-1 ${brushSettings.fillType === "solid"
+							? "bg-primary/20 border border-primary/30"
+							: "bg-muted/50 hover:bg-muted"
+							}`}
 					>
 						<Square className="w-3 h-3" /> Solid
 					</button>
 					<button
 						onClick={() => setBrushSettings({ fillType: "gradient" })}
-						className={`flex-1 px-2 py-1.5 text-xs rounded transition-colors flex items-center justify-center gap-1 ${
-							brushSettings.fillType === "gradient"
-								? "bg-primary/20 border border-primary/30"
-								: "bg-muted/50 hover:bg-muted"
-						}`}
+						className={`flex-1 px-2 py-1.5 text-xs rounded transition-colors flex items-center justify-center gap-1 ${brushSettings.fillType === "gradient"
+							? "bg-primary/20 border border-primary/30"
+							: "bg-muted/50 hover:bg-muted"
+							}`}
 					>
 						<Blend className="w-3 h-3" /> Gradient
 					</button>
 					<button
 						onClick={() => setBrushSettings({ fillType: "none" })}
-						className={`flex-1 px-2 py-1.5 text-xs rounded transition-colors flex items-center justify-center gap-1 ${
-							brushSettings.fillType === "none"
-								? "bg-primary/20 border border-primary/30"
-								: "bg-muted/50 hover:bg-muted"
-						}`}
+						className={`flex-1 px-2 py-1.5 text-xs rounded transition-colors flex items-center justify-center gap-1 ${brushSettings.fillType === "none"
+							? "bg-primary/20 border border-primary/30"
+							: "bg-muted/50 hover:bg-muted"
+							}`}
 					>
 						<Circle className="w-3 h-3" /> None
 					</button>
@@ -409,14 +423,12 @@ export const BrushPanel: React.FC = () => {
 									fillContiguous: !brushSettings.fillContiguous,
 								})
 							}
-							className={`w-10 h-5 rounded-full transition-colors relative ${
-								brushSettings.fillContiguous ? "bg-primary" : "bg-muted"
-							}`}
+							className={`w-10 h-5 rounded-full transition-colors relative ${brushSettings.fillContiguous ? "bg-primary" : "bg-muted"
+								}`}
 						>
 							<div
-								className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-all ${
-									brushSettings.fillContiguous ? "left-6" : "left-1"
-								}`}
+								className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-all ${brushSettings.fillContiguous ? "left-6" : "left-1"
+									}`}
 							/>
 						</button>
 					</div>

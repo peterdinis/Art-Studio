@@ -258,10 +258,19 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 
   /* --- CORE UTILITIES --- */
 
+  const lastSaveTimeRef = useRef<number>(0);
+
   const saveCanvasState = useCallback(
-    (action: string) => {
+    (action: string, force: boolean = false) => {
       if (!stageRef.current) return;
+
+      const now = Date.now();
+      if (!force && now - lastSaveTimeRef.current < 1000) {
+        return;
+      }
+
       try {
+        lastSaveTimeRef.current = now;
         const canvasState: CanvasState = {
           lines,
           shapes,
