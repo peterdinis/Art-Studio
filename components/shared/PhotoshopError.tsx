@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
+import { useErrorHandler } from "@/hooks/useErrorHandler";
 
 export type ErrorComponentProps = {
 	error?: Error | string;
@@ -393,29 +394,6 @@ export default function ErrorComponent({
 			</motion.div>
 		</motion.div>
 	);
-}
-
-// Also create a hook for error handling
-export function useErrorHandler() {
-	const [error, setError] = useState<Error | null>(null);
-
-	const handleError = (err: unknown) => {
-		const errorObj = err instanceof Error ? err : new Error(String(err));
-		setError(errorObj);
-
-		return errorObj;
-	};
-
-	const resetError = () => {
-		setError(null);
-	};
-
-	return {
-		error,
-		handleError,
-		resetError,
-		hasError: !!error,
-	};
 }
 
 // Optional: Global error boundary component

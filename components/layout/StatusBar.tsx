@@ -26,6 +26,9 @@ export const StatusBar: React.FC = () => {
 	};
 
 	const getToolDisplayName = () => {
+		if (typeof activeTool !== "string") {
+			return "Tool";
+		}
 		const names: Record<string, string> = {
 			brush: "Brush Tool",
 			pencil: "Pencil Tool",
