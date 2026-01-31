@@ -282,10 +282,10 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 
   const updateAuxCanvases = useCallback(() => {
     if (!stageRef.current) return;
-    
+
     const stage = stageRef.current;
     const tempCanvas = stage.toCanvas({ pixelRatio: 1 });
-    
+
     // Zoznam všetkých pomocných canvasov
     const auxCanvases = [
       { ref: floodFillCanvas, ctx: floodFillContext },
@@ -293,7 +293,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
       { ref: healingCanvas, ctx: healingContext },
       { ref: blurCanvas, ctx: blurContext }
     ];
-    
+
     // Inicializovať a aktualizovať každý canvas
     auxCanvases.forEach(({ ref, ctx }) => {
       if (!ref.current) {
@@ -332,18 +332,18 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
   const applyEraser = useCallback(
     (x: number, y: number, isStart: boolean = false) => {
       if (!tempContext) return;
-      
+
       const size = brushSettings.size;
-      
+
       // Vytvoriť dočasný canvas pre gumovanie
       tempContext.save();
       tempContext.globalCompositeOperation = "destination-out";
       tempContext.fillStyle = "rgba(0,0,0,1)";
-      
+
       // Nakresliť kruh na vymazanie
       tempContext.beginPath();
       tempContext.arc(x, y, size / 2, 0, Math.PI * 2);
-      
+
       if (isStart) {
         // Pre začiatočný bod vyplniť kruh
         tempContext.fill();
@@ -351,9 +351,9 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
         // Pre ťahanie - nakresliť čiaru
         tempContext.stroke();
       }
-      
+
       tempContext.restore();
-      
+
       // OKAMŽITE aktualizovať temp image pre zobrazenie
       if (tempCanvas) {
         const img = new window.Image();
@@ -377,15 +377,15 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
       const intensity = (brushSettings.dodgeIntensity || 50) / 100;
       const imgData = ctx.getImageData(x - size / 2, y - size / 2, size, size);
       const d = imgData.data;
-      
+
       for (let i = 0; i < d.length; i += 4) {
         d[i] = Math.min(255, d[i] + (255 - d[i]) * intensity);
         d[i + 1] = Math.min(255, d[i + 1] + (255 - d[i + 1]) * intensity);
         d[i + 2] = Math.min(255, d[i + 2] + (255 - d[i + 2]) * intensity);
       }
-      
+
       tempContext.putImageData(imgData, x - size / 2, y - size / 2);
-      
+
       // OKAMŽITE aktualizovať temp image
       if (tempCanvas) {
         const img = new window.Image();
@@ -409,15 +409,15 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
       const intensity = (brushSettings.burnIntensity || 50) / 100;
       const imgData = ctx.getImageData(x - size / 2, y - size / 2, size, size);
       const d = imgData.data;
-      
+
       for (let i = 0; i < d.length; i += 4) {
         d[i] = Math.max(0, d[i] - d[i] * intensity);
         d[i + 1] = Math.max(0, d[i + 1] - d[i + 1] * intensity);
         d[i + 2] = Math.max(0, d[i + 2] - d[i + 2] * intensity);
       }
-      
+
       tempContext.putImageData(imgData, x - size / 2, y - size / 2);
-      
+
       // OKAMŽITE aktualizovať temp image
       if (tempCanvas) {
         const img = new window.Image();
@@ -435,18 +435,18 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
     (x: number, y: number, isAltPressed: boolean = false) => {
       updateAuxCanvases();
       if (!eyedropperContext.current) return;
-      
+
       const ctx = eyedropperContext.current;
       const pixel = ctx.getImageData(Math.floor(x), Math.floor(y), 1, 1).data;
-      
+
       // Konvertovať RGBA na hex
       const toHex = (value: number) => {
         const hex = value.toString(16);
         return hex.length === 1 ? '0' + hex : hex;
       };
-      
+
       const hexColor = `#${toHex(pixel[0])}${toHex(pixel[1])}${toHex(pixel[2])}`;
-      
+
       if (isAltPressed) {
         setSecondaryColor(hexColor);
         toast.success(`Secondary color picked: ${hexColor}`);
@@ -463,7 +463,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
     (startX: number, startY: number, fillColor: string) => {
       // Aktualizovať pomocné canvasy
       updateAuxCanvases();
-      
+
       if (!floodFillContext.current) {
         console.error('Flood fill context not available');
         toast.error("Cannot perform fill - context not ready");
@@ -473,18 +473,18 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
       const ctx = floodFillContext.current;
       const imageData = ctx.getImageData(0, 0, actualWidth, actualHeight);
       const { data, width, height } = imageData;
-      
+
       // Konvertovať súradnice na celé čísla
       const x = Math.floor(startX);
       const y = Math.floor(startY);
-      
+
       if (x < 0 || x >= width || y < 0 || y >= height) {
         toast.error("Fill point is outside canvas");
         return;
       }
-      
+
       const startIdx = (y * width + x) * 4;
-      
+
       // Získať cieľovú farbu
       const targetColor = {
         r: data[startIdx],
@@ -529,7 +529,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 
       // Nastaviť toleranciu
       const tolerance = brushSettings.fillTolerance || 32;
-      
+
       // Vytvoriť masku navštívených pixelov
       const visited = new Uint8Array(width * height);
       const stack: [number, number][] = [[x, y]];
@@ -538,7 +538,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
       while (stack.length > 0) {
         const [currentX, currentY] = stack.pop()!;
         const idx = currentY * width + currentX;
-        
+
         if (visited[idx]) continue;
         visited[idx] = 1;
 
@@ -559,7 +559,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
         if (colorDistance <= tolerance) {
           // Pridať pixel do zoznamu vyplnených
           filledPixels.push([currentX, currentY]);
-          
+
           // Pridať susedné pixely do zásobníka
           if (currentX > 0) stack.push([currentX - 1, currentY]);
           if (currentX < width - 1) stack.push([currentX + 1, currentY]);
@@ -596,10 +596,10 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
         height: actualHeight,
         layerId: activeLayerId || "layer-1",
       };
-      
+
       setImages((prev) => [...prev, fillImage]);
       saveCanvasState("Flood Fill applied");
-      
+
       toast.success(`Filled ${filledPixels.length} pixels`);
     },
     [
@@ -732,6 +732,8 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
     initAuxCanvases();
   }, [actualWidth, actualHeight, updateAuxCanvases]);
 
+  const originalToolRef = useRef<Tool | null>(null);
+
   useEffect(() => {
     const handleClearCanvas = () => {
       setLines([]);
@@ -752,9 +754,22 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
     window.addEventListener("artstudio:restore-history", handleRestoreHistory);
 
     const handleTempToolChange = (e: any) => {
-      if (e.detail) setActiveTool(e.detail);
+      if (e.detail && e.detail.tool) {
+        if (!originalToolRef.current) {
+          originalToolRef.current = activeTool;
+        }
+        setActiveTool(e.detail.tool);
+      }
     };
     window.addEventListener("artstudio:temp-tool-change", handleTempToolChange);
+
+    const handleTempToolReset = () => {
+      if (originalToolRef.current) {
+        setActiveTool(originalToolRef.current);
+        originalToolRef.current = null;
+      }
+    };
+    window.addEventListener("artstudio:temp-tool-reset", handleTempToolReset);
 
     return () => {
       window.removeEventListener("artstudio:clear-canvas", handleClearCanvas);
@@ -766,8 +781,12 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
         "artstudio:temp-tool-change",
         handleTempToolChange,
       );
+      window.removeEventListener(
+        "artstudio:temp-tool-reset",
+        handleTempToolReset,
+      );
     };
-  }, [setGradients, clearSelection, restoreCanvasState, setActiveTool]);
+  }, [setGradients, clearSelection, restoreCanvasState, setActiveTool, activeTool]);
 
   const getCanvasPosition = useCallback(
     (clientX: number, clientY: number) => {
@@ -820,9 +839,9 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 
         const distance = Math.sqrt(
           (r - targetR) ** 2 +
-            (g - targetG) ** 2 +
-            (b - targetB) ** 2 +
-            (a - targetA) ** 2,
+          (g - targetG) ** 2 +
+          (b - targetB) ** 2 +
+          (a - targetA) ** 2,
         );
 
         if (distance <= magicWandTolerance) {
@@ -868,7 +887,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
         size,
       );
       tempContext.putImageData(imgData, targetX - size / 2, targetY - size / 2);
-      
+
       // OKAMŽITE aktualizovať temp image
       if (tempCanvas) {
         const img = new window.Image();
@@ -908,7 +927,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
           (targetData.data[i + 2] + srcData.data[i + 2]) / 2;
       }
       tempContext.putImageData(targetData, x - size / 2, y - size / 2);
-      
+
       // OKAMŽITE aktualizovať temp image
       if (tempCanvas) {
         const img = new window.Image();
@@ -934,7 +953,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
         d[i] = (d[i] + (d[i - 4] || d[i]) + (d[i + 4] || d[i])) / 3;
       }
       tempContext.putImageData(imgData, x - size / 2, y - size / 2);
-      
+
       // OKAMŽITE aktualizovať temp image
       if (tempCanvas) {
         const img = new window.Image();
@@ -1029,7 +1048,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
           tool: activeTool as any,
           layerId: activeLayerId || "layer-1",
         };
-        
+
         setActiveDrawingLine(newLine);
         setLines((prev) => [...prev, newLine]);
 
@@ -1089,7 +1108,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
       } else if (activeTool === "eraser") {
         // Pre gumovanie - nakresliť čiaru
         applyEraser(pos.x, pos.y, false);
-        
+
         // Aktualizovať body čiary pre gumovanie (pre undo/redo)
         if (activeDrawingLine) {
           setLines((prev) =>
@@ -1113,7 +1132,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
               : line,
           ),
         );
-        
+
         // OKAMŽITE aktualizovať temp image pre zobrazenie
         if (tempCanvas) {
           const img = new window.Image();
@@ -1146,7 +1165,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
       if (tempContext) {
         tempContext.closePath();
       }
-      
+
       // Pre gumovanie uložiť stav ako image
       if (activeTool === "eraser" && tempCanvas) {
         const imgData = tempCanvas.toDataURL();
@@ -1183,7 +1202,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
         tempContext!.fillRect(0, 0, actualWidth, actualHeight);
         setTempImage(null);
       }
-      
+
       saveCanvasState(`${activeTool === "eraser" ? "Erased" : "Stroke added"}`);
     }
   }, [isDrawing, tempContext, saveCanvasState, activeTool, actualWidth, actualHeight, actualBackground, activeLayerId, tempCanvas]);
@@ -1663,7 +1682,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
       setCurrentGradient(null);
       saveCanvasState("Gradient added");
     }
-    
+
     isPanning.current = false;
   };
 
