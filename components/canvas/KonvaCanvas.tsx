@@ -259,31 +259,53 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
   /* --- CORE UTILITIES --- */
 
   const lastSaveTimeRef = useRef<number>(0);
+  const pendingSaveRef = useRef<number | null>(null);
 
   const saveCanvasState = useCallback(
     (action: string, force: boolean = false) => {
       if (!stageRef.current) return;
 
-      const now = Date.now();
-      if (!force && now - lastSaveTimeRef.current < 1000) {
-        return;
-      }
+      const scheduleSave = () => {
+        // Cancel any pending save to avoid stacking
+        if (pendingSaveRef.current) {
+          if ('cancelIdleCallback' in window) {
+            window.cancelIdleCallback(pendingSaveRef.current);
+          } else {
+            clearTimeout(pendingSaveRef.current);
+          }
+        }
 
-      try {
-        lastSaveTimeRef.current = now;
-        const canvasState: CanvasState = {
-          lines,
-          shapes,
-          images,
-          gradients,
-          healingData,
-          blurData,
+        const saveData = () => {
+          if (!stageRef.current) return;
+          try {
+            lastSaveTimeRef.current = Date.now();
+            const canvasState: CanvasState = {
+              lines,
+              shapes,
+              images,
+              gradients,
+              healingData,
+              blurData,
+            };
+            const stateString = JSON.stringify(canvasState);
+            const dataURL = stageRef.current.toDataURL({ pixelRatio: 0.2 });
+            addToHistory(stateString, dataURL, action);
+            pendingSaveRef.current = null;
+          } catch (err) {
+            console.error("Failed to save canvas state:", err);
+          }
         };
-        const stateString = JSON.stringify(canvasState);
-        const dataURL = stageRef.current.toDataURL({ pixelRatio: 0.2 });
-        addToHistory(stateString, dataURL, action);
-      } catch (err) {
-        console.error("Failed to save canvas state:", err);
+
+        if ('requestIdleCallback' in window) {
+          pendingSaveRef.current = window.requestIdleCallback(saveData, { timeout: 2000 });
+        } else {
+          pendingSaveRef.current = (window as any).setTimeout(saveData, 500) as unknown as number;
+        }
+      };
+
+      const now = Date.now();
+      if (force || now - lastSaveTimeRef.current >= 1000) {
+        scheduleSave();
       }
     },
     [lines, shapes, images, gradients, healingData, blurData, addToHistory],
