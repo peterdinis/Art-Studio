@@ -1065,17 +1065,14 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
       setIsDrawing(true);
       shapeStartPoint.current = pos;
 
-      if (activeTool === "eraser") {
-        // Pre gumovanie
-        applyEraser(pos.x, pos.y, true);
-      } else {
-        // Pre ostatné nástroje
-        const strokeColor = primaryColor;
+      // Handle brush, pencil, eraser
+      if (["brush", "pencil", "eraser"].includes(activeTool)) {
+        const strokeColor = activeTool === "eraser" ? "#000000" : primaryColor;
         const newLine: DrawingLine = {
           id: generateId("line"),
           points: [pos.x, pos.y],
           stroke: strokeColor,
-          strokeWidth: activeTool === "pencil" ? 1 : brushSettings.size,
+          strokeWidth: brushSettings.size, // Eraser uses brush size too
           tool: activeTool as any,
           layerId: activeLayerId || "layer-1",
         };
@@ -1084,6 +1081,8 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
         setLines((prev) => [...prev, newLine]);
 
         if (tempContext) {
+          tempContext.globalCompositeOperation =
+            activeTool === "eraser" ? "destination-out" : "source-over";
           tempContext.strokeStyle = newLine.stroke;
           tempContext.lineWidth = newLine.strokeWidth;
           tempContext.lineCap = "round";
@@ -1093,7 +1092,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
         }
       }
 
-      // Špeciálna logika pre nástroje
+      // Use helper functions for complex bitmap brushes
       if (activeTool === "clone") {
         handleCloneBrush(pos.x, pos.y);
       } else if (activeTool === "healing") {
@@ -1117,7 +1116,6 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
       applyBlurBrush,
       applyDodgeBrush,
       applyBurnBrush,
-      applyEraser,
     ],
   );
 
@@ -1126,6 +1124,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
     (pos: { x: number; y: number }) => {
       if (!isDrawing) return;
 
+      // Handle bitmap brushes
       if (activeTool === "clone") {
         handleCloneBrush(pos.x, pos.y);
       } else if (activeTool === "healing") {
@@ -1136,26 +1135,13 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
         applyDodgeBrush(pos.x, pos.y);
       } else if (activeTool === "burn") {
         applyBurnBrush(pos.x, pos.y);
-      } else if (activeTool === "eraser") {
-        // Pre gumovanie - nakresliť čiaru
-        applyEraser(pos.x, pos.y, false);
-
-        // Aktualizovať body čiary pre gumovanie (pre undo/redo)
-        if (activeDrawingLine) {
-          setLines((prev) =>
-            prev.map((line) =>
-              line.id === activeDrawingLine.id
-                ? { ...line, points: [...line.points, pos.x, pos.y] }
-                : line,
-            ),
-          );
-        }
-      } else if (tempContext && activeDrawingLine) {
-        // Pre ostatné nástroje
+      }
+      // Handle vector tools (brush, pencil, eraser)
+      else if (tempContext && activeDrawingLine) {
         tempContext.lineTo(pos.x, pos.y);
         tempContext.stroke();
 
-        // Aktualizovať body čiary
+        // Update line points
         setLines((prev) =>
           prev.map((line) =>
             line.id === activeDrawingLine.id
@@ -1164,7 +1150,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
           ),
         );
 
-        // OKAMŽITE aktualizovať temp image pre zobrazenie
+        // Preview update
         if (tempCanvas) {
           const img = new window.Image();
           img.src = tempCanvas.toDataURL();
@@ -1184,7 +1170,6 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
       applyBlurBrush,
       applyDodgeBrush,
       applyBurnBrush,
-      applyEraser,
       tempCanvas,
     ],
   );
@@ -1197,25 +1182,8 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
         tempContext.closePath();
       }
 
-      // Pre gumovanie uložiť stav ako image
-      if (activeTool === "eraser" && tempCanvas) {
-        const imgData = tempCanvas.toDataURL();
-        const newImg: ImageObject = {
-          id: generateId("eraser-stroke"),
-          src: imgData,
-          x: 0,
-          y: 0,
-          width: actualWidth,
-          height: actualHeight,
-          layerId: activeLayerId || "layer-1",
-        };
-        setImages((prev) => [...prev, newImg]);
-        // Reset temp canvas
-        tempContext!.clearRect(0, 0, actualWidth, actualHeight);
-        tempContext!.fillStyle = actualBackground;
-        tempContext!.fillRect(0, 0, actualWidth, actualHeight);
-        setTempImage(null);
-      } else if (tempCanvas && ["clone", "healing", "blur", "dodge", "burn"].includes(activeTool)) {
+      // Handle bitmap brushes finalization
+      if (tempCanvas && ["clone", "healing", "blur", "dodge", "burn"].includes(activeTool)) {
         const imgData = tempCanvas.toDataURL();
         const newImg: ImageObject = {
           id: generateId(`${activeTool}-stroke`),
@@ -1227,10 +1195,19 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
           layerId: activeLayerId || "layer-1",
         };
         setImages((prev) => [...prev, newImg]);
+
         // Reset temp canvas
         tempContext!.clearRect(0, 0, actualWidth, actualHeight);
         tempContext!.fillStyle = actualBackground;
+        // Don't fill with background if we want transparency support in temp canvas? 
+        // Actually temp canvas background handling is a bit tricky, but for bitmapping tools it's fine.
         tempContext!.fillRect(0, 0, actualWidth, actualHeight);
+        setTempImage(null);
+      } else if (tempContext) {
+        // For vector tools (brush, eraser), just clear the temp preview
+        tempContext.clearRect(0, 0, actualWidth, actualHeight);
+        tempContext.fillStyle = actualBackground;
+        tempContext.fillRect(0, 0, actualWidth, actualHeight);
         setTempImage(null);
       }
 
@@ -1826,9 +1803,12 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
                   points={line.points}
                   stroke={line.stroke}
                   strokeWidth={line.strokeWidth}
-                  tension={line.tool === "brush" ? 0.5 : 0}
+                  tension={line.tool === "brush" || line.tool === "eraser" ? 0.5 : 0}
                   lineCap="round"
                   lineJoin="round"
+                  globalCompositeOperation={
+                    line.tool === "eraser" ? "destination-out" : "source-over"
+                  }
                 />
               ))}
 
