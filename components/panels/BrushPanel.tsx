@@ -33,6 +33,8 @@ const drawingTools: Tool[] = [
 	"clone",
 	"healing",
 	"blur",
+	"dodge",
+	"burn",
 ];
 const selectionTools: Tool[] = ["select", "marquee", "lasso", "magicwand"];
 const shapeTools: Tool[] = ["rectangle", "ellipse", "polygon", "line", "pen", "star"];
@@ -145,7 +147,11 @@ export const BrushPanel: React.FC = () => {
 							: setBrushSettings({ size: value }),
 				unit: "px",
 			},
-			{
+		];
+
+		// Opacity - hide for dodge/burn as they use intensity
+		if (activeTool !== "dodge" && activeTool !== "burn") {
+			options.push({
 				name: "Opacity",
 				description: "Controls the transparency of each stroke.",
 				min: 1,
@@ -163,24 +169,52 @@ export const BrushPanel: React.FC = () => {
 							? setBrushSettings({ cloneOpacity: value })
 							: setBrushSettings({ opacity: value }),
 				unit: "%",
-			},
-			{
-				name: "Hardness",
-				description:
-					"Controls the edge softness of the brush. 100% = hard edge.",
-				min: 0,
+			});
+		}
+
+		// Hardness - hide for dodge/burn if not applicable (or keep if needed)
+		// Assuming dodge/burn might use soft brushes, but let's keep it simple or enable if requested.
+		// Standard dodge/burn usually has hardness. Let's keep it enabled for now but after Opacity.
+		options.push({
+			name: "Hardness",
+			description:
+				"Controls the edge softness of the brush. 100% = hard edge.",
+			min: 0,
+			max: 100,
+			value:
+				activeTool === "healing"
+					? brushSettings.healingHardness
+					: brushSettings.hardness,
+			onChange: (value) =>
+				activeTool === "healing"
+					? setBrushSettings({ healingHardness: value })
+					: setBrushSettings({ hardness: value }),
+			unit: "%",
+		});
+
+		if (activeTool === "dodge") {
+			options.push({
+				name: "Exposure",
+				description: "Controls the intensity of the lightening effect.",
+				min: 1,
 				max: 100,
-				value:
-					activeTool === "healing"
-						? brushSettings.healingHardness
-						: brushSettings.hardness,
-				onChange: (value) =>
-					activeTool === "healing"
-						? setBrushSettings({ healingHardness: value })
-						: setBrushSettings({ hardness: value }),
+				value: brushSettings.dodgeIntensity || 50,
+				onChange: (value) => setBrushSettings({ dodgeIntensity: value }),
 				unit: "%",
-			},
-		];
+			});
+		}
+
+		if (activeTool === "burn") {
+			options.push({
+				name: "Exposure",
+				description: "Controls the intensity of the darkening effect.",
+				min: 1,
+				max: 100,
+				value: brushSettings.burnIntensity || 50,
+				onChange: (value) => setBrushSettings({ burnIntensity: value }),
+				unit: "%",
+			});
+		}
 
 		if (activeTool === "blur") {
 			options.push({
