@@ -9,6 +9,9 @@ import { LayersPanel } from "@/components/panels/LayersPanel";
 import { HistoryPanel } from "@/components/panels/HistoryPanel";
 import { StarPanel } from "@/components/panels/StarPanel";
 import { LineOptionsPanel } from "@/components/panels/LineOptionsPanel";
+import { PenOptionsPanel } from "@/components/panels/PenOptionsPanel";
+import { PolygonOptionsPanel } from "@/components/panels/PolygonOptionsPanel";
+import { ShapeOptionsPanel } from "@/components/panels/ShapeOptionsPanel";
 import { useArtStudioStore } from "@/stores/artStudioStore";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useEffect, useState } from "react";
@@ -220,13 +223,20 @@ const HomeWrapper = () => {
         {showRightPanel && (
           <div className="w-80 bg-card border-l border-border overflow-y-auto overflow-x-hidden">
             <div className="flex flex-col gap-4 p-4">
-              {showBrushesPanel && <BrushPanel />}
+              {/* Tool-specific panels - show based on activeTool */}
+              {(activeTool === "text" || activeTool === "crop" || activeTool === "line" || 
+                activeTool === "move" || activeTool === "select" || activeTool === "gradient" ||
+                activeTool === "pen" || activeTool === "polygon" || activeTool === "rectangle" ||
+                activeTool === "ellipse" || ["brush", "pencil", "eraser", "clone", "healing", 
+                "blur", "dodge", "burn", "fill", "eyedropper", "hand", "zoom", "marquee", 
+                "lasso", "magicwand"].includes(activeTool)) && showBrushesPanel && <BrushPanel />}
+              {activeTool === "star" && showStarPanel && <StarPanel />}
+              {activeTool === "gradient" && showGradientPanel && <GradientOptionsPanel />}
+              
+              {/* General panels */}
               {showColorsPanel && <ColorPanel />}
               {showLayersPanel && <LayersPanel />}
               {showHistoryPanel && <HistoryPanel />}
-              {showStarPanel && <StarPanel />}
-              {activeTool === "line" && <LineOptionsPanel />}
-              {showGradientPanel && <GradientOptionsPanel />}
             </div>
           </div>
         )}

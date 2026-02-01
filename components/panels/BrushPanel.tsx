@@ -15,6 +15,9 @@ import { CropPanel } from "@/components/panels/CropPanel";
 import { LineOptionsPanel } from "@/components/panels/LineOptionsPanel";
 import { TransformPanel } from "@/components/panels/TransformPanel";
 import { GradientOptionsPanel } from "@/components/panels/GradientOptionsPanel";
+import { PenOptionsPanel } from "@/components/panels/PenOptionsPanel";
+import { PolygonOptionsPanel } from "@/components/panels/PolygonOptionsPanel";
+import { ShapeOptionsPanel } from "@/components/panels/ShapeOptionsPanel";
 
 interface ToolOption {
 	name: string;
@@ -142,6 +145,18 @@ export const BrushPanel: React.FC = () => {
 
 	if (activeTool === "gradient") {
 		return <GradientOptionsPanel />;
+	}
+
+	if (activeTool === "pen") {
+		return <PenOptionsPanel />;
+	}
+
+	if (activeTool === "polygon") {
+		return <PolygonOptionsPanel />;
+	}
+
+	if (activeTool === "rectangle" || activeTool === "ellipse") {
+		return <ShapeOptionsPanel />;
 	}
 
 	const renderSliderWithTooltip = (option: ToolOption) => (
