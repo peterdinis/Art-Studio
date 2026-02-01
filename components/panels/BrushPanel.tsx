@@ -403,34 +403,6 @@ export const BrushPanel: React.FC = () => {
 					step={1}
 				/>
 			</div>
-
-			{activeTool === "magicwand" && (
-				<div className="space-y-2">
-					<div className="flex justify-between items-center mb-1">
-						<div className="flex items-center gap-1.5">
-							<Label className="text-xs text-muted-foreground">Tolerance</Label>
-							<Tooltip delayDuration={300}>
-								<TooltipTrigger asChild>
-									<HelpCircle className="w-3 h-3 text-muted-foreground/50 cursor-help" />
-								</TooltipTrigger>
-								<TooltipContent side="right" className="max-w-50">
-									<p className="text-xs">
-										Determines the range of similar colors selected.
-									</p>
-								</TooltipContent>
-							</Tooltip>
-						</div>
-						<span className="text-xs font-mono">{brushSettings.tolerance}</span>
-					</div>
-					<Slider
-						value={[brushSettings.tolerance]}
-						onValueChange={([val]) => setBrushSettings({ tolerance: val })}
-						min={0}
-						max={255}
-						step={1}
-					/>
-				</div>
-			)}
 		</div>
 	);
 
@@ -492,29 +464,6 @@ export const BrushPanel: React.FC = () => {
 					</button>
 				</div>
 			</div>
-
-			{activeTool === "polygon" && (
-				<div className="space-y-2">
-					<div className="flex items-center gap-1.5">
-						<Label className="text-xs text-muted-foreground">Sides</Label>
-						<Tooltip delayDuration={300}>
-							<TooltipTrigger asChild>
-								<HelpCircle className="w-3 h-3 text-muted-foreground/50 cursor-help" />
-							</TooltipTrigger>
-							<TooltipContent side="right" className="max-w-50">
-								<p className="text-xs">Number of sides for the polygon.</p>
-							</TooltipContent>
-						</Tooltip>
-					</div>
-					<Slider
-						value={[brushSettings.sides]}
-						onValueChange={([val]) => setBrushSettings({ sides: val })}
-						min={3}
-						max={12}
-						step={1}
-					/>
-				</div>
-			)}
 
 			<div className="space-y-2">
 				<div className="flex items-center gap-1.5">
