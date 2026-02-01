@@ -18,14 +18,17 @@ export const PenOptionsPanel: React.FC = () => {
 	return (
 		<div className="panel-glass p-4 w-full space-y-5 animate-fade-in">
 			<div className="flex items-center justify-between">
-				<h3 className="text-sm font-medium text-foreground">Pen Tool Options</h3>
+				<h3 className="text-sm font-medium text-foreground">
+					Pen Tool Options
+				</h3>
 				<Tooltip delayDuration={300}>
 					<TooltipTrigger asChild>
 						<HelpCircle className="w-4 h-4 text-muted-foreground/50 cursor-help" />
 					</TooltipTrigger>
 					<TooltipContent side="left" className="max-w-50">
 						<p className="text-xs">
-							Create precise paths with anchor points. Click to add points, drag to create curves.
+							Create precise paths with anchor points. Click to add points, drag
+							to create curves.
 						</p>
 					</TooltipContent>
 				</Tooltip>
@@ -35,7 +38,9 @@ export const PenOptionsPanel: React.FC = () => {
 			<div className="space-y-2">
 				<div className="flex justify-between items-center">
 					<div className="flex items-center gap-1.5">
-						<Label className="text-xs text-muted-foreground">Stroke Width</Label>
+						<Label className="text-xs text-muted-foreground">
+							Stroke Width
+						</Label>
 						<Tooltip delayDuration={300}>
 							<TooltipTrigger asChild>
 								<HelpCircle className="w-3 h-3 text-muted-foreground/50 cursor-help" />
@@ -91,7 +96,9 @@ export const PenOptionsPanel: React.FC = () => {
 				<RadioGroup
 					value={(brushSettings as any).penPathType || "bezier"}
 					onValueChange={(value) =>
-						setBrushSettings({ penPathType: value as "bezier" | "linear" } as any)
+						setBrushSettings({
+							penPathType: value as "bezier" | "linear",
+						} as any)
 					}
 				>
 					<div className="flex items-center space-x-2">

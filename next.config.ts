@@ -14,7 +14,7 @@ const nextConfig: NextConfig = {
 		browserDebugInfoInTerminal: true,
 	},
 	images: {
-		formats: ['image/webp'],
+		formats: ["image/webp"],
 		deviceSizes: [640, 750, 828, 1080, 1200],
 		imageSizes: [16, 32, 64, 96, 128, 256],
 		minimumCacheTTL: 300,
@@ -25,24 +25,24 @@ const nextConfig: NextConfig = {
 	async headers() {
 		return [
 			{
-				source: '/(.*)',
+				source: "/(.*)",
 				headers: [
 					{
-						key: 'X-DNS-Prefetch-Control',
-						value: 'on',
+						key: "X-DNS-Prefetch-Control",
+						value: "on",
 					},
 					{
-						key: 'X-Content-Type-Options',
-						value: 'nosniff',
+						key: "X-Content-Type-Options",
+						value: "nosniff",
 					},
 					{
-						key: 'X-Frame-Options',
-						value: 'SAMEORIGIN',
+						key: "X-Frame-Options",
+						value: "SAMEORIGIN",
 					},
 				],
 			},
 		];
-	}
+	},
 };
 
 export default nextConfig;

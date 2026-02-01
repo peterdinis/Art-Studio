@@ -18,6 +18,7 @@ import { GradientOptionsPanel } from "@/components/panels/GradientOptionsPanel";
 import { PenOptionsPanel } from "@/components/panels/PenOptionsPanel";
 import { PolygonOptionsPanel } from "@/components/panels/PolygonOptionsPanel";
 import { ShapeOptionsPanel } from "@/components/panels/ShapeOptionsPanel";
+import { SelectionOptionsPanel } from "@/components/panels/SelectionOptionsPanel";
 
 interface ToolOption {
 	name: string;
@@ -40,7 +41,14 @@ const drawingTools: Tool[] = [
 	"burn",
 ];
 const selectionTools: Tool[] = ["select", "marquee", "lasso", "magicwand"];
-const shapeTools: Tool[] = ["rectangle", "ellipse", "polygon", "line", "pen", "star"];
+const shapeTools: Tool[] = [
+	"rectangle",
+	"ellipse",
+	"polygon",
+	"line",
+	"pen",
+	"star",
+];
 
 const ZoomOptions: React.FC = () => {
 	const { zoom, setZoom, resetCanvasView } = useArtStudioStore();
@@ -159,6 +167,14 @@ export const BrushPanel: React.FC = () => {
 		return <ShapeOptionsPanel />;
 	}
 
+	if (
+		activeTool === "marquee" ||
+		activeTool === "lasso" ||
+		activeTool === "magicwand"
+	) {
+		return <SelectionOptionsPanel />;
+	}
+
 	const renderSliderWithTooltip = (option: ToolOption) => (
 		<div className="space-y-2" key={option.name}>
 			<div className="flex justify-between items-center">
@@ -241,8 +257,7 @@ export const BrushPanel: React.FC = () => {
 		// Standard dodge/burn usually has hardness. Let's keep it enabled for now but after Opacity.
 		options.push({
 			name: "Hardness",
-			description:
-				"Controls the edge softness of the brush. 100% = hard edge.",
+			description: "Controls the edge softness of the brush. 100% = hard edge.",
 			min: 0,
 			max: 100,
 			value:
@@ -306,10 +321,11 @@ export const BrushPanel: React.FC = () => {
 								<button
 									key={mode}
 									onClick={() => setBrushSettings({ healingMode: mode as any })}
-									className={`px-2 py-1 text-[10px] rounded transition-colors capitalize ${brushSettings.healingMode === mode
-										? "bg-primary/20 border border-primary/30"
-										: "bg-muted/50 hover:bg-muted"
-										}`}
+									className={`px-2 py-1 text-[10px] rounded transition-colors capitalize ${
+										brushSettings.healingMode === mode
+											? "bg-primary/20 border border-primary/30"
+											: "bg-muted/50 hover:bg-muted"
+									}`}
 								>
 									{mode}
 								</button>
@@ -325,12 +341,14 @@ export const BrushPanel: React.FC = () => {
 							onClick={() =>
 								setBrushSettings({ cloneAligned: !brushSettings.cloneAligned })
 							}
-							className={`w-10 h-5 rounded-full transition-colors relative ${brushSettings.cloneAligned ? "bg-primary" : "bg-muted"
-								}`}
+							className={`w-10 h-5 rounded-full transition-colors relative ${
+								brushSettings.cloneAligned ? "bg-primary" : "bg-muted"
+							}`}
 						>
 							<div
-								className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-all ${brushSettings.cloneAligned ? "left-6" : "left-1"
-									}`}
+								className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-all ${
+									brushSettings.cloneAligned ? "left-6" : "left-1"
+								}`}
 							/>
 						</button>
 					</div>
@@ -425,28 +443,31 @@ export const BrushPanel: React.FC = () => {
 				<div className="flex gap-1">
 					<button
 						onClick={() => setBrushSettings({ fillType: "solid" })}
-						className={`flex-1 px-2 py-1.5 text-xs rounded transition-colors flex items-center justify-center gap-1 ${brushSettings.fillType === "solid"
-							? "bg-primary/20 border border-primary/30"
-							: "bg-muted/50 hover:bg-muted"
-							}`}
+						className={`flex-1 px-2 py-1.5 text-xs rounded transition-colors flex items-center justify-center gap-1 ${
+							brushSettings.fillType === "solid"
+								? "bg-primary/20 border border-primary/30"
+								: "bg-muted/50 hover:bg-muted"
+						}`}
 					>
 						<Square className="w-3 h-3" /> Solid
 					</button>
 					<button
 						onClick={() => setBrushSettings({ fillType: "gradient" })}
-						className={`flex-1 px-2 py-1.5 text-xs rounded transition-colors flex items-center justify-center gap-1 ${brushSettings.fillType === "gradient"
-							? "bg-primary/20 border border-primary/30"
-							: "bg-muted/50 hover:bg-muted"
-							}`}
+						className={`flex-1 px-2 py-1.5 text-xs rounded transition-colors flex items-center justify-center gap-1 ${
+							brushSettings.fillType === "gradient"
+								? "bg-primary/20 border border-primary/30"
+								: "bg-muted/50 hover:bg-muted"
+						}`}
 					>
 						<Blend className="w-3 h-3" /> Gradient
 					</button>
 					<button
 						onClick={() => setBrushSettings({ fillType: "none" })}
-						className={`flex-1 px-2 py-1.5 text-xs rounded transition-colors flex items-center justify-center gap-1 ${brushSettings.fillType === "none"
-							? "bg-primary/20 border border-primary/30"
-							: "bg-muted/50 hover:bg-muted"
-							}`}
+						className={`flex-1 px-2 py-1.5 text-xs rounded transition-colors flex items-center justify-center gap-1 ${
+							brushSettings.fillType === "none"
+								? "bg-primary/20 border border-primary/30"
+								: "bg-muted/50 hover:bg-muted"
+						}`}
 					>
 						<Circle className="w-3 h-3" /> None
 					</button>
@@ -521,12 +542,14 @@ export const BrushPanel: React.FC = () => {
 									fillContiguous: !brushSettings.fillContiguous,
 								})
 							}
-							className={`w-10 h-5 rounded-full transition-colors relative ${brushSettings.fillContiguous ? "bg-primary" : "bg-muted"
-								}`}
+							className={`w-10 h-5 rounded-full transition-colors relative ${
+								brushSettings.fillContiguous ? "bg-primary" : "bg-muted"
+							}`}
 						>
 							<div
-								className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-all ${brushSettings.fillContiguous ? "left-6" : "left-1"
-									}`}
+								className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-all ${
+									brushSettings.fillContiguous ? "left-6" : "left-1"
+								}`}
 							/>
 						</button>
 					</div>
@@ -556,8 +579,14 @@ export const BrushPanel: React.FC = () => {
 					<div className="bg-muted/30 p-3 rounded-md border border-border/50 text-xs space-y-2">
 						<p className="font-medium text-foreground">Usage:</p>
 						<ul className="list-disc list-inside space-y-1 text-muted-foreground">
-							<li><span className="text-foreground">Click</span> to pick Primary Color</li>
-							<li><span className="text-foreground">Alt + Click</span> to pick Secondary Color</li>
+							<li>
+								<span className="text-foreground">Click</span> to pick Primary
+								Color
+							</li>
+							<li>
+								<span className="text-foreground">Alt + Click</span> to pick
+								Secondary Color
+							</li>
 						</ul>
 					</div>
 				</div>
@@ -571,13 +600,11 @@ export const BrushPanel: React.FC = () => {
 		if (activeTool === "zoom") {
 			// Need to access zoom functions from store, might need to update store usage in component if not spread
 			// Assuming setZoom and zoom are available from useArtStudioStore hook call at top of component
-			// We need to check if they are destructured. 
+			// We need to check if they are destructured.
 			// Checking file content: const { brushSettings, setBrushSettings, activeTool } = useArtStudioStore();
 			// Only those were destructured. We need to grab zoom-related ones.
 
-			return (
-				<ZoomOptions />
-			);
+			return <ZoomOptions />;
 		}
 
 		if (activeTool === "hand") {
@@ -586,8 +613,14 @@ export const BrushPanel: React.FC = () => {
 					<div className="bg-muted/30 p-3 rounded-md border border-border/50 text-xs space-y-2">
 						<p className="font-medium text-foreground">Usage:</p>
 						<ul className="list-disc list-inside space-y-1 text-muted-foreground">
-							<li><span className="text-foreground">Click & Drag</span> to pan the canvas</li>
-							<li>Hold <span className="text-foreground">Spacebar</span> with any tool to temporarily switch to Hand tool</li>
+							<li>
+								<span className="text-foreground">Click & Drag</span> to pan the
+								canvas
+							</li>
+							<li>
+								Hold <span className="text-foreground">Spacebar</span> with any
+								tool to temporarily switch to Hand tool
+							</li>
 						</ul>
 					</div>
 				</div>
@@ -595,7 +628,7 @@ export const BrushPanel: React.FC = () => {
 		}
 
 		return renderGenericOptions();
-	}
+	};
 
 	const renderGenericOptions = () => (
 		<div className="text-center py-4">
@@ -625,8 +658,11 @@ export const BrushPanel: React.FC = () => {
 			{isDrawingTool && renderDrawingOptions()}
 			{isSelectionTool && renderSelectionOptions()}
 			{isShapeTool && renderShapeOptions()}
-			{activeTool === "fill" || activeTool === "eyedropper" ? renderUtilityOptions() : null}
-			{(activeTool === "zoom" || activeTool === "hand") && renderNavigationOptions()}
+			{activeTool === "fill" || activeTool === "eyedropper"
+				? renderUtilityOptions()
+				: null}
+			{(activeTool === "zoom" || activeTool === "hand") &&
+				renderNavigationOptions()}
 
 			{!isDrawingTool &&
 				!isSelectionTool &&

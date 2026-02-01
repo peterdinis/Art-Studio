@@ -105,7 +105,9 @@ export const ShapeOptionsPanel: React.FC = () => {
 			{activeTool === "rectangle" && (
 				<div className="space-y-2">
 					<div className="flex justify-between items-center">
-						<Label className="text-xs text-muted-foreground">Corner Radius</Label>
+						<Label className="text-xs text-muted-foreground">
+							Corner Radius
+						</Label>
 						<span className="text-xs font-mono">
 							{brushSettings.cornerRadius || 0}px
 						</span>
@@ -171,7 +173,8 @@ export const ShapeOptionsPanel: React.FC = () => {
 						{activeTool === "rectangle" ? "square" : "circle"}
 					</li>
 					<li>
-						Hold <span className="text-foreground">Alt</span> to draw from center
+						Hold <span className="text-foreground">Alt</span> to draw from
+						center
 					</li>
 				</ul>
 			</div>

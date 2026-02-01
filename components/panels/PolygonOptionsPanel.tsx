@@ -48,13 +48,13 @@ export const PolygonOptionsPanel: React.FC = () => {
 								<HelpCircle className="w-3 h-3 text-muted-foreground/50 cursor-help" />
 							</TooltipTrigger>
 							<TooltipContent side="right" className="max-w-50">
-								<p className="text-xs">Number of sides for the polygon (3-12).</p>
+								<p className="text-xs">
+									Number of sides for the polygon (3-12).
+								</p>
 							</TooltipContent>
 						</Tooltip>
 					</div>
-					<span className="text-xs font-mono">
-						{brushSettings.sides || 5}
-					</span>
+					<span className="text-xs font-mono">{brushSettings.sides || 5}</span>
 				</div>
 				<Slider
 					value={[brushSettings.sides || 5]}
