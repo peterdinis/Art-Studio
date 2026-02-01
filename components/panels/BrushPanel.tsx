@@ -115,10 +115,13 @@ export const BrushPanel: React.FC = () => {
 			clone: "Clone Stamp",
 			healing: "Healing Brush",
 			blur: "Blur",
+			dodge: "Dodge Tool",
+			burn: "Burn Tool",
 			marquee: "Marquee Selection",
 			lasso: "Lasso Selection",
 			magicwand: "Magic Wand",
-			select: "Move Tool",
+			select: "Select Tool",
+			move: "Move Tool",
 			rectangle: "Rectangle",
 			ellipse: "Ellipse",
 			polygon: "Polygon",
@@ -128,13 +131,15 @@ export const BrushPanel: React.FC = () => {
 			fill: "Paint Bucket",
 			gradient: "Gradient",
 			eyedropper: "Eyedropper",
-			hand: "Hand",
-			zoom: "Zoom",
+			hand: "Hand Tool",
+			zoom: "Zoom Tool",
+			crop: "Crop Tool",
+			star: "Star Tool",
 		};
-		return titles[activeTool] || "Tool";
+		return titles[activeTool] || "Tool Options";
 	};
 
-	// Pokud je aktivní text tool, zobrazte TextOptionsPanel
+	// Route to specific panels for tools that have dedicated panels
 	if (isTextTool) {
 		return <TextOptionsPanel />;
 	}
@@ -174,6 +179,8 @@ export const BrushPanel: React.FC = () => {
 	) {
 		return <SelectionOptionsPanel />;
 	}
+
+	// Note: "star" tool has its own StarPanel shown in HomeWrapper
 
 	const renderSliderWithTooltip = (option: ToolOption) => (
 		<div className="space-y-2" key={option.name}>
