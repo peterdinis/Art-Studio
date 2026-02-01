@@ -137,8 +137,6 @@ export const TopMenuBar: React.FC = () => {
 		setShowColorsPanel,
 		showLayersPanel,
 		setShowLayersPanel,
-		showHistoryPanel,
-		setShowHistoryPanel,
 		showNavigator,
 		setShowNavigator,
 		showInfoPanel,
@@ -2132,17 +2130,6 @@ export const TopMenuBar: React.FC = () => {
 				);
 			},
 			checked: showLayersPanel,
-		},
-		{
-			label: "History Panel",
-			icon: showHistoryPanel ? Check : RotateCcw,
-			action: () => {
-				setShowHistoryPanel(!showHistoryPanel);
-				toast.success(
-					showHistoryPanel ? "History panel hidden" : "History panel shown",
-				);
-			},
-			checked: showHistoryPanel,
 		},
 		{ separator: true, label: "" },
 		{

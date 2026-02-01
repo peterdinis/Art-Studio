@@ -6,7 +6,6 @@ import { ToolSidebar } from "@/components/toolbar/ToolSidebar";
 import { BrushPanel } from "@/components/panels/BrushPanel";
 import { ColorPanel } from "@/components/panels/ColorPanel";
 import { LayersPanel } from "@/components/panels/LayersPanel";
-import { HistoryPanel } from "@/components/panels/HistoryPanel";
 import { StarPanel } from "@/components/panels/StarPanel";
 import { LineOptionsPanel } from "@/components/panels/LineOptionsPanel";
 import { PenOptionsPanel } from "@/components/panels/PenOptionsPanel";
@@ -31,15 +30,12 @@ const HomeWrapper = () => {
 		showBrushesPanel,
 		showColorsPanel,
 		showLayersPanel,
-		showHistoryPanel,
 		showStarPanel,
 		showLinePanel,
 		showGradientPanel,
 		activeTool, // Pridané na sledovanie aktívneho nástroja
 		initializeSession,
-		saveSession,
 		sessionId,
-		clearCurrentSession,
 	} = useArtStudioStore();
 
 	useKeyboardShortcuts();
@@ -66,52 +62,9 @@ const HomeWrapper = () => {
 		initSession();
 	}, [initializeSession, isClient]);
 
-	// Auto-save effect
-	useEffect(() => {
-		if (!isClient || !isSessionInitialized || !sessionId) return;
+	// Auto-save removed (IndexedDB removed)
 
-		const autoSaveInterval = setInterval(async () => {
-			try {
-				await saveSession();
-				console.log("Auto-saved session");
-			} catch (error) {
-				console.error("Auto-save failed:", error);
-			}
-		}, 30000);
-
-		const handleBeforeUnload = () => {
-			saveSession().catch(console.error);
-		};
-
-		window.addEventListener("beforeunload", handleBeforeUnload);
-
-		return () => {
-			clearInterval(autoSaveInterval);
-			window.removeEventListener("beforeunload", handleBeforeUnload);
-		};
-	}, [isClient, isSessionInitialized, sessionId, saveSession]);
-
-	// Handle session expiry
-	useEffect(() => {
-		if (!isClient || !isSessionInitialized) return;
-
-		const checkSessionExpiry = async () => {
-			if (!sessionId) return;
-
-			if (sessionId.startsWith("temp-")) {
-				const timestamp = parseInt(sessionId.split("-")[1]);
-				const age = Date.now() - timestamp;
-				const ONE_HOUR = 60 * 60 * 1000;
-
-				if (age > ONE_HOUR) {
-					console.log("Temporary session expired, clearing...");
-					await clearCurrentSession();
-				}
-			}
-		};
-
-		checkSessionExpiry();
-	}, [isClient, isSessionInitialized, sessionId, clearCurrentSession]);
+	// Session expiry check removed (IndexedDB removed)
 
 	// Loading stav - show minimal loading on server
 	if (!isClient) {
@@ -256,7 +209,6 @@ const HomeWrapper = () => {
 							{/* General panels */}
 							{showColorsPanel && <ColorPanel />}
 							{showLayersPanel && <LayersPanel />}
-							{showHistoryPanel && <HistoryPanel />}
 						</div>
 					</div>
 				)}

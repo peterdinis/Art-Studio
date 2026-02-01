@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useEffect, useState, useCallback } from "react";
+import React, { useRef, useEffect, useState, useCallback, useMemo } from "react";
 import {
 	Stage,
 	Layer,
@@ -171,6 +171,10 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 	const [penPoints, setPenPoints] = useState<number[]>([]);
 
 	const [isSelecting, setIsSelecting] = useState(false);
+	
+	// Performance: Throttle mouse move events
+	const lastMouseMoveTime = useRef<number>(0);
+	const throttleDelay = 16; // ~60fps
 	const [selectionStartPoint, setSelectionStartPoint] = useState<{
 		x: number;
 		y: number;
@@ -286,23 +290,23 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				}
 
 				const saveData = () => {
-					if (!stageRef.current) return;
-					try {
+			if (!stageRef.current) return;
+			try {
 						lastSaveTimeRef.current = Date.now();
 						const canvasState: CanvasState = {
-							lines,
-							shapes,
+					lines,
+					shapes,
 							images,
-							gradients,
+					gradients,
 							healingData,
 							blurData,
 						};
 						const stateString = JSON.stringify(canvasState);
-						const dataURL = stageRef.current.toDataURL({ pixelRatio: 0.2 });
+				const dataURL = stageRef.current.toDataURL({ pixelRatio: 0.2 });
 						addToHistory(stateString, dataURL, action);
 						pendingSaveRef.current = null;
-					} catch (err) {
-						console.error("Failed to save canvas state:", err);
+			} catch (err) {
+				console.error("Failed to save canvas state:", err);
 					}
 				};
 
@@ -512,7 +516,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			updateAuxCanvases();
 			if (!eyedropperContext.current) return;
 
-			const ctx = eyedropperContext.current;
+		const ctx = eyedropperContext.current;
 			const pixel = ctx.getImageData(Math.floor(x), Math.floor(y), 1, 1).data;
 
 			// Konvertovať RGBA na hex
@@ -526,7 +530,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			if (isAltPressed) {
 				setSecondaryColor(hexColor);
 				toast.success(`Secondary color picked: ${hexColor}`);
-			} else {
+				} else {
 				setPrimaryColor(hexColor);
 				toast.success(`Primary color picked: ${hexColor}`);
 			}
@@ -546,7 +550,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				return;
 			}
 
-			const ctx = floodFillContext.current;
+		const ctx = floodFillContext.current;
 			const imageData = ctx.getImageData(0, 0, actualWidth, actualHeight);
 			const { data, width, height } = imageData;
 
@@ -611,8 +615,13 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			const visited = new Uint8Array(width * height);
 			const stack: [number, number][] = [[x, y]];
 			const filledPixels: [number, number][] = [];
+			
+			// Performance: Limit max iterations to prevent freezing
+			const maxIterations = width * height;
+			let iterations = 0;
 
-			while (stack.length > 0) {
+			while (stack.length > 0 && iterations < maxIterations) {
+				iterations++;
 				const [currentX, currentY] = stack.pop()!;
 				const idx = currentY * width + currentX;
 
@@ -625,24 +634,34 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				const b = data[pixelIdx + 2];
 				const a = data[pixelIdx + 3];
 
-				// Vypočítať vzdialenosť farieb
-				const colorDistance = Math.sqrt(
-					Math.pow(r - targetColor.r, 2) +
-						Math.pow(g - targetColor.g, 2) +
-						Math.pow(b - targetColor.b, 2) +
-						Math.pow(a - targetColor.a, 2),
-				);
+				// Use faster Manhattan distance for performance
+				const colorDistance = Math.abs(r - targetColor.r) + 
+					Math.abs(g - targetColor.g) + 
+					Math.abs(b - targetColor.b) + 
+					Math.abs(a - targetColor.a);
 
-				if (colorDistance <= tolerance) {
+				if (colorDistance <= tolerance * 4) { // Adjust threshold for Manhattan distance
 					// Pridať pixel do zoznamu vyplnených
 					filledPixels.push([currentX, currentY]);
 
-					// Pridať susedné pixely do zásobníka
-					if (currentX > 0) stack.push([currentX - 1, currentY]);
-					if (currentX < width - 1) stack.push([currentX + 1, currentY]);
-					if (currentY > 0) stack.push([currentX, currentY - 1]);
-					if (currentY < height - 1) stack.push([currentX, currentY + 1]);
+					// Pridať susedné pixely do zásobníka (check visited first for performance)
+					if (currentX > 0 && !visited[(currentY * width + currentX - 1)]) {
+						stack.push([currentX - 1, currentY]);
+					}
+					if (currentX < width - 1 && !visited[(currentY * width + currentX + 1)]) {
+						stack.push([currentX + 1, currentY]);
+					}
+					if (currentY > 0 && !visited[((currentY - 1) * width + currentX)]) {
+						stack.push([currentX, currentY - 1]);
+					}
+					if (currentY < height - 1 && !visited[((currentY + 1) * width + currentX)]) {
+						stack.push([currentX, currentY + 1]);
+					}
 				}
+			}
+			
+			if (iterations >= maxIterations) {
+				toast.warning("Fill area too large, showing partial result");
 			}
 
 			// Ak nebol vyplnený žiadny pixel
@@ -746,34 +765,6 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			tempCanvasEl.remove();
 		};
 	}, [actualWidth, actualHeight, actualBackground]);
-
-	useEffect(() => {
-		const loadSessionAndState = async () => {
-			try {
-				setIsLoadingSession(true);
-				if (!sessionId) await initializeSession();
-
-				const { sessionDB } = await import("@/db/indexedDB");
-				const savedData = await sessionDB.loadSessionData();
-
-				if (savedData) {
-					if (savedData.lines) setLines(savedData.lines);
-					if (savedData.shapes) setShapes(savedData.shapes);
-					if (savedData.images) setImages(savedData.images);
-					if (savedData.gradients) setGradients(savedData.gradients);
-					if (savedData.healingData) setHealingData(savedData.healingData);
-					if (savedData.blurData) setBlurData(savedData.blurData);
-					setShowSessionNotification(true);
-					setTimeout(() => setShowSessionNotification(false), 5000);
-				}
-			} catch (error) {
-				console.error("Error loading session:", error);
-			} finally {
-				setIsLoadingSession(false);
-			}
-		};
-		loadSessionAndState();
-	}, [sessionId, initializeSession, setGradients]);
 
 	/* --- INITIALIZE AUXILIARY CANVASES --- */
 	useEffect(() => {
@@ -915,10 +906,19 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		activeTool,
 	]);
 
+	// Cancel gradient drawing when tool changes
+	useEffect(() => {
+		if (activeTool !== "gradient" && isDrawingGradient) {
+			setCurrentGradient(null);
+			setIsDrawingGradient(false);
+			gradientStartPoint.current = null;
+		}
+	}, [activeTool, isDrawingGradient]);
+
 	const getCanvasPosition = useCallback(
 		(clientX: number, clientY: number) => {
 			if (!stageRef.current) return null;
-			const stage = stageRef.current;
+		const stage = stageRef.current;
 			const pos = stage.getRelativePointerPosition();
 			if (!pos) return null;
 			return {
@@ -951,8 +951,13 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				[Math.floor(startX), Math.floor(startY)],
 			];
 			const path: number[] = [];
+			
+			// Performance: Limit max iterations to prevent freezing on large selections
+			const maxIterations = width * height;
+			let iterations = 0;
 
-			while (queue.length > 0) {
+			while (queue.length > 0 && iterations < maxIterations) {
+				iterations++;
 				const [x, y] = queue.shift()!;
 				const idx = y * width + x;
 				if (visited[idx]) continue;
@@ -964,24 +969,29 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				const b = data[dataIdx + 2];
 				const a = data[dataIdx + 3];
 
-				const distance = Math.sqrt(
-					(r - targetR) ** 2 +
-						(g - targetG) ** 2 +
-						(b - targetB) ** 2 +
-						(a - targetA) ** 2,
-				);
+				// Use faster Manhattan distance for performance
+				const distance = Math.abs(r - targetR) + Math.abs(g - targetG) + 
+					Math.abs(b - targetB) + Math.abs(a - targetA);
 
-				if (distance <= magicWandTolerance) {
-					path.push(x, y);
-					if (x > 0) queue.push([x - 1, y]);
-					if (x < width - 1) queue.push([x + 1, y]);
-					if (y > 0) queue.push([x, y - 1]);
-					if (y < height - 1) queue.push([x, y + 1]);
+				if (distance <= magicWandTolerance * 4) { // Adjust threshold for Manhattan distance
+					// Only add every Nth point to reduce path size
+					if (path.length % 2 === 0 || iterations % 2 === 0) {
+						path.push(x, y);
+					}
+					if (x > 0 && !visited[(y * width + x - 1)]) queue.push([x - 1, y]);
+					if (x < width - 1 && !visited[(y * width + x + 1)]) queue.push([x + 1, y]);
+					if (y > 0 && !visited[((y - 1) * width + x)]) queue.push([x, y - 1]);
+					if (y < height - 1 && !visited[((y + 1) * width + x)]) queue.push([x, y + 1]);
 				}
 			}
 
 			if (path.length > 0) {
 				setSelectionPath(path);
+				if (iterations >= maxIterations) {
+					toast.warning("Selection too large, showing partial result");
+				}
+			} else {
+				toast.info("No matching area found");
 			}
 		},
 		[
@@ -996,7 +1006,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 	const handleCloneBrush = useCallback(
 		(targetX: number, targetY: number) => {
 			if (!cloneSourcePoint.current || !shapeStartPoint.current || !tempContext)
-				return;
+			return;
 			updateAuxCanvases();
 			const ctx = floodFillContext.current;
 			if (!ctx) return;
@@ -1105,22 +1115,23 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		if (width <= 0 || height <= 0) return;
 
 		setCanvasSize({ width, height, backgroundColor: actualBackground });
-		setLines(
-			lines.map((l) => ({
+		// Use functional updates to avoid stale closure issues
+		setLines((prevLines) =>
+			prevLines.map((l) => ({
 				...l,
 				points: l.points.map((p, i) => (i % 2 === 0 ? p - x : p - y)),
 			})),
 		);
-		setShapes(
-			shapes.map((s) => ({
+		setShapes((prevShapes) =>
+			prevShapes.map((s) => ({
 				...s,
 				x: s.x - (s.x ? x : 0),
 				y: s.y - (s.y ? y : 0),
 			})),
 		);
-		setImages(images.map((img) => ({ ...img, x: img.x - x, y: img.y - y })));
-		setGradients(
-			gradients.map((g) => ({
+		setImages((prevImages) => prevImages.map((img) => ({ ...img, x: img.x - x, y: img.y - y })));
+		setGradients((prevGradients) =>
+			prevGradients.map((g) => ({
 				...g,
 				x0: g.x0 - x,
 				y0: g.y0 - y,
@@ -1136,10 +1147,6 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		activeTool,
 		selectionBounds,
 		actualBackground,
-		lines,
-		shapes,
-		images,
-		gradients,
 		setCanvasSize,
 		saveCanvasState,
 	]);
@@ -1161,8 +1168,8 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 
 			if (activeTool === "clone" && !cloneSourcePoint.current) {
 				toast.error("Alt+click to set clone source first");
-				return;
-			}
+			return;
+		}
 
 			setIsDrawing(true);
 			shapeStartPoint.current = pos;
@@ -1170,7 +1177,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			// Handle brush, pencil, eraser
 			if (["brush", "pencil", "eraser"].includes(activeTool)) {
 				const strokeColor = activeTool === "eraser" ? "#000000" : primaryColor;
-				const newLine: DrawingLine = {
+			const newLine: DrawingLine = {
 					id: generateId("line"),
 					points: [pos.x, pos.y],
 					stroke: strokeColor,
@@ -1209,7 +1216,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		},
 		[
 			activeTool,
-			primaryColor,
+						primaryColor,
 			brushSettings.size,
 			activeLayerId,
 			tempContext,
@@ -1243,7 +1250,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				tempContext.lineTo(pos.x, pos.y);
 				tempContext.stroke();
 
-				// Update line points
+				// Update line points - batch updates for performance
 				setLines((prev) =>
 					prev.map((line) =>
 						line.id === activeDrawingLine.id
@@ -1252,13 +1259,23 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 					),
 				);
 
-				// Preview update - SKIP for eraser to avoid obscuring the view with temp background
+				// Preview update - THROTTLED and SKIP for eraser to avoid obscuring the view with temp background
+				// Only update preview every few frames to avoid expensive image creation
 				if (tempCanvas && activeTool !== "eraser") {
-					const img = new window.Image();
-					img.src = tempCanvas.toDataURL();
-					img.onload = () => {
-						setTempImage(img);
-					};
+					const now = Date.now();
+					if (now - lastMouseMoveTime.current > 50) { // Update preview max 20 times per second
+						lastMouseMoveTime.current = now;
+						// Use requestAnimationFrame to avoid blocking
+						requestAnimationFrame(() => {
+							if (tempCanvas) {
+								const img = new window.Image();
+								img.src = tempCanvas.toDataURL();
+								img.onload = () => {
+									setTempImage(img);
+								};
+							}
+						});
+					}
 				}
 			}
 		},
@@ -1385,6 +1402,12 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		}
 
 		if (activeTool === "gradient") {
+			// Reset any previous gradient drawing
+			if (isDrawingGradient && currentGradient) {
+				setCurrentGradient(null);
+				setIsDrawingGradient(false);
+			}
+			
 			setIsDrawingGradient(true);
 			gradientStartPoint.current = pos;
 			const newGradient: GradientObject = {
@@ -1403,11 +1426,18 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			setCurrentGradient(newGradient);
 			return;
 		}
+		
+		// If another tool is selected while drawing gradient, cancel gradient
+		if (isDrawingGradient) {
+			setCurrentGradient(null);
+			setIsDrawingGradient(false);
+			gradientStartPoint.current = null;
+		}
 
 		if (activeTool === "pen") {
 			if (e.evt.button === 0) {
 				if (!currentPenLine) {
-					const newLine: DrawingLine = {
+			const newLine: DrawingLine = {
 						id: generateId("pen"),
 						points: [pos.x, pos.y],
 						stroke: primaryColor,
@@ -1418,7 +1448,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 					setCurrentPenLine(newLine);
 					setPenPoints([pos.x, pos.y]);
 					setIsDrawing(true);
-				} else {
+			} else {
 					setPenPoints((prev) => [...prev, pos.x, pos.y]);
 					setCurrentPenLine((prev) =>
 						prev ? { ...prev, points: [...prev.points, pos.x, pos.y] } : null,
@@ -1485,8 +1515,8 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				layerId: activeLayerId || "layer-1",
 			};
 			setCurrentShape(starShape);
-			return;
-		}
+				return;
+			}
 
 		const drawingTools = [
 			"brush",
@@ -1505,8 +1535,8 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				return;
 			}
 			startDrawing(pos);
-			return;
-		}
+				return;
+			}
 
 		if (["rectangle", "ellipse", "line"].includes(activeTool)) {
 			shapeStartPoint.current = pos;
@@ -1561,7 +1591,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			if (stage) {
 				const pointer = stage.getPointerPosition();
 				if (pointer) {
-					if (e.evt.altKey) {
+			if (e.evt.altKey) {
 						zoomOut(20, { centerOnPoint: pointer });
 					} else {
 						zoomIn(20, { centerOnPoint: pointer });
@@ -1573,6 +1603,13 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 	};
 
 	const handleMouseMove = (e: Konva.KonvaEventObject<MouseEvent>) => {
+		// Throttle mouse move events for performance
+		const now = performance.now();
+		if (now - lastMouseMoveTime.current < throttleDelay && !isDrawing && !isSelecting) {
+			return;
+		}
+		lastMouseMoveTime.current = now;
+
 		const pos = getCanvasPosition(e.evt.clientX, e.evt.clientY);
 		if (!pos) return;
 
@@ -1584,7 +1621,12 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				const height = Math.abs(pos.y - selectionStartPoint.y);
 				setSelectionBounds({ x, y, width, height });
 			} else if (activeTool === "lasso" && selectionPath) {
-				setSelectionPath([...selectionPath, pos.x, pos.y]);
+				// Throttle lasso point addition to avoid huge arrays
+				if (selectionPath.length === 0 || 
+					Math.abs(selectionPath[selectionPath.length - 2] - pos.x) > 2 ||
+					Math.abs(selectionPath[selectionPath.length - 1] - pos.y) > 2) {
+					setSelectionPath([...selectionPath, pos.x, pos.y]);
+				}
 			}
 		}
 
@@ -1597,7 +1639,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		}
 
 		if (isDrawingPolygon && polygonPoints.length > 0) {
-			setCurrentShape({
+				setCurrentShape({
 				id: "polygon-preview",
 				type: "polygon",
 				x: 0,
@@ -1629,13 +1671,17 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				const outerRadius = Math.sqrt(
 					(pos.x - currentShape.x) ** 2 + (pos.y - currentShape.y) ** 2,
 				);
+				// Fix division by zero bug
+				const starOuterRadius = brushSettings.starOuterRadius || 60;
+				const starInnerRadius = brushSettings.starInnerRadius || 30;
 				const innerRadius =
-					outerRadius *
-					(brushSettings.starInnerRadius / brushSettings.starOuterRadius);
+					starOuterRadius > 0
+						? outerRadius * (starInnerRadius / starOuterRadius)
+						: outerRadius * 0.5;
 				setCurrentShape({
 					...currentShape,
-					outerRadius,
-					innerRadius,
+					outerRadius: Math.max(5, outerRadius), // Minimum radius
+					innerRadius: Math.max(2, innerRadius),
 				});
 			} else if (currentShape.type === "line") {
 				setCurrentShape({
@@ -1783,13 +1829,23 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			saveCanvasState(`${currentShape.type} created`);
 		}
 		if (isDrawingGradient && currentGradient) {
-			setIsDrawingGradient(false);
-			addGradient(currentGradient);
+			// Only finalize if gradient has meaningful size
+			const dx = currentGradient.x1 - currentGradient.x0;
+			const dy = currentGradient.y1 - currentGradient.y0;
+			const distance = Math.sqrt(dx * dx + dy * dy);
+			
+			if (distance > 5) { // Minimum distance to create gradient
+				addGradient(currentGradient);
+				saveCanvasState("Gradient added");
+			}
+			
+			// Always reset gradient drawing state
 			setCurrentGradient(null);
-			saveCanvasState("Gradient added");
+			setIsDrawingGradient(false);
+			gradientStartPoint.current = null;
 		}
 
-		isPanning.current = false;
+			isPanning.current = false;
 	};
 
 	const handleDblClick = () => {
@@ -1836,15 +1892,15 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				"burn",
 			].includes(activeTool)
 		)
-			return "crosshair";
+				return "crosshair";
 		if (["marquee", "lasso", "magicwand"].includes(activeTool))
-			return "crosshair";
+				return "crosshair";
 		if (activeTool === "text") return "text";
 		if (activeTool === "move") return "move";
 		if (activeTool === "eyedropper") return "copy";
 		if (activeTool === "fill") return "alias";
 		if (activeTool === "star") return "crosshair";
-		return "default";
+				return "default";
 	};
 
 	return (
@@ -1857,11 +1913,11 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				className="absolute inset-0 opacity-20 pointer-events-none"
 				style={{
 					backgroundImage: `
-          linear-gradient(45deg, hsl(var(--muted)) 25%, transparent 25%),
-          linear-gradient(-45deg, hsl(var(--muted)) 25%, transparent 25%),
-          linear-gradient(45deg, transparent 75%, hsl(var(--muted)) 75%),
-          linear-gradient(-45deg, transparent 75%, hsl(var(--muted)) 75%)
-        `,
+            linear-gradient(45deg, hsl(var(--muted)) 25%, transparent 25%),
+            linear-gradient(-45deg, hsl(var(--muted)) 25%, transparent 25%),
+            linear-gradient(45deg, transparent 75%, hsl(var(--muted)) 75%),
+            linear-gradient(-45deg, transparent 75%, hsl(var(--muted)) 75%)
+          `,
 					backgroundSize: "20px 20px",
 					backgroundPosition: "0 0, 0 10px, 10px -10px, -10px 0px",
 				}}
@@ -1876,7 +1932,8 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 
 			<div
 				ref={containerRef}
-				className="relative shadow-2xl rounded-sm overflow-hidden bg-white"
+				className="relative shadow-2xl rounded-sm overflow-hidden"
+				style={{ backgroundColor: actualBackground }}
 				onWheel={(e) => {
 					if (e.ctrlKey || e.metaKey) {
 						e.preventDefault();
@@ -1963,17 +2020,17 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 
 								switch (shape.type) {
 									case "rect":
-										return (
-											<Rect
-												key={shape.id}
-												id={shape.id}
-												x={shape.x}
-												y={shape.y}
-												width={shape.width}
-												height={shape.height}
-												fill={shape.fill}
-												stroke={shape.stroke}
-												strokeWidth={shape.strokeWidth}
+									return (
+										<Rect
+											key={shape.id}
+											id={shape.id}
+											x={shape.x}
+											y={shape.y}
+											width={shape.width}
+											height={shape.height}
+											fill={shape.fill}
+											stroke={shape.stroke}
+											strokeWidth={shape.strokeWidth}
 												rotation={shape.rotation}
 												scaleX={shape.scaleX}
 												scaleY={shape.scaleY}
@@ -1981,17 +2038,17 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 											/>
 										);
 									case "ellipse":
-										return (
-											<Ellipse
-												key={shape.id}
-												id={shape.id}
-												x={shape.x}
-												y={shape.y}
+									return (
+										<Ellipse
+											key={shape.id}
+											id={shape.id}
+											x={shape.x}
+											y={shape.y}
 												radiusX={shape.radiusX || 0}
 												radiusY={shape.radiusY || 0}
-												fill={shape.fill}
-												stroke={shape.stroke}
-												strokeWidth={shape.strokeWidth}
+											fill={shape.fill}
+											stroke={shape.stroke}
+											strokeWidth={shape.strokeWidth}
 												rotation={shape.rotation}
 												scaleX={shape.scaleX}
 												scaleY={shape.scaleY}
@@ -1999,33 +2056,33 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 											/>
 										);
 									case "polygon":
-										return (
-											<Line
-												key={shape.id}
-												id={shape.id}
+									return (
+										<Line
+											key={shape.id}
+											id={shape.id}
 												points={shape.points}
 												closed
 												fill={shape.fill}
 												stroke={shape.stroke}
-												strokeWidth={shape.strokeWidth}
+											strokeWidth={shape.strokeWidth}
 												rotation={shape.rotation}
 												scaleX={shape.scaleX}
 												scaleY={shape.scaleY}
 												lineJoin="round"
-												lineCap="round"
+											lineCap="round"
 												{...commonProps}
 											/>
 										);
 									case "text":
-										return (
-											<Text
-												key={shape.id}
-												id={shape.id}
+									return (
+										<Text
+											key={shape.id}
+											id={shape.id}
 												text={shape.text}
-												x={shape.x}
-												y={shape.y}
-												fontSize={shape.fontSize}
-												fill={shape.fill}
+											x={shape.x}
+											y={shape.y}
+											fontSize={shape.fontSize}
+											fill={shape.fill}
 												rotation={shape.rotation}
 												scaleX={shape.scaleX}
 												scaleY={shape.scaleY}
@@ -2065,27 +2122,9 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 											/>
 										);
 									default:
-										return null;
+								return null;
 								}
 							})}
-
-						{gradients
-							.filter((g) => isLayerVisible(g.layerId))
-							.map((g) => (
-								<Rect
-									key={g.id}
-									x={0}
-									y={0}
-									width={actualWidth}
-									height={actualHeight}
-									fillLinearGradientStartPoint={{ x: g.x0, y: g.y0 }}
-									fillLinearGradientEndPoint={{ x: g.x1, y: g.y1 }}
-									fillLinearGradientColorStops={(g.colorStops || []).flatMap(
-										(s) => [s.offset, s.color],
-									)}
-									listening={false}
-								/>
-							))}
 
 						{images
 							.filter((img) => isLayerVisible(img.layerId))
@@ -2104,14 +2143,52 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 								/>
 							))}
 
-						{/* TEMP IMAGE PRE REAL-TIME PREVIEW */}
-						{tempImage && (
+						{/* Gradients - render after all objects */}
+						{gradients
+							.filter((g) => isLayerVisible(g.layerId))
+							.map((g) => {
+								// Create gradient as image to avoid white background
+								const gradientCanvas = useMemo(() => {
+									const canvas = document.createElement("canvas");
+									canvas.width = actualWidth;
+									canvas.height = actualHeight;
+									const ctx = canvas.getContext("2d");
+									if (ctx && g.colorStops && g.colorStops.length > 0) {
+										const gradient = ctx.createLinearGradient(g.x0, g.y0, g.x1, g.y1);
+										g.colorStops.forEach((stop) => {
+											gradient.addColorStop(stop.offset, stop.color);
+										});
+										ctx.fillStyle = gradient;
+										ctx.fillRect(0, 0, actualWidth, actualHeight);
+									}
+									return canvas;
+								}, [g.id, g.x0, g.y0, g.x1, g.y1, g.colorStops, actualWidth, actualHeight]);
+								
+								return (
+									<KonvaImage
+										key={g.id}
+										image={gradientCanvas}
+										x={0}
+										y={0}
+										width={actualWidth}
+										height={actualHeight}
+										listening={false}
+										globalCompositeOperation="multiply"
+									/>
+								);
+							})}
+
+						{/* TEMP IMAGE PRE REAL-TIME PREVIEW - Only show during active drawing */}
+						{tempImage && isDrawing && (
 							<KonvaImage
 								image={tempImage}
 								x={0}
 								y={0}
-								opacity={0.8}
+								width={actualWidth}
+								height={actualHeight}
+								opacity={1}
 								listening={false}
+								globalCompositeOperation="source-over"
 							/>
 						)}
 
@@ -2186,12 +2263,12 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 							/>
 						)}
 
-						{currentGradient && (
+						{currentGradient && isDrawingGradient && (
 							<Rect
 								x={0}
 								y={0}
-								width={actualWidth}
-								height={actualHeight}
+				width={actualWidth}
+				height={actualHeight}
 								fillLinearGradientStartPoint={{
 									x: currentGradient.x0,
 									y: currentGradient.y0,
@@ -2204,6 +2281,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 									currentGradient.colorStops || []
 								).flatMap((s) => [s.offset, s.color])}
 								listening={false}
+								opacity={0.6}
 							/>
 						)}
 
