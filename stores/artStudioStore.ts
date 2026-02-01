@@ -3,6 +3,7 @@
 import { sessionDB } from "@/db/indexedDB";
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
+import { toast } from "sonner";
 
 export type Tool =
 	| "brush"
@@ -1225,12 +1226,27 @@ export const useArtStudioStore = create<ArtStudioState>()(
 			removeLayer: (id) => {
 				const { layers, activeLayerId } = get();
 				if (layers.length === 0) return;
+				
+				// Prevent deleting the last layer
+				if (layers.length === 1) {
+					toast.error("Cannot delete the last layer");
+					return;
+				}
+				
 				const newLayers = layers.filter((l) => l.id !== id);
 				set({
 					layers: newLayers,
 					activeLayerId:
 						activeLayerId === id ? newLayers[0]?.id || null : activeLayerId,
 				});
+				
+				// Dispatch event to remove objects from canvas
+				window.dispatchEvent(
+					new CustomEvent("artstudio:remove-layer", {
+						detail: { layerId: id },
+					}),
+				);
+				
 				setTimeout(
 					() =>
 						get()

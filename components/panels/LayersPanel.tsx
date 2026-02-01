@@ -65,8 +65,20 @@ export const LayersPanel: React.FC = () => {
 
 	const handleDeleteLayer = (id: string, e?: React.MouseEvent) => {
 		e?.stopPropagation();
-		removeLayer(id);
-		if (layers.length > 1) {
+		
+		// Prevent deleting the last layer
+		if (layers.length === 1) {
+			toast.error("Cannot delete the last layer");
+			return;
+		}
+		
+		// Confirm deletion
+		if (
+			window.confirm(
+				`Are you sure you want to delete "${layers.find((l) => l.id === id)?.name || "this layer"}"? All objects on this layer will be removed.`,
+			)
+		) {
+			removeLayer(id);
 			toast.success("Layer deleted");
 		}
 	};
@@ -213,7 +225,8 @@ export const LayersPanel: React.FC = () => {
 											e.stopPropagation();
 											toggleLayerVisibility(layer.id);
 										}}
-										className={`shrink-0 transition-colors ${layer.visible ? "text-foreground" : "text-muted-foreground/50"}`}
+										className={`shrink-0 transition-colors hover:opacity-80 ${layer.visible ? "text-foreground" : "text-muted-foreground/50"}`}
+										aria-label={layer.visible ? "Hide Layer" : "Show Layer"}
 									>
 										{layer.visible ? (
 											<Eye className="w-4 h-4" />
@@ -282,6 +295,27 @@ export const LayersPanel: React.FC = () => {
 							<span className="text-xs font-mono text-muted-foreground shrink-0">
 								{layer.opacity}%
 							</span>
+
+							{/* Delete Button - Direct access */}
+							<Tooltip>
+								<TooltipTrigger asChild>
+									<button
+										onClick={(e) => {
+											e.stopPropagation();
+											handleDeleteLayer(layer.id, e);
+										}}
+										disabled={layers.length === 1}
+										className="shrink-0 text-muted-foreground hover:text-destructive transition-colors opacity-0 group-hover:opacity-100 disabled:opacity-30 disabled:cursor-not-allowed"
+									>
+										<Trash2 className="w-4 h-4" />
+									</button>
+								</TooltipTrigger>
+								<TooltipContent side="top">
+									{layers.length === 1
+										? "Cannot delete the last layer"
+										: "Delete Layer"}
+								</TooltipContent>
+							</Tooltip>
 
 							{/* Layer Menu */}
 							<DropdownMenu>

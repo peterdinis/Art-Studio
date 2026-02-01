@@ -828,6 +828,51 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		};
 		window.addEventListener("artstudio:restore-history", handleRestoreHistory);
 
+		// Handle layer removal
+		const handleRemoveLayer = (e: CustomEvent) => {
+			const layerId = e.detail?.layerId;
+			if (layerId) {
+				// Remove all objects from this layer
+				setLines((prev) => {
+					const filtered = prev.filter((l) => l.layerId !== layerId);
+					// Clear selection if it was on this layer
+					setSelectedId((currentId) => {
+						if (currentId && prev.some((l) => l.id === currentId && l.layerId === layerId)) {
+							return null;
+						}
+						return currentId;
+					});
+					return filtered;
+				});
+				setShapes((prev) => {
+					const filtered = prev.filter((s) => s.layerId !== layerId);
+					// Clear selection if it was on this layer
+					setSelectedId((currentId) => {
+						if (currentId && prev.some((s) => s.id === currentId && s.layerId === layerId)) {
+							return null;
+						}
+						return currentId;
+					});
+					return filtered;
+				});
+				setImages((prev) => {
+					const filtered = prev.filter((img) => img.layerId !== layerId);
+					// Clear selection if it was on this layer
+					setSelectedId((currentId) => {
+						if (currentId && prev.some((img) => img.id === currentId && img.layerId === layerId)) {
+							return null;
+						}
+						return currentId;
+					});
+					return filtered;
+				});
+				setGradients((prev) => prev.filter((g) => g.layerId !== layerId));
+				
+				saveCanvasState("Layer deleted");
+			}
+		};
+		window.addEventListener("artstudio:remove-layer", handleRemoveLayer as EventListener);
+
 		const handleTempToolChange = (e: any) => {
 			if (e.detail && e.detail.tool) {
 				if (!originalToolRef.current) {
@@ -852,6 +897,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				"artstudio:restore-history",
 				handleRestoreHistory,
 			);
+			window.removeEventListener("artstudio:remove-layer", handleRemoveLayer as EventListener);
 			window.removeEventListener(
 				"artstudio:temp-tool-change",
 				handleTempToolChange,
