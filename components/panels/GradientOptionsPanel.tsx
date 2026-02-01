@@ -632,10 +632,8 @@ export const GradientOptionsPanel: React.FC = () => {
 								],
 							},
 						].map((preset) => (
-							<Button
+							<div
 								key={preset.name}
-								size="sm"
-								variant="outline"
 								className="text-xs h-16 flex-col"
 								onClick={() =>
 									setBrushSettings({ gradientStops: preset.stops })
@@ -651,7 +649,7 @@ export const GradientOptionsPanel: React.FC = () => {
 									}}
 								/>
 								<span className="text-[10px]">{preset.name}</span>
-							</Button>
+							</div>
 						))}
 					</div>
 				</div>
