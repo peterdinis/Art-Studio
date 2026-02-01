@@ -41,11 +41,13 @@ const matchesShortcut = (e: KeyboardEvent, shortcut: string): boolean => {
 };
 
 export const useKeyboardShortcuts = () => {
+	const {zoomIn, zoomOut, zoomToFit, zoomToActualSize} = useZoom()
 	const {
 		// Tools
 		activeTool,
 		setActiveTool,
-
+		zoom,
+		setZoom,
 		// Edit actions
 		undo,
 		redo,

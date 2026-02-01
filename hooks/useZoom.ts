@@ -181,30 +181,44 @@ export const useZoom = () => {
 			point: { x: number; y: number },
 			options: ZoomOptions = {},
 		) => {
-			const zoomStep = options.step || 10;
-			const zoomFactor = delta > 0 ? 1 - zoomStep / 100 : 1 + zoomStep / 100;
+			// Use exponential zoom for smoother experience
+			const zoomSpeed = options.step || 0.1;
+			const zoomFactor = delta > 0 ? 1 - zoomSpeed : 1 + zoomSpeed;
 			const newZoom = Math.max(
 				options.min || 10,
 				Math.min(options.max || 500, zoom * zoomFactor),
 			);
 
-			// Zoom to mouse point
+			// Zoom to mouse point (center zoom on cursor position)
 			const canvas = window.fabricCanvas || window.konvaStage;
-			if (canvas && "getPointerPosition" in canvas) {
-				const stage = canvas as any;
-				const oldScale = zoom / 100;
-				const mousePointTo = {
-					x: (point.x - panOffset.x) / oldScale,
-					y: (point.y - panOffset.y) / oldScale,
-				};
+			if (canvas) {
+				if ("getPointerPosition" in canvas) {
+					// Konva.js - zoom to point
+					const stage = canvas as any;
+					const oldScale = zoom / 100;
+					
+					// Get current stage position
+					const stageX = stage.x() || panOffset.x;
+					const stageY = stage.y() || panOffset.y;
+					
+					// Convert screen point to canvas coordinates
+					const mousePointTo = {
+						x: (point.x - stageX) / oldScale,
+						y: (point.y - stageY) / oldScale,
+					};
 
-				const newPos = {
-					x: point.x - mousePointTo.x * (newZoom / 100),
-					y: point.y - mousePointTo.y * (newZoom / 100),
-				};
+					// Calculate new pan offset to keep point under cursor
+					const newPos = {
+						x: point.x - mousePointTo.x * (newZoom / 100),
+						y: point.y - mousePointTo.y * (newZoom / 100),
+					};
 
-				setZoom(newZoom);
-				setPanOffset(newPos);
+					setZoom(newZoom);
+					setPanOffset(newPos);
+				} else {
+					// Fabric.js - simpler zoom (could be enhanced)
+					setZoom(newZoom);
+				}
 			} else {
 				setZoom(newZoom);
 			}

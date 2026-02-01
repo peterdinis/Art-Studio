@@ -1828,7 +1828,30 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				</div>
 			)}
 
-			<div className="relative shadow-2xl rounded-sm overflow-hidden bg-white">
+			<div
+				ref={containerRef}
+				className="relative shadow-2xl rounded-sm overflow-hidden bg-white"
+				onWheel={(e) => {
+					if (e.ctrlKey || e.metaKey) {
+						e.preventDefault();
+						const stage = stageRef.current;
+						if (stage) {
+							const stageBox = stage.container().getBoundingClientRect();
+							const point = {
+								x: e.clientX - stageBox.left,
+								y: e.clientY - stageBox.top,
+							};
+							zoomWithWheel(e.deltaY, point);
+						}
+					} else {
+						// Pan with wheel
+						setPanOffset({
+							x: panOffset.x - e.deltaX / (zoom / 100),
+							y: panOffset.y - e.deltaY / (zoom / 100),
+						});
+					}
+				}}
+			>
 				<Stage
 					ref={stageRef}
 					width={actualWidth}
