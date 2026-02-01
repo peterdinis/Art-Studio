@@ -79,6 +79,7 @@ import { useArtStudioStore, Tool } from "@/stores/artStudioStore";
 import { toast } from "sonner";
 import { TemplatesDialog } from "../templates/TemplatesDialog";
 import { KeyboardShortcutsDialog } from "../dialogs/KeyboardSettingsDialog";
+import { useZoom } from "@/hooks/useZoom";
 
 interface MenuItemConfig {
 	label: string;
@@ -114,8 +115,6 @@ export const TopMenuBar: React.FC = () => {
 		redo,
 		canUndo,
 		canRedo,
-		setZoom,
-		zoom,
 		layers,
 		activeLayerId,
 		removeLayer,
@@ -127,7 +126,6 @@ export const TopMenuBar: React.FC = () => {
 		secondaryColor,
 		clearHistory,
 		duplicateLayer,
-		setPanOffset,
 		// Panel visibility
 		showLeftPanel,
 		setShowLeftPanel,
@@ -156,6 +154,16 @@ export const TopMenuBar: React.FC = () => {
 		renderingEngine,
 		setRenderingEngine,
 	} = store;
+
+	// Use zoom hook for all zoom operations
+	const {
+		zoom,
+		zoomPercentage,
+		zoomIn,
+		zoomOut,
+		zoomToFit,
+		zoomToActualSize,
+	} = useZoom();
 
 	// Store reference on window for keyboard shortcuts
 	useEffect(() => {
@@ -1767,50 +1775,19 @@ export const TopMenuBar: React.FC = () => {
 	];
 
 	const handleFitToScreen = () => {
-		const canvas = getCanvas();
-		if (canvas) {
-			// Get canvas dimensions
-			const canvasWidth = canvas.width || 1920;
-			const canvasHeight = canvas.height || 1080;
-
-			// Get viewport dimensions (approximate, accounting for panels)
-			const viewportWidth =
-				window.innerWidth -
-				(showLeftPanel ? 56 : 0) -
-				(showRightPanel ? 320 : 0) -
-				100;
-			const viewportHeight = window.innerHeight - 80 - 40; // Top bar + status bar
-
-			// Calculate zoom to fit
-			const zoomX = (viewportWidth / canvasWidth) * 100;
-			const zoomY = (viewportHeight / canvasHeight) * 100;
-			const fitZoom = Math.min(zoomX, zoomY, 100); // Don't zoom in beyond 100%
-
-			setZoom(Math.max(10, Math.min(100, fitZoom)));
-			setPanOffset({ x: 0, y: 0 }); // Center the canvas
-			toast.success("Canvas fitted to screen");
-		} else {
-			setZoom(100);
-			setPanOffset({ x: 0, y: 0 });
-		}
+		zoomToFit({ maxZoom: 100 });
 	};
 
 	const handleZoomIn = () => {
-		const newZoom = Math.min(500, zoom + 25);
-		setZoom(newZoom);
-		toast.info(`Zoom: ${newZoom}%`);
+		zoomIn(25);
 	};
 
 	const handleZoomOut = () => {
-		const newZoom = Math.max(10, zoom - 25);
-		setZoom(newZoom);
-		toast.info(`Zoom: ${newZoom}%`);
+		zoomOut(25);
 	};
 
 	const handleActualSize = () => {
-		setZoom(100);
-		setPanOffset({ x: 0, y: 0 });
-		toast.success("Zoom reset to 100%");
+		zoomToActualSize();
 	};
 
 	const viewMenu: MenuItemConfig[] = [

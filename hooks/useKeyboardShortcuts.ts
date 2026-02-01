@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { useArtStudioStore, Tool } from "@/stores/artStudioStore";
+import { useZoom } from "@/hooks/useZoom";
 import { toast } from "sonner";
 
 // Helper to check if key combination matches
@@ -52,8 +53,6 @@ export const useKeyboardShortcuts = () => {
 		canRedo,
 
 		// File actions
-		setZoom,
-		zoom,
 		setPanOffset,
 
 		// Panel visibility
@@ -370,9 +369,7 @@ export const useKeyboardShortcuts = () => {
 				(e.key === "=" && (e.ctrlKey || e.metaKey))
 			) {
 				e.preventDefault();
-				const newZoom = Math.min(500, zoom + 25);
-				setZoom(newZoom);
-				toast.info(`Zoom: ${newZoom}%`);
+				zoomIn(25);
 				return;
 			}
 
@@ -381,39 +378,19 @@ export const useKeyboardShortcuts = () => {
 				(e.key === "-" && (e.ctrlKey || e.metaKey))
 			) {
 				e.preventDefault();
-				const newZoom = Math.max(10, zoom - 25);
-				setZoom(newZoom);
-				toast.info(`Zoom: ${newZoom}%`);
+				zoomOut(25);
 				return;
 			}
 
 			if (matchesShortcut(e, "⌘0")) {
 				e.preventDefault();
-				const canvas = window.fabricCanvas || window.konvaStage;
-				if (canvas) {
-					const canvasWidth = canvas.width || 1920;
-					const canvasHeight = canvas.height || 1080;
-					const viewportWidth =
-						window.innerWidth -
-						(showLeftPanel ? 56 : 0) -
-						(showRightPanel ? 320 : 0) -
-						100;
-					const viewportHeight = window.innerHeight - 80 - 40;
-					const zoomX = (viewportWidth / canvasWidth) * 100;
-					const zoomY = (viewportHeight / canvasHeight) * 100;
-					const fitZoom = Math.min(zoomX, zoomY, 100);
-					setZoom(Math.max(10, Math.min(100, fitZoom)));
-					setPanOffset({ x: 0, y: 0 });
-					toast.success("Canvas fitted to screen");
-				}
+				zoomToFit({ maxZoom: 100 });
 				return;
 			}
 
 			if (matchesShortcut(e, "⌘1")) {
 				e.preventDefault();
-				setZoom(100);
-				setPanOffset({ x: 0, y: 0 });
-				toast.success("Zoom reset to 100%");
+				zoomToActualSize();
 				return;
 			}
 

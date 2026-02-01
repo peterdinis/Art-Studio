@@ -19,6 +19,7 @@ import { PenOptionsPanel } from "@/components/panels/PenOptionsPanel";
 import { PolygonOptionsPanel } from "@/components/panels/PolygonOptionsPanel";
 import { ShapeOptionsPanel } from "@/components/panels/ShapeOptionsPanel";
 import { SelectionOptionsPanel } from "@/components/panels/SelectionOptionsPanel";
+import { useZoom } from "@/hooks/useZoom";
 
 interface ToolOption {
 	name: string;
@@ -51,18 +52,27 @@ const shapeTools: Tool[] = [
 ];
 
 const ZoomOptions: React.FC = () => {
-	const { zoom, setZoom, resetCanvasView } = useArtStudioStore();
+	const {
+		zoom,
+		zoomPercentage,
+		zoomIn,
+		zoomOut,
+		zoomToFit,
+		zoomToActualSize,
+		isAtMinZoom,
+		isAtMaxZoom,
+	} = useZoom();
 
 	return (
 		<div className="space-y-4">
 			<div className="space-y-2">
 				<div className="flex justify-between items-center mb-1">
 					<Label className="text-xs text-muted-foreground">Zoom Level</Label>
-					<span className="text-xs font-mono">{Math.round(zoom)}%</span>
+					<span className="text-xs font-mono">{zoomPercentage}%</span>
 				</div>
 				<Slider
 					value={[zoom]}
-					onValueChange={([val]) => setZoom(val)}
+					onValueChange={([val]) => zoomIn(val - zoom, { min: 10, max: 500 })}
 					min={10}
 					max={500}
 					step={10}
@@ -71,25 +81,27 @@ const ZoomOptions: React.FC = () => {
 
 			<div className="grid grid-cols-2 gap-2">
 				<button
-					onClick={() => setZoom(Math.min(zoom + 25, 500))}
-					className="px-3 py-2 bg-muted/50 hover:bg-muted rounded text-xs transition-colors"
+					onClick={() => zoomIn(25)}
+					disabled={isAtMaxZoom()}
+					className="px-3 py-2 bg-muted/50 hover:bg-muted rounded text-xs transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
 				>
 					Zoom In
 				</button>
 				<button
-					onClick={() => setZoom(Math.max(zoom - 25, 10))}
-					className="px-3 py-2 bg-muted/50 hover:bg-muted rounded text-xs transition-colors"
+					onClick={() => zoomOut(25)}
+					disabled={isAtMinZoom()}
+					className="px-3 py-2 bg-muted/50 hover:bg-muted rounded text-xs transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
 				>
 					Zoom Out
 				</button>
 				<button
-					onClick={() => setZoom(100)}
+					onClick={zoomToActualSize}
 					className="px-3 py-2 bg-muted/50 hover:bg-muted rounded text-xs transition-colors"
 				>
 					Actual Size
 				</button>
 				<button
-					onClick={resetCanvasView}
+					onClick={() => zoomToFit({ maxZoom: 100 })}
 					className="px-3 py-2 bg-muted/50 hover:bg-muted rounded text-xs transition-colors"
 				>
 					Fit Screen

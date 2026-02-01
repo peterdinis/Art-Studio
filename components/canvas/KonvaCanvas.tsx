@@ -14,6 +14,7 @@ import {
 } from "react-konva";
 import Konva from "konva";
 import { useArtStudioStore, Tool } from "@/stores/artStudioStore";
+import { useZoom } from "@/hooks/useZoom";
 import { toast } from "sonner";
 
 interface KonvaCanvasProps {
@@ -221,7 +222,6 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		brushSettings,
 		zoom,
 		panOffset,
-		setZoom,
 		setPanOffset,
 		addToHistory,
 		canvasSize,
@@ -245,6 +245,16 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		clearSelection,
 		setCanvasSize,
 	} = useArtStudioStore();
+
+	// Use zoom hook for all zoom operations
+	const {
+		zoomTo,
+		zoomIn,
+		zoomOut,
+		zoomWithWheel,
+		zoomToFit,
+		zoomToActualSize,
+	} = useZoom();
 
 	const magicWandTolerance = brushSettings.tolerance || 20;
 
@@ -1501,29 +1511,15 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		}
 
 		if (activeTool === "zoom") {
-			const zoomStep = 0.2;
-			const isZoomOut = e.evt.altKey;
-			const oldScale = stageRef.current?.scaleX() || 1;
-			const newScale = isZoomOut
-				? Math.max(0.1, oldScale - zoomStep)
-				: Math.min(8, oldScale + zoomStep);
-
 			const stage = stageRef.current;
 			if (stage) {
 				const pointer = stage.getPointerPosition();
 				if (pointer) {
-					const mousePointTo = {
-						x: (pointer.x - stage.x()) / oldScale,
-						y: (pointer.y - stage.y()) / oldScale,
-					};
-
-					const newPos = {
-						x: pointer.x - mousePointTo.x * newScale,
-						y: pointer.y - mousePointTo.y * newScale,
-					};
-
-					setZoom(newScale * 100);
-					setPanOffset(newPos);
+					if (e.evt.altKey) {
+						zoomOut(20, { centerOnPoint: pointer });
+					} else {
+						zoomIn(20, { centerOnPoint: pointer });
+					}
 				}
 			}
 			return;
