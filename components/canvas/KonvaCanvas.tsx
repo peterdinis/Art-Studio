@@ -94,6 +94,38 @@ interface BlurData {
 	intensity: number;
 }
 
+interface TextObject {
+	id: string;
+	text: string;
+	x: number;
+	y: number;
+	width?: number;
+	height?: number;
+	fontFamily: string;
+	fontSize: number;
+	fontWeight: string;
+	fontStyle: string;
+	textDecoration: string;
+	textAlign: "left" | "center" | "right" | "justify";
+	lineHeight: number;
+	letterSpacing: number;
+	color: string;
+	backgroundColor?: string;
+	backgroundOpacity?: number;
+	shadowColor?: string;
+	shadowBlur?: number;
+	shadowOffsetX?: number;
+	shadowOffsetY?: number;
+	outlineColor?: string;
+	outlineWidth?: number;
+	rotation?: number;
+	opacity?: number;
+	wrap: "word" | "char" | "none";
+	padding?: number;
+	isEditing?: boolean;
+	layerId: string;
+}
+
 interface CanvasState {
 	lines: DrawingLine[];
 	shapes: ShapeObject[];
@@ -101,6 +133,7 @@ interface CanvasState {
 	gradients: GradientObject[];
 	healingData: HealingData;
 	blurData: BlurData;
+	textObjects: TextObject[];
 }
 
 const ImageNode = ({
@@ -151,6 +184,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 	const [lines, setLines] = useState<DrawingLine[]>([]);
 	const [shapes, setShapes] = useState<ShapeObject[]>([]);
 	const [images, setImages] = useState<ImageObject[]>([]);
+	const [textObjects, setTextObjects] = useState<TextObject[]>([]);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const [isDrawing, setIsDrawing] = useState(false);
 	const [isFilling, setIsFilling] = useState(false);
@@ -171,6 +205,13 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 	const [penPoints, setPenPoints] = useState<number[]>([]);
 
 	const [isSelecting, setIsSelecting] = useState(false);
+	const [editingTextId, setEditingTextId] = useState<string | null>(null);
+	const [textAreaPosition, setTextAreaPosition] = useState<{
+		x: number;
+		y: number;
+		width: number;
+		height: number;
+	} | null>(null);
 	
 	// Performance: Throttle mouse move events
 	const lastMouseMoveTime = useRef<number>(0);
@@ -297,6 +338,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 					lines,
 					shapes,
 							images,
+							textObjects,
 					gradients,
 							healingData,
 							blurData,
@@ -327,7 +369,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				scheduleSave();
 			}
 		},
-		[lines, shapes, images, gradients, healingData, blurData, addToHistory],
+		[lines, shapes, images, gradients, healingData, blurData, addToHistory, textObjects],
 	);
 
 	const updateAuxCanvases = useCallback(() => {
@@ -386,6 +428,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				setLines(state.lines || []);
 				setShapes(state.shapes || []);
 				setImages(state.images || []);
+				setTextObjects(state.textObjects || []);
 				setGradients(state.gradients || []);
 				if (state.healingData) setHealingData(state.healingData);
 				if (state.blurData) setBlurData(state.blurData);
@@ -395,6 +438,144 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		},
 		[setGradients],
 	);
+
+	/* --- TEXT TOOL FUNCTIONS --- */
+	const handleAddText = useCallback((textObject: TextObject) => {
+		setTextObjects(prev => [...prev, textObject]);
+		setSelectedId(textObject.id);
+		if (textObject.isEditing) {
+			setEditingTextId(textObject.id);
+		}
+		saveCanvasState("Text added");
+	}, [saveCanvasState]);
+
+	const handleUpdateText = useCallback((textId: string, updates: Partial<TextObject>) => {
+		setTextObjects(prev =>
+			prev.map(text =>
+				text.id === textId ? { ...text, ...updates } : text
+			)
+		);
+		saveCanvasState("Text updated");
+	}, [saveCanvasState]);
+
+	const handleDeleteText = useCallback((textId: string) => {
+		setTextObjects(prev => prev.filter(text => text.id !== textId));
+		if (selectedId === textId) setSelectedId(null);
+		if (editingTextId === textId) setEditingTextId(null);
+		saveCanvasState("Text deleted");
+	}, [selectedId, editingTextId, saveCanvasState]);
+
+	const handleStartTextEdit = useCallback((textId: string) => {
+		setTextObjects(prev =>
+			prev.map(text =>
+				text.id === textId ? { ...text, isEditing: true } : text
+			)
+		);
+		setEditingTextId(textId);
+		setSelectedId(textId);
+	}, []);
+
+	const handleCancelTextEdit = useCallback((textId: string) => {
+		setTextObjects(prev =>
+			prev.map(text =>
+				text.id === textId ? { ...text, isEditing: false } : text
+			)
+		);
+		setEditingTextId(null);
+	}, []);
+
+	const handleSelectText = useCallback((textId: string) => {
+		setSelectedId(textId);
+		setActiveTool("select");
+	}, [setActiveTool]);
+
+	/* --- EVENT LISTENERS FOR TEXT --- */
+	useEffect(() => {
+		const handleAddTextEvent = (e: CustomEvent) => {
+			const { textObject } = e.detail;
+			handleAddText(textObject);
+		};
+
+		const handleUpdateTextEvent = (e: CustomEvent) => {
+			const { textId, updates } = e.detail;
+			handleUpdateText(textId, updates);
+		};
+
+		const handleDeleteTextEvent = (e: CustomEvent) => {
+			const { textId } = e.detail;
+			handleDeleteText(textId);
+		};
+
+		const handleStartTextEditEvent = (e: CustomEvent) => {
+			const { textId } = e.detail;
+			handleStartTextEdit(textId);
+		};
+
+		const handleCancelTextEditEvent = (e: CustomEvent) => {
+			const { textId } = e.detail;
+			handleCancelTextEdit(textId);
+		};
+
+		const handleSelectTextEvent = (e: CustomEvent) => {
+			const { textId } = e.detail;
+			handleSelectText(textId);
+		};
+
+		const handleRequestTextObjects = () => {
+			window.dispatchEvent(
+				new CustomEvent("artstudio:text-objects", {
+					detail: { textObjects }
+				})
+			);
+		};
+
+		window.addEventListener("artstudio:add-text", handleAddTextEvent as EventListener);
+		window.addEventListener("artstudio:update-text", handleUpdateTextEvent as EventListener);
+		window.addEventListener("artstudio:delete-text", handleDeleteTextEvent as EventListener);
+		window.addEventListener("artstudio:start-text-edit", handleStartTextEditEvent as EventListener);
+		window.addEventListener("artstudio:cancel-text-edit", handleCancelTextEditEvent as EventListener);
+		window.addEventListener("artstudio:select-text", handleSelectTextEvent as EventListener);
+		window.addEventListener("artstudio:request-text-objects", handleRequestTextObjects);
+
+		return () => {
+			window.removeEventListener("artstudio:add-text", handleAddTextEvent as EventListener);
+			window.removeEventListener("artstudio:update-text", handleUpdateTextEvent as EventListener);
+			window.removeEventListener("artstudio:delete-text", handleDeleteTextEvent as EventListener);
+			window.removeEventListener("artstudio:start-text-edit", handleStartTextEditEvent as EventListener);
+			window.removeEventListener("artstudio:cancel-text-edit", handleCancelTextEditEvent as EventListener);
+			window.removeEventListener("artstudio:select-text", handleSelectTextEvent as EventListener);
+			window.removeEventListener("artstudio:request-text-objects", handleRequestTextObjects);
+		};
+	}, [
+		handleAddText,
+		handleUpdateText,
+		handleDeleteText,
+		handleStartTextEdit,
+		handleCancelTextEdit,
+		handleSelectText,
+		textObjects
+	]);
+
+	/* --- TEXT AREA POSITION UPDATER --- */
+	useEffect(() => {
+		if (editingTextId && stageRef.current) {
+			const text = textObjects.find(t => t.id === editingTextId);
+			if (text) {
+				const stage = stageRef.current;
+				const stageBox = stage.container().getBoundingClientRect();
+				
+				// Convert canvas coordinates to screen coordinates
+				const x = (text.x * (zoom / 100)) + panOffset.x + stageBox.left;
+				const y = (text.y * (zoom / 100)) + panOffset.y + stageBox.top;
+				const width = (text.width || 200) * (zoom / 100);
+				const height = (text.height || 100) * (zoom / 100);
+				
+				setTextAreaPosition({ x, y, width, height });
+			}
+		} else {
+			setTextAreaPosition(null);
+		}
+	}, [editingTextId, textObjects, zoom, panOffset]);
 
 	/* --- IMPROVED ERASER TOOL LOGIC --- */
 	const applyEraser = useCallback(
@@ -712,28 +893,53 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 	/* --- TEXT TOOL LOGIC --- */
 	const handleTextTool = useCallback(
 		(pos: { x: number; y: number }) => {
-			const text = prompt("Enter text:", "New Text");
-			if (text) {
-				const newText: ShapeObject = {
-					id: generateId("text"),
-					type: "text",
-					x: pos.x,
-					y: pos.y,
-					text,
-					fontSize: brushSettings.fontSize || 24,
-					fill: primaryColor,
-					layerId: activeLayerId || "layer-1",
-				};
-				setShapes((prev) => [...prev, newText]);
-				saveCanvasState("Text added");
+			const newText: TextObject = {
+				id: generateId("text"),
+				text: "Kliknite pre editáciu textu",
+				x: pos.x,
+				y: pos.y,
+				fontFamily: brushSettings.fontFamily || "Arial",
+				fontSize: brushSettings.fontSize || 24,
+				fontWeight: brushSettings.fontWeight || "normal",
+				fontStyle: brushSettings.fontStyle || "normal",
+				textDecoration: brushSettings.textDecoration || "none",
+				textAlign: brushSettings.textAlign || "left",
+				lineHeight: brushSettings.lineHeight || 1.2,
+				letterSpacing: brushSettings.letterSpacing || 0,
+				color: primaryColor,
+				wrap: brushSettings.textWrap || "word",
+				padding: brushSettings.textPadding || 4,
+				opacity: brushSettings.textOpacity || 100,
+				isEditing: brushSettings.textEditingMode === "inline",
+				layerId: activeLayerId || "layer-1",
+			};
+
+			// Pridať efekty podľa nastavení
+			if (brushSettings.textShadow) {
+				newText.shadowColor = brushSettings.textShadowColor || "#00000080";
+				newText.shadowBlur = brushSettings.textShadowBlur || 5;
+				newText.shadowOffsetX = brushSettings.textShadowOffsetX || 2;
+				newText.shadowOffsetY = brushSettings.textShadowOffsetY || 2;
 			}
+
+			if (brushSettings.textOutline) {
+				newText.outlineColor = brushSettings.textOutlineColor || "#ffffff";
+				newText.outlineWidth = brushSettings.textOutlineWidth || 1;
+			}
+
+			if (brushSettings.textBackground) {
+				newText.backgroundColor = brushSettings.textBackgroundColor || "#ffffff";
+				newText.backgroundOpacity = brushSettings.textBackgroundOpacity || 20;
+			}
+
+			handleAddText(newText);
+			toast.success("Text added - click to edit");
 		},
 		[
 			primaryColor,
 			activeLayerId,
-			brushSettings.fontSize,
-			setShapes,
-			saveCanvasState,
+			brushSettings,
+			handleAddText,
 		],
 	);
 
@@ -805,6 +1011,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			setLines([]);
 			setShapes([]);
 			setImages([]);
+			setTextObjects([]);
 			setGradients([]);
 			setTempImage(null);
 			clearSelection();
@@ -857,6 +1064,20 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 					});
 					return filtered;
 				});
+				setTextObjects((prev) => {
+					const filtered = prev.filter((text) => text.layerId !== layerId);
+					// Clear selection if it was on this layer
+					setSelectedId((currentId) => {
+						if (currentId && prev.some((text) => text.id === currentId && text.layerId === layerId)) {
+							return null;
+						}
+						return currentId;
+					});
+					if (editingTextId && prev.some((text) => text.id === editingTextId && text.layerId === layerId)) {
+						setEditingTextId(null);
+					}
+					return filtered;
+				});
 				setGradients((prev) => prev.filter((g) => g.layerId !== layerId));
 				
 				saveCanvasState("Layer deleted");
@@ -904,6 +1125,8 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		restoreCanvasState,
 		setActiveTool,
 		activeTool,
+		editingTextId,
+		saveCanvasState,
 	]);
 
 	// Cancel gradient drawing when tool changes
@@ -1130,7 +1353,14 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			})),
 		);
 		setImages((prevImages) => prevImages.map((img) => ({ ...img, x: img.x - x, y: img.y - y })));
-		setGradients((prevGradients) =>
+		setTextObjects((prevTexts) =>
+			prevTexts.map((t) => ({
+				...t,
+				x: t.x - x,
+				y: t.y - y,
+			})),
+		);
+		setGradients((prevGradients: any) =>
 			prevGradients.map((g) => ({
 				...g,
 				x0: g.x0 - x,
@@ -1367,6 +1597,17 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 	const handleMouseDown = (e: Konva.KonvaEventObject<MouseEvent>) => {
 		const pos = getCanvasPosition(e.evt.clientX, e.evt.clientY);
 		if (!pos) return;
+
+		// Ak je v editácii textu, nechajme textarea spracovať kliknutie
+		if (editingTextId && e.target === stageRef.current) {
+			// Uložiť editáciu a zavrieť textarea
+			const text = textObjects.find(t => t.id === editingTextId);
+			if (text) {
+				handleUpdateText(editingTextId, { isEditing: false });
+				setEditingTextId(null);
+			}
+			return;
+		}
 
 		const selectionTools: Tool[] = [
 			"select",
@@ -1775,11 +2016,21 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 						img.y + img.height > y
 					);
 				});
+				const selectedTexts = textObjects.filter((text) => {
+					return (
+						text.x < x + width &&
+						text.x + (text.width || 100) > x &&
+						text.y < y + height &&
+						text.y + (text.height || 50) > y
+					);
+				});
 
 				if (selectedShapes.length > 0)
 					setSelectedId(selectedShapes[selectedShapes.length - 1].id);
 				else if (selectedImgs.length > 0)
 					setSelectedId(selectedImgs[selectedImgs.length - 1].id);
+				else if (selectedTexts.length > 0)
+					setSelectedId(selectedTexts[selectedTexts.length - 1].id);
 				else setSelectedId(null);
 			} else if (
 				activeTool === "lasso" &&
@@ -1810,11 +2061,20 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 						img.y < maxY &&
 						img.y + img.height > minY,
 				);
+				const selectedTexts = textObjects.filter(
+					(text) =>
+						text.x < maxX &&
+						text.x + (text.width || 100) > minX &&
+						text.y < maxY &&
+						text.y + (text.height || 50) > minY,
+				);
 
 				if (selectedShapes.length > 0)
 					setSelectedId(selectedShapes[selectedShapes.length - 1].id);
 				else if (selectedImgs.length > 0)
 					setSelectedId(selectedImgs[selectedImgs.length - 1].id);
+				else if (selectedTexts.length > 0)
+					setSelectedId(selectedTexts[selectedTexts.length - 1].id);
 				else setSelectedId(null);
 			}
 			setSelectionStartPoint(null);
@@ -1860,16 +2120,20 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 	) => {
 		if (activeTool === "select" || activeTool === "move") {
 			setSelectedId(id);
-		} else if (activeTool === "text") {
-			const shape = shapes.find((s) => s.id === id);
-			if (shape && shape.type === "text") {
-				const newText = prompt("Edit text:", shape.text);
-				if (newText !== null) {
-					setShapes(
-						shapes.map((s) => (s.id === id ? { ...s, text: newText } : s)),
-					);
-					saveCanvasState("Text edited");
+			
+			// Check if it's a text object
+			const text = textObjects.find((t) => t.id === id);
+			if (text && !text.isEditing) {
+				// Start editing on double click
+				if (e && e.evt.detail === 2) {
+					handleStartTextEdit(id);
 				}
+			}
+		} else if (activeTool === "text") {
+			// When text tool is active and we click on a text object, start editing
+			const text = textObjects.find((t) => t.id === id);
+			if (text) {
+				handleStartTextEdit(id);
 			}
 		}
 	};
@@ -1901,6 +2165,42 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		if (activeTool === "fill") return "alias";
 		if (activeTool === "star") return "crosshair";
 				return "default";
+	};
+
+	// Textarea change handler
+	const handleTextAreaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+		if (!editingTextId) return;
+		
+		const text = textObjects.find(t => t.id === editingTextId);
+		if (text) {
+			handleUpdateText(editingTextId, { text: e.target.value });
+		}
+	};
+
+	// Textarea key down handler
+	const handleTextAreaKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+		if (!editingTextId) return;
+		
+		if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+			// Save and exit edit mode
+			handleUpdateText(editingTextId, { isEditing: false });
+			setEditingTextId(null);
+		} else if (e.key === "Escape") {
+			// Cancel edit mode
+			handleCancelTextEdit(editingTextId);
+			setEditingTextId(null);
+		}
+	};
+
+	// Textarea blur handler
+	const handleTextAreaBlur = () => {
+		if (editingTextId) {
+			// Save changes when textarea loses focus
+			setTimeout(() => {
+				handleUpdateText(editingTextId, { isEditing: false });
+				setEditingTextId(null);
+			}, 100);
+		}
 	};
 
 	return (
@@ -2143,6 +2443,129 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 								/>
 							))}
 
+						{/* Text Objects */}
+						{textObjects
+							.filter((text) => isLayerVisible(text.layerId))
+							.map((text) => {
+								const commonProps = {
+									id: text.id,
+									draggable: (activeTool === "select" || activeTool === "move") && !text.isEditing,
+									onClick: (e: any) => {
+										if (activeTool === "select" || activeTool === "move") {
+											setSelectedId(text.id);
+											if (e.evt.detail === 2) {
+												// Double click to edit
+												handleStartTextEdit(text.id);
+											}
+										}
+									},
+									onTap: () => {
+										if (activeTool === "select" || activeTool === "move") {
+											setSelectedId(text.id);
+										}
+									},
+									onDragEnd: (e: any) => {
+										if (text.isEditing) return;
+										setTextObjects(prev =>
+											prev.map(t =>
+												t.id === text.id
+													? { ...t, x: e.target.x(), y: e.target.y() }
+													: t
+											)
+										);
+										saveCanvasState("Text moved");
+									},
+									perfectDrawEnabled: false,
+									listening: !text.isEditing,
+								};
+
+								// Vytvorte štýl pre text
+								const textStyle: any = {
+									fontFamily: text.fontFamily,
+									fontSize: text.fontSize,
+									fontWeight: text.fontWeight,
+									fontStyle: text.fontStyle,
+									textDecoration: text.textDecoration,
+									lineHeight: text.lineHeight,
+									letterSpacing: text.letterSpacing,
+									fill: text.color,
+									opacity: (text.opacity || 100) / 100,
+									align: text.textAlign,
+									padding: text.padding || 0,
+									wrap: text.wrap === "none" ? "none" : text.wrap === "char" ? "char" : "word",
+								};
+
+								// Pridajte tieň
+								if (text.shadowColor) {
+									textStyle.shadowColor = text.shadowColor;
+									textStyle.shadowBlur = text.shadowBlur || 5;
+									textStyle.shadowOffsetX = text.shadowOffsetX || 2;
+									textStyle.shadowOffsetY = text.shadowOffsetY || 2;
+									textStyle.shadowEnabled = true;
+									textStyle.shadowOpacity = 1;
+								}
+
+								return (
+									<React.Fragment key={text.id}>
+										{/* Pozadie textu ak existuje */}
+										{text.backgroundColor && (
+											<Rect
+												x={text.x - (text.padding || 0)}
+												y={text.y - (text.padding || 0)}
+												width={(text.width || 100) + (text.padding || 0) * 2}
+												height={(text.height || 50) + (text.padding || 0) * 2}
+												fill={`${text.backgroundColor}${Math.round(
+													(text.backgroundOpacity || 20) * 2.55
+												)
+													.toString(16)
+													.padStart(2, "0")}`}
+												cornerRadius={4}
+												listening={false}
+											/>
+										)}
+
+										{/* Hlavný text */}
+										<Text
+											{...commonProps}
+											x={text.x}
+											y={text.y}
+											text={text.text}
+											{...textStyle}
+										/>
+
+										{/* Obrys textu */}
+										{text.outlineColor && text.outlineWidth && (
+											<Text
+												x={text.x}
+												y={text.y}
+												text={text.text}
+												{...textStyle}
+												fill={text.outlineColor}
+												strokeEnabled={true}
+												stroke={text.color}
+												strokeWidth={text.outlineWidth}
+												perfectDrawEnabled={false}
+												listening={false}
+											/>
+										)}
+
+										{/* Editovací indikátor */}
+										{text.isEditing && (
+											<Rect
+												x={text.x - 5}
+												y={text.y - 5}
+												width={(text.width || 100) + 10}
+												height={(text.height || 50) + 10}
+												stroke="#3b82f6"
+												strokeWidth={2}
+												dash={[5, 5]}
+												listening={false}
+											/>
+										)}
+									</React.Fragment>
+								);
+							})}
+
 						{/* Gradients - render after all objects */}
 						{gradients
 							.filter((g) => isLayerVisible(g.layerId))
@@ -2310,6 +2733,31 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 						{selectedId && <Transformer ref={transformerRef} />}
 					</Layer>
 				</Stage>
+
+				{/* Textarea pre editáciu textu */}
+				{editingTextId && textAreaPosition && (
+					<textarea
+						autoFocus
+						className="fixed bg-white text-black border-2 border-blue-500 rounded p-2 resize-none z-50 shadow-lg"
+						style={{
+							fontFamily: textObjects.find(t => t.id === editingTextId)?.fontFamily || "Arial",
+							fontSize: `${textObjects.find(t => t.id === editingTextId)?.fontSize || 16}px`,
+							fontWeight: textObjects.find(t => t.id === editingTextId)?.fontWeight || "normal",
+							fontStyle: textObjects.find(t => t.id === editingTextId)?.fontStyle || "normal",
+							left: `${textAreaPosition.x}px`,
+							top: `${textAreaPosition.y}px`,
+							width: `${Math.max(100, textAreaPosition.width)}px`,
+							height: `${Math.max(50, textAreaPosition.height)}px`,
+							textAlign: textObjects.find(t => t.id === editingTextId)?.textAlign as any || "left",
+							lineHeight: `${(textObjects.find(t => t.id === editingTextId)?.lineHeight || 1.2)}`,
+							letterSpacing: `${textObjects.find(t => t.id === editingTextId)?.letterSpacing || 0}px`,
+						}}
+						value={textObjects.find(t => t.id === editingTextId)?.text || ""}
+						onChange={handleTextAreaChange}
+						onKeyDown={handleTextAreaKeyDown}
+						onBlur={handleTextAreaBlur}
+					/>
+				)}
 			</div>
 
 			<div className="absolute bottom-4 right-4 bg-black/50 text-white text-xs px-3 py-1.5 rounded pointer-events-none z-10">

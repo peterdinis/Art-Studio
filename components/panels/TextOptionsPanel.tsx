@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
-import { useArtStudioStore } from "@/stores/artStudioStore";
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import { useArtStudioStore, Tool } from "@/stores/artStudioStore";
 import { Label } from "@/components/ui/label";
 import {
 	Select,
@@ -39,6 +39,21 @@ import {
 	Eye,
 	EyeOff,
 	MousePointer,
+	Move,
+	Maximize2,
+	Minimize2,
+	Layers,
+	ArrowUp,
+	ArrowDown,
+	Link,
+	Unlink,
+	Heading,
+	List,
+	Quote,
+	Code,
+	Subscript,
+	Superscript,
+	Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -57,6 +72,9 @@ const FONT_FAMILIES = [
 	{ value: "Palatino", label: "Palatino" },
 	{ value: "Garamond", label: "Garamond" },
 	{ value: "Bookman", label: "Bookman" },
+	{ value: "Monaco", label: "Monaco" },
+	{ value: "Consolas", label: "Consolas" },
+	{ value: "Cambria", label: "Cambria" },
 ];
 
 const FONT_SIZES = [
@@ -64,37 +82,25 @@ const FONT_SIZES = [
 	96, 120,
 ];
 
-interface TextObject {
-	id: string;
-	text: string;
-	x: number;
-	y: number;
-	width?: number;
-	height?: number;
-	fontFamily: string;
-	fontSize: number;
-	fontWeight: string;
-	fontStyle: string;
-	textDecoration: string;
-	textAlign: string;
-	lineHeight: number;
-	letterSpacing: number;
-	color: string;
-	backgroundColor?: string;
-	backgroundOpacity?: number;
-	shadowColor?: string;
-	shadowBlur?: number;
-	shadowOffsetX?: number;
-	shadowOffsetY?: number;
-	outlineColor?: string;
-	outlineWidth?: number;
-	rotation?: number;
-	opacity?: number;
-	wrap: "word" | "char" | "none";
-	padding?: number;
-	isEditing?: boolean;
-	layerId: string;
-}
+const TEXT_TRANSFORMS = [
+	{ value: "none", label: "Žiadna" },
+	{ value: "uppercase", label: "VŠETKO VEĽKÉ" },
+	{ value: "lowercase", label: "všetko malé" },
+	{ value: "capitalize", label: "Prvé Veľké" },
+];
+
+const TEXT_DECORATIONS = [
+	{ value: "none", label: "Žiadna" },
+	{ value: "underline", label: "Podčiarknuté" },
+	{ value: "line-through", label: "Prečiarknuté" },
+	{ value: "overline", label: "Nadčiarknuté" },
+];
+
+const TEXT_WRAPS = [
+	{ value: "word", label: "Podľa slov" },
+	{ value: "char", label: "Podľa znakov" },
+	{ value: "none", label: "Žiadne" },
+];
 
 export const TextOptionsPanel: React.FC = () => {
 	const {
@@ -109,15 +115,32 @@ export const TextOptionsPanel: React.FC = () => {
 		setSelectedId,
 		activeTool,
 		setActiveTool,
+		textObjects,
+		editingTextId,
+		addTextObject,
+		updateTextObject,
+		deleteTextObject,
+		startTextEdit,
+		cancelTextEdit,
+		setEditingTextId,
+		addToHistory,
 	} = useArtStudioStore();
 
 	const [isEditing, setIsEditing] = useState(false);
 	const [editText, setEditText] = useState("");
 	const [activeTextId, setActiveTextId] = useState<string | null>(null);
-	const [textObjects, setTextObjects] = useState<TextObject[]>([]);
 	const [showPreview, setShowPreview] = useState(true);
 	const [customFonts, setCustomFonts] = useState<string[]>([]);
+	const [selectedTextIndex, setSelectedTextIndex] = useState<number>(0);
+	const [textMetrics, setTextMetrics] = useState<{
+		width: number;
+		height: number;
+		lines: number;
+	}>({ width: 0, height: 0, lines: 0 });
+
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
+	const previewRef = useRef<HTMLDivElement>(null);
+	const fileInputRef = useRef<HTMLInputElement>(null);
 
 	// Bezpečné získanie hodnôt
 	const safeBrushSettings = {
@@ -148,52 +171,32 @@ export const TextOptionsPanel: React.FC = () => {
 		textEditingMode: brushSettings.textEditingMode ?? "inline",
 	};
 
-	// Načítanie textových objektov z canvasu
+	// Načítanie textových objektov
 	useEffect(() => {
-		const handleGetTextObjects = () => {
-			window.dispatchEvent(new CustomEvent("artstudio:request-text-objects"));
-		};
-
-		const handleTextObjectsReceived = (e: CustomEvent) => {
-			if (e.detail?.textObjects) {
-				setTextObjects(e.detail.textObjects);
-
-				// Ak je vybraný text, nastavíme ho ako aktívny
-				if (selectedId) {
-					const text = e.detail.textObjects.find(
-						(t: TextObject) => t.id === selectedId,
-					);
-					if (text) {
-						setActiveTextId(text.id);
-						setEditText(text.text);
-						if (text.isEditing) {
-							setIsEditing(true);
-							setTimeout(() => textareaRef.current?.focus(), 100);
-						}
-					}
-				}
-			}
-		};
-
-		window.addEventListener(
-			"artstudio:text-objects",
-			handleTextObjectsReceived as EventListener,
+		// Nájsť aktívny text podľa selectedId alebo editingTextId
+		const activeText = textObjects.find(
+			(t) => t.id === selectedId || t.id === editingTextId
 		);
 
-		// Požiadame o textové objekty
-		handleGetTextObjects();
+		if (activeText) {
+			setActiveTextId(activeText.id);
+			setEditText(activeText.text);
+			setIsEditing(activeText.isEditing || false);
 
-		// Interval na obnovenie dát každých 2 sekundy
-		const interval = setInterval(handleGetTextObjects, 2000);
-
-		return () => {
-			window.removeEventListener(
-				"artstudio:text-objects",
-				handleTextObjectsReceived as EventListener,
-			);
-			clearInterval(interval);
-		};
-	}, [selectedId]);
+			// Vypočítať metriky textu
+			calculateTextMetrics(activeText.text, activeText);
+		} else if (textObjects.length > 0) {
+			// Zobraziť prvý text objekt
+			const firstText = textObjects[0];
+			setActiveTextId(firstText.id);
+			setEditText(firstText.text);
+			setSelectedTextIndex(0);
+			calculateTextMetrics(firstText.text, firstText);
+		} else {
+			setActiveTextId(null);
+			setEditText("");
+		}
+	}, [textObjects, selectedId, editingTextId]);
 
 	// Focus textarea keď začíname editovať
 	useEffect(() => {
@@ -205,9 +208,75 @@ export const TextOptionsPanel: React.FC = () => {
 		}
 	}, [isEditing]);
 
+	// Vypočítať metriky textu
+	const calculateTextMetrics = useCallback((text: string, textObj?: any) => {
+		if (!previewRef.current) return;
+
+		const canvas = document.createElement('canvas');
+		const ctx = canvas.getContext('2d');
+		if (!ctx) return;
+
+		const fontSize = textObj?.fontSize || safeBrushSettings.fontSize;
+		const fontFamily = textObj?.fontFamily || safeBrushSettings.fontFamily;
+		const fontWeight = textObj?.fontWeight || safeBrushSettings.fontWeight;
+		const fontStyle = textObj?.fontStyle || safeBrushSettings.fontStyle;
+		const letterSpacing = textObj?.letterSpacing || safeBrushSettings.letterSpacing;
+
+		ctx.font = `${fontWeight} ${fontStyle} ${fontSize}px ${fontFamily}`;
+
+		// Approximate width calculation
+		const metrics = ctx.measureText(text);
+		const width = metrics.width + (letterSpacing * text.length);
+		const height = fontSize * 1.2;
+		const lines = Math.ceil(width / 300); // Assume 300px max width per line
+
+		setTextMetrics({
+			width: Math.round(width),
+			height: Math.round(height),
+			lines,
+		});
+	}, [safeBrushSettings]);
+
+	// Handle text change in preview
+	useEffect(() => {
+		calculateTextMetrics(editText);
+	}, [editText, calculateTextMetrics]);
+
+	// Navigácia medzi textovými objektmi
+	const navigateText = (direction: 'prev' | 'next') => {
+		if (textObjects.length === 0) return;
+
+		const currentIndex = textObjects.findIndex(t => t.id === activeTextId);
+		let newIndex = currentIndex;
+
+		if (direction === 'prev') {
+			newIndex = currentIndex > 0 ? currentIndex - 1 : textObjects.length - 1;
+		} else {
+			newIndex = currentIndex < textObjects.length - 1 ? currentIndex + 1 : 0;
+		}
+
+		const text = textObjects[newIndex];
+		setActiveTextId(text.id);
+		setEditText(text.text);
+		setSelectedTextIndex(newIndex);
+		setSelectedId(text.id);
+
+		// Informovať canvas o výbere
+		window.dispatchEvent(
+			new CustomEvent("artstudio:select-text", {
+				detail: { textId: text.id },
+			}),
+		);
+	};
+
 	// Vytvorenie nového textu
-	const createNewText = () => {
-		const newText: TextObject = {
+	const createNewText = useCallback(() => {
+		if (!activeLayerId) {
+			toast.error("Vyberte vrstvu pre text");
+			return;
+		}
+
+		const newText = {
 			id: `text-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
 			text: "Kliknite pre editáciu textu",
 			x: 100,
@@ -217,52 +286,58 @@ export const TextOptionsPanel: React.FC = () => {
 			fontWeight: safeBrushSettings.fontWeight,
 			fontStyle: safeBrushSettings.fontStyle,
 			textDecoration: safeBrushSettings.textDecoration,
-			textAlign: safeBrushSettings.textAlign,
+			textAlign: safeBrushSettings.textAlign as "left" | "center" | "right" | "justify",
 			lineHeight: safeBrushSettings.lineHeight,
 			letterSpacing: safeBrushSettings.letterSpacing,
 			color: primaryColor,
-			wrap: safeBrushSettings.textWrap,
+			wrap: safeBrushSettings.textWrap as "word" | "char" | "none",
 			padding: safeBrushSettings.textPadding,
 			opacity: safeBrushSettings.textOpacity,
 			isEditing: safeBrushSettings.textEditingMode === "inline",
-			layerId: activeLayerId || "layer-1",
+			layerId: activeLayerId,
 		};
 
 		// Pridať efekty podľa nastavení
 		if (safeBrushSettings.textShadow) {
-			newText.shadowColor = safeBrushSettings.textShadowColor;
-			newText.shadowBlur = safeBrushSettings.textShadowBlur;
-			newText.shadowOffsetX = safeBrushSettings.textShadowOffsetX;
-			newText.shadowOffsetY = safeBrushSettings.textShadowOffsetY;
+			Object.assign(newText, {
+				shadowColor: safeBrushSettings.textShadowColor,
+				shadowBlur: safeBrushSettings.textShadowBlur,
+				shadowOffsetX: safeBrushSettings.textShadowOffsetX,
+				shadowOffsetY: safeBrushSettings.textShadowOffsetY,
+			});
 		}
 
 		if (safeBrushSettings.textOutline) {
-			newText.outlineColor = safeBrushSettings.textOutlineColor;
-			newText.outlineWidth = safeBrushSettings.textOutlineWidth;
+			Object.assign(newText, {
+				outlineColor: safeBrushSettings.textOutlineColor,
+				outlineWidth: safeBrushSettings.textOutlineWidth,
+			});
 		}
 
 		if (safeBrushSettings.textBackground) {
-			newText.backgroundColor = safeBrushSettings.textBackgroundColor;
-			newText.backgroundOpacity = safeBrushSettings.textBackgroundOpacity;
+			Object.assign(newText, {
+				backgroundColor: safeBrushSettings.textBackgroundColor,
+				backgroundOpacity: safeBrushSettings.textBackgroundOpacity,
+			});
 		}
 
-		// Odoslať do canvasu
-		window.dispatchEvent(
-			new CustomEvent("artstudio:add-text", {
-				detail: { textObject: newText },
-			}),
-		);
-
+		addTextObject(newText);
 		setActiveTextId(newText.id);
 		setEditText(newText.text);
 		setIsEditing(safeBrushSettings.textEditingMode === "inline");
 		setSelectedId(newText.id);
 
+		// Automaticky začať editáciu
+		if (safeBrushSettings.textEditingMode === "inline") {
+			startTextEdit(newText.id);
+		}
+
 		toast.success("Nový text vytvorený");
-	};
+		addToHistory?.(JSON.stringify({ action: "text_add", text: newText }), "", "Text added");
+	}, [activeLayerId, safeBrushSettings, primaryColor, addTextObject, startTextEdit, setSelectedId, addToHistory]);
 
 	// Začatie editácie existujúceho textu
-	const startEditing = (textId: string) => {
+	const startEditing = useCallback((textId: string) => {
 		const text = textObjects.find((t) => t.id === textId);
 		if (!text) return;
 
@@ -271,16 +346,13 @@ export const TextOptionsPanel: React.FC = () => {
 		setIsEditing(true);
 		setSelectedId(textId);
 
-		// Informovať canvas o začatí editácie
-		window.dispatchEvent(
-			new CustomEvent("artstudio:start-text-edit", {
-				detail: { textId },
-			}),
-		);
-	};
+		startTextEdit(textId);
+
+		toast.info("Editácia textu spustená");
+	}, [textObjects, startTextEdit, setSelectedId]);
 
 	// Uloženie editovaného textu
-	const saveTextEdit = () => {
+	const saveTextEdit = useCallback(() => {
 		if (!activeTextId) return;
 
 		// Aplikovať transformáciu textu
@@ -299,124 +371,10 @@ export const TextOptionsPanel: React.FC = () => {
 				break;
 		}
 
-		// Odoslať aktualizáciu do canvasu
-		window.dispatchEvent(
-			new CustomEvent("artstudio:update-text", {
-				detail: {
-					textId: activeTextId,
-					updates: {
-						text: transformedText,
-						isEditing: false,
-						fontFamily: safeBrushSettings.fontFamily,
-						fontSize: safeBrushSettings.fontSize,
-						fontWeight: safeBrushSettings.fontWeight,
-						fontStyle: safeBrushSettings.fontStyle,
-						textDecoration: safeBrushSettings.textDecoration,
-						textAlign: safeBrushSettings.textAlign,
-						lineHeight: safeBrushSettings.lineHeight,
-						letterSpacing: safeBrushSettings.letterSpacing,
-						color: primaryColor,
-						wrap: safeBrushSettings.textWrap,
-						padding: safeBrushSettings.textPadding,
-						opacity: safeBrushSettings.textOpacity,
-						shadowColor: safeBrushSettings.textShadow
-							? safeBrushSettings.textShadowColor
-							: undefined,
-						shadowBlur: safeBrushSettings.textShadow
-							? safeBrushSettings.textShadowBlur
-							: undefined,
-						shadowOffsetX: safeBrushSettings.textShadow
-							? safeBrushSettings.textShadowOffsetX
-							: undefined,
-						shadowOffsetY: safeBrushSettings.textShadow
-							? safeBrushSettings.textShadowOffsetY
-							: undefined,
-						outlineColor: safeBrushSettings.textOutline
-							? safeBrushSettings.textOutlineColor
-							: undefined,
-						outlineWidth: safeBrushSettings.textOutline
-							? safeBrushSettings.textOutlineWidth
-							: undefined,
-						backgroundColor: safeBrushSettings.textBackground
-							? safeBrushSettings.textBackgroundColor
-							: undefined,
-						backgroundOpacity: safeBrushSettings.textBackground
-							? safeBrushSettings.textBackgroundOpacity
-							: undefined,
-					},
-				},
-			}),
-		);
-
-		setIsEditing(false);
-		toast.success("Text uložený");
-	};
-
-	// Zrušenie editácie
-	const cancelTextEdit = () => {
-		setIsEditing(false);
-		if (activeTextId) {
-			window.dispatchEvent(
-				new CustomEvent("artstudio:cancel-text-edit", {
-					detail: { textId: activeTextId },
-				}),
-			);
-		}
-	};
-
-	// Odstránenie textu
-	const deleteText = () => {
-		if (!activeTextId) return;
-
-		if (confirm("Naozaj chcete odstrániť tento text?")) {
-			window.dispatchEvent(
-				new CustomEvent("artstudio:delete-text", {
-					detail: { textId: activeTextId },
-				}),
-			);
-
-			setActiveTextId(null);
-			setEditText("");
-			setIsEditing(false);
-			setSelectedId(null);
-
-			toast.success("Text odstránený");
-		}
-	};
-
-	// Duplikovanie textu
-	const duplicateText = () => {
-		if (!activeTextId) return;
-
-		const originalText = textObjects.find((t) => t.id === activeTextId);
-		if (!originalText) return;
-
-		const duplicatedText: TextObject = {
-			...originalText,
-			id: `text-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-			x: originalText.x + 20,
-			y: originalText.y + 20,
+		// Vytvoriť aktualizácie
+		const updates: any = {
+			text: transformedText,
 			isEditing: false,
-		};
-
-		window.dispatchEvent(
-			new CustomEvent("artstudio:add-text", {
-				detail: { textObject: duplicatedText },
-			}),
-		);
-
-		setActiveTextId(duplicatedText.id);
-		setEditText(duplicatedText.text);
-		setSelectedId(duplicatedText.id);
-
-		toast.success("Text duplikovaný");
-	};
-
-	// Aplikovanie aktuálnych nastavení na vybraný text
-	const applySettingsToText = () => {
-		if (!activeTextId) return;
-
-		const updates = {
 			fontFamily: safeBrushSettings.fontFamily,
 			fontSize: safeBrushSettings.fontSize,
 			fontWeight: safeBrushSettings.fontWeight,
@@ -429,48 +387,149 @@ export const TextOptionsPanel: React.FC = () => {
 			wrap: safeBrushSettings.textWrap,
 			padding: safeBrushSettings.textPadding,
 			opacity: safeBrushSettings.textOpacity,
-			shadowColor: safeBrushSettings.textShadow
-				? safeBrushSettings.textShadowColor
-				: undefined,
-			shadowBlur: safeBrushSettings.textShadow
-				? safeBrushSettings.textShadowBlur
-				: undefined,
-			shadowOffsetX: safeBrushSettings.textShadow
-				? safeBrushSettings.textShadowOffsetX
-				: undefined,
-			shadowOffsetY: safeBrushSettings.textShadow
-				? safeBrushSettings.textShadowOffsetY
-				: undefined,
-			outlineColor: safeBrushSettings.textOutline
-				? safeBrushSettings.textOutlineColor
-				: undefined,
-			outlineWidth: safeBrushSettings.textOutline
-				? safeBrushSettings.textOutlineWidth
-				: undefined,
-			backgroundColor: safeBrushSettings.textBackground
-				? safeBrushSettings.textBackgroundColor
-				: undefined,
-			backgroundOpacity: safeBrushSettings.textBackground
-				? safeBrushSettings.textBackgroundOpacity
-				: undefined,
 		};
 
-		window.dispatchEvent(
-			new CustomEvent("artstudio:update-text", {
-				detail: { textId: activeTextId, updates },
-			}),
-		);
+		// Pridať efekty, ak sú aktívne
+		if (safeBrushSettings.textShadow) {
+			updates.shadowColor = safeBrushSettings.textShadowColor;
+			updates.shadowBlur = safeBrushSettings.textShadowBlur;
+			updates.shadowOffsetX = safeBrushSettings.textShadowOffsetX;
+			updates.shadowOffsetY = safeBrushSettings.textShadowOffsetY;
+		}
+
+		if (safeBrushSettings.textOutline) {
+			updates.outlineColor = safeBrushSettings.textOutlineColor;
+			updates.outlineWidth = safeBrushSettings.textOutlineWidth;
+		}
+
+		if (safeBrushSettings.textBackground) {
+			updates.backgroundColor = safeBrushSettings.textBackgroundColor;
+			updates.backgroundOpacity = safeBrushSettings.textBackgroundOpacity;
+		}
+
+		updateTextObject(activeTextId, updates);
+		setIsEditing(false);
+		setEditingTextId(null);
+
+		toast.success("Text uložený");
+		addToHistory?.(JSON.stringify({ action: "text_edit", textId: activeTextId, updates }), "", "Text edited");
+	}, [activeTextId, editText, safeBrushSettings, primaryColor, updateTextObject, setEditingTextId, addToHistory]);
+
+	// Zrušenie editácie
+	const cancelTextEditAction = useCallback(() => {
+		if (!activeTextId) return;
+
+		setIsEditing(false);
+		cancelTextEdit(activeTextId);
+
+		// Obnoviť pôvodný text
+		const originalText = textObjects.find(t => t.id === activeTextId);
+		if (originalText) {
+			setEditText(originalText.text);
+		}
+
+		toast.info("Editácia zrušená");
+	}, [activeTextId, cancelTextEdit, textObjects]);
+
+	// Odstránenie textu
+	const deleteText = useCallback(() => {
+		if (!activeTextId) return;
+
+		if (confirm("Naozaj chcete odstrániť tento text?")) {
+			deleteTextObject(activeTextId);
+
+			// Nájsť ďalší text pre zobrazenie
+			const remainingTexts = textObjects.filter(t => t.id !== activeTextId);
+			if (remainingTexts.length > 0) {
+				const nextText = remainingTexts[0];
+				setActiveTextId(nextText.id);
+				setEditText(nextText.text);
+				setSelectedId(nextText.id);
+			} else {
+				setActiveTextId(null);
+				setEditText("");
+				setSelectedId(null);
+			}
+
+			toast.success("Text odstránený");
+			addToHistory?.(JSON.stringify({ action: "text_delete", textId: activeTextId }), "", "Text deleted");
+		}
+	}, [activeTextId, deleteTextObject, textObjects, setSelectedId, addToHistory]);
+
+	// Duplikovanie textu
+	const duplicateText = useCallback(() => {
+		if (!activeTextId) return;
+
+		const originalText = textObjects.find((t) => t.id === activeTextId);
+		if (!originalText) return;
+
+		const duplicatedText = {
+			...originalText,
+			id: `text-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+			x: originalText.x + 20,
+			y: originalText.y + 20,
+			isEditing: false,
+		};
+
+		addTextObject(duplicatedText);
+		setActiveTextId(duplicatedText.id);
+		setEditText(duplicatedText.text);
+		setSelectedId(duplicatedText.id);
+
+		toast.success("Text duplikovaný");
+		addToHistory?.(JSON.stringify({ action: "text_duplicate", textId: activeTextId, newTextId: duplicatedText.id }), "", "Text duplicated");
+	}, [activeTextId, textObjects, addTextObject, setSelectedId, addToHistory]);
+
+	// Aplikovanie aktuálnych nastavení na vybraný text
+	const applySettingsToText = useCallback(() => {
+		if (!activeTextId) return;
+
+		const updates: any = {
+			fontFamily: safeBrushSettings.fontFamily,
+			fontSize: safeBrushSettings.fontSize,
+			fontWeight: safeBrushSettings.fontWeight,
+			fontStyle: safeBrushSettings.fontStyle,
+			textDecoration: safeBrushSettings.textDecoration,
+			textAlign: safeBrushSettings.textAlign,
+			lineHeight: safeBrushSettings.lineHeight,
+			letterSpacing: safeBrushSettings.letterSpacing,
+			color: primaryColor,
+			wrap: safeBrushSettings.textWrap,
+			padding: safeBrushSettings.textPadding,
+			opacity: safeBrushSettings.textOpacity,
+		};
+
+		// Pridať efekty, ak sú aktívne
+		if (safeBrushSettings.textShadow) {
+			updates.shadowColor = safeBrushSettings.textShadowColor;
+			updates.shadowBlur = safeBrushSettings.textShadowBlur;
+			updates.shadowOffsetX = safeBrushSettings.textShadowOffsetX;
+			updates.shadowOffsetY = safeBrushSettings.textShadowOffsetY;
+		}
+
+		if (safeBrushSettings.textOutline) {
+			updates.outlineColor = safeBrushSettings.textOutlineColor;
+			updates.outlineWidth = safeBrushSettings.textOutlineWidth;
+		}
+
+		if (safeBrushSettings.textBackground) {
+			updates.backgroundColor = safeBrushSettings.textBackgroundColor;
+			updates.backgroundOpacity = safeBrushSettings.textBackgroundOpacity;
+		}
+
+		updateTextObject(activeTextId, updates);
 
 		toast.success("Nastavenia aplikované na text");
-	};
+		addToHistory?.(JSON.stringify({ action: "text_apply_settings", textId: activeTextId, updates }), "", "Text settings applied");
+	}, [activeTextId, safeBrushSettings, primaryColor, updateTextObject, addToHistory]);
 
 	// Aplikovanie nastavení na všetky texty
-	const applySettingsToAllTexts = () => {
+	const applySettingsToAllTexts = useCallback(() => {
 		if (textObjects.length === 0) return;
 
-		if (confirm("Aplikovať nastavenia na všetky texty?")) {
+		if (confirm(`Aplikovať nastavenia na všetkých ${textObjects.length} textov?`)) {
 			textObjects.forEach((text) => {
-				const updates = {
+				const updates: any = {
 					fontFamily: safeBrushSettings.fontFamily,
 					fontSize: safeBrushSettings.fontSize,
 					fontWeight: safeBrushSettings.fontWeight,
@@ -485,19 +544,16 @@ export const TextOptionsPanel: React.FC = () => {
 					opacity: safeBrushSettings.textOpacity,
 				};
 
-				window.dispatchEvent(
-					new CustomEvent("artstudio:update-text", {
-						detail: { textId: text.id, updates },
-					}),
-				);
+				updateTextObject(text.id, updates);
 			});
 
 			toast.success(`Nastavenia aplikované na ${textObjects.length} textov`);
+			addToHistory?.(JSON.stringify({ action: "text_apply_all_settings", count: textObjects.length }), "", "Settings applied to all texts");
 		}
-	};
+	}, [textObjects, safeBrushSettings, primaryColor, updateTextObject, addToHistory]);
 
 	// Load custom font
-	const loadCustomFont = () => {
+	const loadCustomFont = useCallback(() => {
 		const input = document.createElement("input");
 		input.type = "file";
 		input.accept = ".ttf,.otf,.woff,.woff2";
@@ -520,13 +576,144 @@ export const TextOptionsPanel: React.FC = () => {
 			}
 		};
 		input.click();
-	};
+	}, [customFonts, setBrushSettings]);
+
+	// Import text from file
+	const importTextFromFile = useCallback(() => {
+		if (!fileInputRef.current) return;
+		fileInputRef.current.click();
+	}, []);
+
+	const handleFileImport = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+		const file = event.target.files?.[0];
+		if (!file) return;
+
+		const reader = new FileReader();
+		reader.onload = (e) => {
+			const content = e.target?.result as string;
+			setEditText(content);
+			toast.success(`Text importovaný z ${file.name}`);
+		};
+		reader.readAsText(file);
+
+		// Reset file input
+		if (fileInputRef.current) {
+			fileInputRef.current.value = "";
+		}
+	}, []);
+
+	// Export text to file
+	const exportTextToFile = useCallback(() => {
+		if (!editText) {
+			toast.error("Žiadny text na export");
+			return;
+		}
+
+		const blob = new Blob([editText], { type: "text/plain" });
+		const url = URL.createObjectURL(blob);
+		const a = document.createElement("a");
+		a.href = url;
+		a.download = `text-${Date.now()}.txt`;
+		document.body.appendChild(a);
+		a.click();
+		document.body.removeChild(a);
+		URL.revokeObjectURL(url);
+
+		toast.success("Text exportovaný");
+	}, [editText]);
+
+	// Reset all text settings
+	const resetTextSettings = useCallback(() => {
+		if (confirm("Resetovať všetky nastavenia textu?")) {
+			setBrushSettings({
+				fontFamily: "Arial",
+				fontSize: 16,
+				fontWeight: "normal",
+				fontStyle: "normal",
+				textDecoration: "none",
+				textAlign: "left",
+				lineHeight: 1.2,
+				letterSpacing: 0,
+				textWrap: "word",
+				textPadding: 4,
+				textOpacity: 100,
+				textShadow: false,
+				textShadowColor: "#00000080",
+				textShadowBlur: 5,
+				textShadowOffsetX: 2,
+				textShadowOffsetY: 2,
+				textOutline: false,
+				textOutlineColor: "#ffffff",
+				textOutlineWidth: 1,
+				textTransform: "none",
+				textBackground: false,
+				textBackgroundColor: "#ffffff",
+				textBackgroundOpacity: 20,
+				textEditingMode: "inline",
+			});
+			toast.success("Nastavenia textu resetované");
+		}
+	}, [setBrushSettings]);
+
+	// Automaticky vypnúť editáciu pri prepnutí nástrojov
+	useEffect(() => {
+		if (activeTool !== "text" && isEditing) {
+			saveTextEdit();
+		}
+	}, [activeTool, isEditing, saveTextEdit]);
+
+	// Zavrieť editáciu pri odchode z panelu
+	useEffect(() => {
+		return () => {
+			if (isEditing) {
+				saveTextEdit();
+			}
+		};
+	}, [isEditing, saveTextEdit]);
+
+	// Keyboard shortcuts
+	useEffect(() => {
+		const handleKeyDown = (e: KeyboardEvent) => {
+			if (!activeTextId) return;
+
+			// Ctrl/Cmd + S - save
+			if ((e.ctrlKey || e.metaKey) && e.key === "s" && isEditing) {
+				e.preventDefault();
+				saveTextEdit();
+			}
+
+			// Ctrl/Cmd + D - duplicate
+			if ((e.ctrlKey || e.metaKey) && e.key === "d" && activeTextId) {
+				e.preventDefault();
+				duplicateText();
+			}
+
+			// Delete key - delete text
+			if (e.key === "Delete" && activeTextId && !isEditing) {
+				e.preventDefault();
+				deleteText();
+			}
+
+			// Arrow keys for navigation
+			if (e.key === "ArrowLeft" && textObjects.length > 1) {
+				e.preventDefault();
+				navigateText("prev");
+			}
+			if (e.key === "ArrowRight" && textObjects.length > 1) {
+				e.preventDefault();
+				navigateText("next");
+			}
+		};
+
+		window.addEventListener("keydown", handleKeyDown);
+		return () => window.removeEventListener("keydown", handleKeyDown);
+	}, [activeTextId, isEditing, saveTextEdit, duplicateText, deleteText, navigateText, textObjects.length]);
 
 	// Aktívny text objekt
 	const activeText = textObjects.find((t) => t.id === activeTextId);
 
 	// Transform text preview
-	const getTransformedText = (text: string) => {
+	const getTransformedText = useCallback((text: string) => {
 		switch (safeBrushSettings.textTransform) {
 			case "uppercase":
 				return text.toUpperCase();
@@ -537,6 +724,58 @@ export const TextOptionsPanel: React.FC = () => {
 			default:
 				return text;
 		}
+	}, [safeBrushSettings.textTransform]);
+
+	// Format text with sample formatting
+	const formatText = (format: string) => {
+		const textarea = textareaRef.current;
+		if (!textarea || !isEditing) return;
+
+		const start = textarea.selectionStart;
+		const end = textarea.selectionEnd;
+		const selectedText = editText.substring(start, end);
+		let formattedText = "";
+
+		switch (format) {
+			case "bold":
+				formattedText = `**${selectedText || "tučný text"}**`;
+				break;
+			case "italic":
+				formattedText = `*${selectedText || "kurzíva"}*`;
+				break;
+			case "underline":
+				formattedText = `__${selectedText || "podčiarknuté"}__`;
+				break;
+			case "strikethrough":
+				formattedText = `~~${selectedText || "prečiarknuté"}~~`;
+				break;
+			case "code":
+				formattedText = `\`${selectedText || "kód"}\``;
+				break;
+			case "heading":
+				formattedText = `# ${selectedText || "Nadpis"}`;
+				break;
+			case "list":
+				formattedText = `• ${selectedText || "položka zoznamu"}`;
+				break;
+			case "quote":
+				formattedText = `> ${selectedText || "citát"}`;
+				break;
+			default:
+				return;
+		}
+
+		const newText = editText.substring(0, start) + formattedText + editText.substring(end);
+		setEditText(newText);
+
+		// Update cursor position
+		setTimeout(() => {
+			if (textareaRef.current) {
+				const newCursorPos = start + formattedText.length;
+				textareaRef.current.setSelectionRange(newCursorPos, newCursorPos);
+				textareaRef.current.focus();
+			}
+		}, 0);
 	};
 
 	return (
@@ -560,6 +799,15 @@ export const TextOptionsPanel: React.FC = () => {
 						) : (
 							<Eye className="w-3 h-3" />
 						)}
+					</Button>
+					<Button
+						variant="ghost"
+						size="sm"
+						onClick={createNewText}
+						className="h-7 w-7 p-0"
+						title="Nový text"
+					>
+						<Plus className="w-3 h-3" />
 					</Button>
 				</div>
 			</div>
@@ -596,17 +844,41 @@ export const TextOptionsPanel: React.FC = () => {
 						<Label className="text-xs text-muted-foreground">
 							Textové objekty ({textObjects.length})
 						</Label>
-						<Button
-							variant="ghost"
-							size="sm"
-							onClick={applySettingsToAllTexts}
-							className="h-6 text-xs"
-						>
-							Aplikovať na všetky
-						</Button>
+						<div className="flex gap-1">
+							{textObjects.length > 1 && (
+								<>
+									<Button
+										variant="ghost"
+										size="sm"
+										onClick={() => navigateText('prev')}
+										className="h-6 w-6 p-0"
+										title="Predchádzajúci"
+									>
+										<ArrowUp className="w-3 h-3" />
+									</Button>
+									<Button
+										variant="ghost"
+										size="sm"
+										onClick={() => navigateText('next')}
+										className="h-6 w-6 p-0"
+										title="Ďalší"
+									>
+										<ArrowDown className="w-3 h-3" />
+									</Button>
+								</>
+							)}
+							<Button
+								variant="ghost"
+								size="sm"
+								onClick={applySettingsToAllTexts}
+								className="h-6 text-xs"
+							>
+								Aplikovať na všetky
+							</Button>
+						</div>
 					</div>
 					<div className="space-y-1 max-h-32 overflow-y-auto">
-						{textObjects.map((text) => (
+						{textObjects.map((text, index) => (
 							<div
 								key={text.id}
 								className={`flex items-center justify-between p-2 rounded text-xs cursor-pointer hover:bg-accent transition-colors ${activeTextId === text.id ? "bg-accent border border-primary/20" : ""}`}
@@ -614,6 +886,7 @@ export const TextOptionsPanel: React.FC = () => {
 									setActiveTextId(text.id);
 									setEditText(text.text);
 									setSelectedId(text.id);
+									setSelectedTextIndex(index);
 
 									// Označiť text v canvase
 									window.dispatchEvent(
@@ -636,13 +909,16 @@ export const TextOptionsPanel: React.FC = () => {
 										</span>
 									</div>
 									<div className="text-muted-foreground text-[10px]">
-										{text.fontSize}px {text.fontFamily}
+										{text.fontSize}px {text.fontFamily} • {text.text.length} zn.
 									</div>
 								</div>
 								<div className="flex gap-1">
 									{text.isEditing && (
-										<span className="text-[10px] text-green-600">EDIT</span>
+										<span className="text-[10px] text-green-600 px-1 py-0.5 bg-green-500/10 rounded">EDIT</span>
 									)}
+									<span className="text-[10px] text-muted-foreground">
+										{index + 1}/{textObjects.length}
+									</span>
 								</div>
 							</div>
 						))}
@@ -661,7 +937,7 @@ export const TextOptionsPanel: React.FC = () => {
 								variant="default"
 								className="h-6 w-6 p-0"
 								onClick={saveTextEdit}
-								title="Uložiť (Enter)"
+								title="Uložiť (Ctrl+S)"
 							>
 								<Check className="w-3 h-3" />
 							</Button>
@@ -669,7 +945,7 @@ export const TextOptionsPanel: React.FC = () => {
 								size="sm"
 								variant="ghost"
 								className="h-6 w-6 p-0"
-								onClick={cancelTextEdit}
+								onClick={cancelTextEditAction}
 								title="Zrušiť (Esc)"
 							>
 								<X className="w-3 h-3" />
@@ -688,21 +964,113 @@ export const TextOptionsPanel: React.FC = () => {
 								saveTextEdit();
 							}
 							if (e.key === "Escape") {
-								cancelTextEdit();
+								cancelTextEditAction();
 							}
 						}}
 					/>
 
-					<div className="flex items-center justify-between text-xs text-muted-foreground">
-						<span>{editText.length} znakov</span>
+					{/* Rýchle formátovanie */}
+					<div className="flex flex-wrap gap-1">
 						<Button
 							size="sm"
-							variant="ghost"
+							variant="outline"
 							className="h-6 text-xs"
-							onClick={() => navigator.clipboard.writeText(editText)}
+							onClick={() => formatText("bold")}
+							title="Tučné (Ctrl+B)"
 						>
-							Kopírovať
+							<Bold className="w-3 h-3" />
 						</Button>
+						<Button
+							size="sm"
+							variant="outline"
+							className="h-6 text-xs"
+							onClick={() => formatText("italic")}
+							title="Kurzíva (Ctrl+I)"
+						>
+							<Italic className="w-3 h-3" />
+						</Button>
+						<Button
+							size="sm"
+							variant="outline"
+							className="h-6 text-xs"
+							onClick={() => formatText("underline")}
+							title="Podčiarknuté (Ctrl+U)"
+						>
+							<Underline className="w-3 h-3" />
+						</Button>
+						<Button
+							size="sm"
+							variant="outline"
+							className="h-6 text-xs"
+							onClick={() => formatText("strikethrough")}
+							title="Prečiarknuté"
+						>
+							<Strikethrough className="w-3 h-3" />
+						</Button>
+						<Button
+							size="sm"
+							variant="outline"
+							className="h-6 text-xs"
+							onClick={() => formatText("code")}
+							title="Kód"
+						>
+							<Code className="w-3 h-3" />
+						</Button>
+						<Button
+							size="sm"
+							variant="outline"
+							className="h-6 text-xs"
+							onClick={() => formatText("heading")}
+							title="Nadpis"
+						>
+							<Heading className="w-3 h-3" />
+						</Button>
+						<Button
+							size="sm"
+							variant="outline"
+							className="h-6 text-xs"
+							onClick={() => formatText("list")}
+							title="Zoznam"
+						>
+							<List className="w-3 h-3" />
+						</Button>
+						<Button
+							size="sm"
+							variant="outline"
+							className="h-6 text-xs"
+							onClick={() => formatText("quote")}
+							title="Citát"
+						>
+							<Quote className="w-3 h-3" />
+						</Button>
+					</div>
+
+					<div className="flex items-center justify-between text-xs text-muted-foreground">
+						<div className="space-x-4">
+							<span>{editText.length} znakov</span>
+							<span>{editText.split(/\s+/).length} slov</span>
+							<span>{textMetrics.lines} riadkov</span>
+						</div>
+						<div className="flex gap-1">
+							<Button
+								size="sm"
+								variant="ghost"
+								className="h-6 text-xs"
+								onClick={() => navigator.clipboard.writeText(editText)}
+								title="Kopírovať text"
+							>
+								Kopírovať
+							</Button>
+							<Button
+								size="sm"
+								variant="ghost"
+								className="h-6 text-xs"
+								onClick={exportTextToFile}
+								title="Exportovať do súboru"
+							>
+								Export
+							</Button>
+						</div>
 					</div>
 				</div>
 			)}
@@ -765,21 +1133,25 @@ export const TextOptionsPanel: React.FC = () => {
 							>
 								<Minus className="w-3 h-3" />
 							</Button>
-							<Input
-								type="number"
-								value={safeBrushSettings.fontSize}
-								onChange={(e) =>
+							<Select
+								value={safeBrushSettings.fontSize.toString()}
+								onValueChange={(value) =>
 									setBrushSettings({
-										fontSize: Math.max(
-											6,
-											Math.min(200, parseInt(e.target.value) || 16),
-										),
+										fontSize: Math.max(6, Math.min(200, parseInt(value) || 16)),
 									})
 								}
-								className="h-7 text-xs text-center"
-								min="6"
-								max="200"
-							/>
+							>
+								<SelectTrigger className="h-7 text-xs">
+									<SelectValue />
+								</SelectTrigger>
+								<SelectContent className="max-h-60">
+									{FONT_SIZES.map((size) => (
+										<SelectItem key={size} value={size.toString()} className="text-xs">
+											{size}px
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
 							<Button
 								onClick={() =>
 									setBrushSettings({
@@ -801,7 +1173,7 @@ export const TextOptionsPanel: React.FC = () => {
 					<Label className="text-xs text-muted-foreground">Farba textu</Label>
 					<div className="flex items-center gap-2">
 						<div
-							className="w-8 h-8 rounded border cursor-pointer"
+							className="w-8 h-8 rounded border cursor-pointer relative group"
 							style={{ backgroundColor: primaryColor }}
 							onClick={() => {
 								const input = document.createElement("input");
@@ -813,11 +1185,15 @@ export const TextOptionsPanel: React.FC = () => {
 								};
 								input.click();
 							}}
-						/>
+						>
+							<div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+								<Palette className="w-4 h-4 text-white/80" />
+							</div>
+						</div>
 						<Input
 							value={primaryColor}
 							onChange={(e) => setPrimaryColor(e.target.value)}
-							className="h-8 text-xs flex-1"
+							className="h-8 text-xs flex-1 font-mono"
 							placeholder="#000000"
 						/>
 						<Button
@@ -838,34 +1214,45 @@ export const TextOptionsPanel: React.FC = () => {
 						>
 							<div className="w-4 h-4 rounded bg-white border"></div>
 						</Button>
+						<Button
+							variant="ghost"
+							size="sm"
+							className="h-8 w-8 p-0"
+							onClick={() => setPrimaryColor("#3b82f6")}
+							title="Modrá"
+						>
+							<div className="w-4 h-4 rounded bg-blue-500"></div>
+						</Button>
 					</div>
 				</div>
 
 				{/* Štýl písma */}
 				<div className="space-y-2">
 					<Label className="text-xs text-muted-foreground">Štýl písma</Label>
-					<div className="flex gap-1">
+					<div className="flex flex-wrap gap-1">
 						<Toggle
 							pressed={safeBrushSettings.fontWeight === "bold"}
 							onPressedChange={(pressed) =>
 								setBrushSettings({ fontWeight: pressed ? "bold" : "normal" })
 							}
-							className="h-8 w-8 p-0"
+							className="h-8 px-3"
 							aria-label="Tučné"
 							title="Tučné (Ctrl+B)"
 						>
-							<Bold className="w-4 h-4" />
+							<Bold className="w-4 h-4 mr-2" />
+							<span className="text-xs">Tučné</span>
 						</Toggle>
 						<Toggle
 							pressed={safeBrushSettings.fontStyle === "italic"}
 							onPressedChange={(pressed) =>
 								setBrushSettings({ fontStyle: pressed ? "italic" : "normal" })
 							}
-							className="h-8 w-8 p-0"
+							className="h-8 px-3"
 							aria-label="Kurzíva"
 							title="Kurzíva (Ctrl+I)"
 						>
-							<Italic className="w-4 h-4" />
+							<Italic className="w-4 h-4 mr-2" />
+							<span className="text-xs">Kurzíva</span>
 						</Toggle>
 						<Toggle
 							pressed={safeBrushSettings.textDecoration === "underline"}
@@ -874,11 +1261,12 @@ export const TextOptionsPanel: React.FC = () => {
 									textDecoration: pressed ? "underline" : "none",
 								})
 							}
-							className="h-8 w-8 p-0"
+							className="h-8 px-3"
 							aria-label="Podčiarknuté"
 							title="Podčiarknuté (Ctrl+U)"
 						>
-							<Underline className="w-4 h-4" />
+							<Underline className="w-4 h-4 mr-2" />
+							<span className="text-xs">Podčiark.</span>
 						</Toggle>
 						<Toggle
 							pressed={safeBrushSettings.textDecoration === "line-through"}
@@ -887,13 +1275,38 @@ export const TextOptionsPanel: React.FC = () => {
 									textDecoration: pressed ? "line-through" : "none",
 								})
 							}
-							className="h-8 w-8 p-0"
+							className="h-8 px-3"
 							aria-label="Prečiarknuté"
 							title="Prečiarknuté"
 						>
-							<Strikethrough className="w-4 h-4" />
+							<Strikethrough className="w-4 h-4 mr-2" />
+							<span className="text-xs">Prečiark.</span>
 						</Toggle>
 					</div>
+				</div>
+
+				{/* Text Transform */}
+				<div className="space-y-2">
+					<Label className="text-xs text-muted-foreground">
+						Transformácia textu
+					</Label>
+					<Select
+						value={safeBrushSettings.textTransform}
+						onValueChange={(value: "none" | "uppercase" | "lowercase" | "capitalize") =>
+							setBrushSettings({ textTransform: value })
+						}
+					>
+						<SelectTrigger className="w-full h-8 text-xs">
+							<SelectValue placeholder="Transformácia" />
+						</SelectTrigger>
+						<SelectContent>
+							{TEXT_TRANSFORMS.map((transform) => (
+								<SelectItem key={transform.value} value={transform.value} className="text-xs">
+									{transform.label}
+								</SelectItem>
+							))}
+						</SelectContent>
+					</Select>
 				</div>
 
 				{/* Zarovnanie */}
@@ -968,6 +1381,11 @@ export const TextOptionsPanel: React.FC = () => {
 						step={0.1}
 						className="w-full"
 					/>
+					<div className="flex justify-between text-xs text-muted-foreground">
+						<span>Kompaktné</span>
+						<span>Normálne</span>
+						<span>Vzdialené</span>
+					</div>
 				</div>
 
 				{/* Letter Spacing */}
@@ -990,37 +1408,57 @@ export const TextOptionsPanel: React.FC = () => {
 						step={0.5}
 						className="w-full"
 					/>
+					<div className="flex justify-between text-xs text-muted-foreground">
+						<span>Tesné</span>
+						<span>Normálne</span>
+						<span>Vzdialené</span>
+					</div>
 				</div>
 
-				{/* Text Transform */}
+				{/* Text Wrap */}
 				<div className="space-y-2">
 					<Label className="text-xs text-muted-foreground">
-						Transformácia textu
+						Zalamovanie textu
 					</Label>
 					<Select
-						value={safeBrushSettings.textTransform}
-						onValueChange={(
-							value: "none" | "uppercase" | "lowercase" | "capitalize",
-						) => setBrushSettings({ textTransform: value })}
+						value={safeBrushSettings.textWrap}
+						onValueChange={(value: "word" | "char" | "none") =>
+							setBrushSettings({ textWrap: value })
+						}
 					>
 						<SelectTrigger className="w-full h-8 text-xs">
-							<SelectValue placeholder="Transformácia" />
+							<SelectValue placeholder="Zalamovanie" />
 						</SelectTrigger>
 						<SelectContent>
-							<SelectItem value="none" className="text-xs">
-								Žiadna (normálny text)
-							</SelectItem>
-							<SelectItem value="uppercase" className="text-xs">
-								VŠETKO VEĽKÉ
-							</SelectItem>
-							<SelectItem value="lowercase" className="text-xs">
-								všetko malé
-							</SelectItem>
-							<SelectItem value="capitalize" className="text-xs">
-								Prvé Veľké
-							</SelectItem>
+							{TEXT_WRAPS.map((wrap) => (
+								<SelectItem key={wrap.value} value={wrap.value} className="text-xs">
+									{wrap.label}
+								</SelectItem>
+							))}
 						</SelectContent>
 					</Select>
+				</div>
+
+				{/* Padding */}
+				<div className="space-y-2">
+					<div className="flex justify-between items-center">
+						<Label className="text-xs text-muted-foreground">
+							Vnútorný odsadenie
+						</Label>
+						<span className="text-xs font-mono">
+							{safeBrushSettings.textPadding}px
+						</span>
+					</div>
+					<Slider
+						value={[safeBrushSettings.textPadding]}
+						onValueChange={([value]) =>
+							setBrushSettings({ textPadding: value })
+						}
+						min={0}
+						max={40}
+						step={1}
+						className="w-full"
+					/>
 				</div>
 
 				{/* Opacity */}
@@ -1063,24 +1501,35 @@ export const TextOptionsPanel: React.FC = () => {
 							<Label className="text-xs">Tieň</Label>
 						</div>
 						{safeBrushSettings.textShadow && (
-							<Button
-								variant="ghost"
-								size="sm"
-								className="h-6 text-xs"
-								onClick={() => {
-									const input = document.createElement("input");
-									input.type = "color";
-									input.value = safeBrushSettings.textShadowColor;
-									input.onchange = (e) => {
-										const color = (e.target as HTMLInputElement).value;
-										setBrushSettings({ textShadowColor: color });
-									};
-									input.click();
-								}}
-							>
-								<Palette className="w-3 h-3 mr-1" />
-								Farba
-							</Button>
+							<div className="flex gap-1">
+								<Button
+									variant="ghost"
+									size="sm"
+									className="h-6 w-6 p-0"
+									onClick={() => {
+										const input = document.createElement("input");
+										input.type = "color";
+										input.value = safeBrushSettings.textShadowColor;
+										input.onchange = (e) => {
+											const color = (e.target as HTMLInputElement).value;
+											setBrushSettings({ textShadowColor: color });
+										};
+										input.click();
+									}}
+									title="Farba tieňa"
+								>
+									<Palette className="w-3 h-3" />
+								</Button>
+								<Button
+									variant="ghost"
+									size="sm"
+									className="h-6 text-xs"
+									onClick={() => setBrushSettings({ textShadowBlur: 5 })}
+									title="Resetovať rozmazanie"
+								>
+									Reset
+								</Button>
+							</div>
 						)}
 					</div>
 					{safeBrushSettings.textShadow && (
@@ -1095,7 +1544,7 @@ export const TextOptionsPanel: React.FC = () => {
 										value={safeBrushSettings.textShadowBlur}
 										onChange={(e) =>
 											setBrushSettings({
-												textShadowBlur: parseInt(e.target.value),
+												textShadowBlur: parseInt(e.target.value) || 5,
 											})
 										}
 										className="h-7 text-xs"
@@ -1104,18 +1553,48 @@ export const TextOptionsPanel: React.FC = () => {
 									/>
 								</div>
 								<div className="space-y-1">
-									<Label className="text-xs text-muted-foreground">Posun</Label>
+									<Label className="text-xs text-muted-foreground">Posun X</Label>
 									<Input
 										type="number"
 										value={safeBrushSettings.textShadowOffsetX}
 										onChange={(e) =>
 											setBrushSettings({
-												textShadowOffsetX: parseInt(e.target.value),
+												textShadowOffsetX: parseInt(e.target.value) || 2,
 											})
 										}
 										className="h-7 text-xs"
 										min="-20"
 										max="20"
+									/>
+								</div>
+								<div className="space-y-1">
+									<Label className="text-xs text-muted-foreground">Posun Y</Label>
+									<Input
+										type="number"
+										value={safeBrushSettings.textShadowOffsetY}
+										onChange={(e) =>
+											setBrushSettings({
+												textShadowOffsetY: parseInt(e.target.value) || 2,
+											})
+										}
+										className="h-7 text-xs"
+										min="-20"
+										max="20"
+									/>
+								</div>
+								<div className="space-y-1">
+									<Label className="text-xs text-muted-foreground">Intenzita</Label>
+									<Slider
+										value={[parseInt(safeBrushSettings.textShadowColor.slice(-2), 16) || 128]}
+										onValueChange={([value]) => {
+											const alpha = Math.round(value).toString(16).padStart(2, '0');
+											const color = safeBrushSettings.textShadowColor.slice(0, 7) + alpha;
+											setBrushSettings({ textShadowColor: color });
+										}}
+										min={0}
+										max={255}
+										step={1}
+										className="w-full"
 									/>
 								</div>
 							</div>
@@ -1136,24 +1615,35 @@ export const TextOptionsPanel: React.FC = () => {
 							<Label className="text-xs">Obrys</Label>
 						</div>
 						{safeBrushSettings.textOutline && (
-							<Button
-								variant="ghost"
-								size="sm"
-								className="h-6 text-xs"
-								onClick={() => {
-									const input = document.createElement("input");
-									input.type = "color";
-									input.value = safeBrushSettings.textOutlineColor;
-									input.onchange = (e) => {
-										const color = (e.target as HTMLInputElement).value;
-										setBrushSettings({ textOutlineColor: color });
-									};
-									input.click();
-								}}
-							>
-								<Palette className="w-3 h-3 mr-1" />
-								Farba
-							</Button>
+							<div className="flex gap-1">
+								<Button
+									variant="ghost"
+									size="sm"
+									className="h-6 w-6 p-0"
+									onClick={() => {
+										const input = document.createElement("input");
+										input.type = "color";
+										input.value = safeBrushSettings.textOutlineColor;
+										input.onchange = (e) => {
+											const color = (e.target as HTMLInputElement).value;
+											setBrushSettings({ textOutlineColor: color });
+										};
+										input.click();
+									}}
+									title="Farba obrysu"
+								>
+									<Palette className="w-3 h-3" />
+								</Button>
+								<Button
+									variant="ghost"
+									size="sm"
+									className="h-6 text-xs"
+									onClick={() => setBrushSettings({ textOutlineWidth: 1 })}
+									title="Resetovať šírku"
+								>
+									Reset
+								</Button>
+							</div>
 						)}
 					</div>
 					{safeBrushSettings.textOutline && (
@@ -1190,24 +1680,35 @@ export const TextOptionsPanel: React.FC = () => {
 							<Label className="text-xs">Pozadie</Label>
 						</div>
 						{safeBrushSettings.textBackground && (
-							<Button
-								variant="ghost"
-								size="sm"
-								className="h-6 text-xs"
-								onClick={() => {
-									const input = document.createElement("input");
-									input.type = "color";
-									input.value = safeBrushSettings.textBackgroundColor;
-									input.onchange = (e) => {
-										const color = (e.target as HTMLInputElement).value;
-										setBrushSettings({ textBackgroundColor: color });
-									};
-									input.click();
-								}}
-							>
-								<Palette className="w-3 h-3 mr-1" />
-								Farba
-							</Button>
+							<div className="flex gap-1">
+								<Button
+									variant="ghost"
+									size="sm"
+									className="h-6 w-6 p-0"
+									onClick={() => {
+										const input = document.createElement("input");
+										input.type = "color";
+										input.value = safeBrushSettings.textBackgroundColor;
+										input.onchange = (e) => {
+											const color = (e.target as HTMLInputElement).value;
+											setBrushSettings({ textBackgroundColor: color });
+										};
+										input.click();
+									}}
+									title="Farba pozadia"
+								>
+									<Palette className="w-3 h-3" />
+								</Button>
+								<Button
+									variant="ghost"
+									size="sm"
+									className="h-6 text-xs"
+									onClick={() => setBrushSettings({ textBackgroundOpacity: 20 })}
+									title="Resetovať priehľadnosť"
+								>
+									Reset
+								</Button>
+							</div>
 						)}
 					</div>
 					{safeBrushSettings.textBackground && (
@@ -1237,46 +1738,53 @@ export const TextOptionsPanel: React.FC = () => {
 				<div className="pt-3 border-t">
 					<div className="flex justify-between items-center mb-2">
 						<Label className="text-xs font-medium">Náhľad textu</Label>
-						<Button
-							variant="ghost"
-							size="sm"
-							className="h-6 text-xs"
-							onClick={() =>
-								setBrushSettings({
-									fontFamily: "Arial",
-									fontSize: 16,
-									fontWeight: "normal",
-									fontStyle: "normal",
-									textDecoration: "none",
-									textAlign: "left",
-									lineHeight: 1.2,
-									letterSpacing: 0,
-									textTransform: "none",
-									textOpacity: 100,
-									textShadow: false,
-									textOutline: false,
-									textBackground: false,
-								})
-							}
-						>
-							<RotateCcw className="w-3 h-3 mr-1" />
-							Reset
-						</Button>
+						<div className="flex gap-1">
+							<Button
+								variant="ghost"
+								size="sm"
+								className="h-6 text-xs"
+								onClick={resetTextSettings}
+								title="Resetovať všetky nastavenia"
+							>
+								<RotateCcw className="w-3 h-3 mr-1" />
+								Reset
+							</Button>
+							<Button
+								variant="ghost"
+								size="sm"
+								className="h-6 text-xs"
+								onClick={importTextFromFile}
+								title="Importovať text zo súboru"
+							>
+								<Upload className="w-3 h-3 mr-1" />
+								Import
+							</Button>
+							<input
+								type="file"
+								ref={fileInputRef}
+								onChange={handleFileImport}
+								accept=".txt,.md,.html,.json"
+								className="hidden"
+							/>
+						</div>
 					</div>
 					<div
-						className="min-h-32 p-4 bg-muted/30 rounded-md border border-border/50 flex items-center justify-center relative"
+						ref={previewRef}
+						className="min-h-32 p-4 bg-muted/30 rounded-md border border-border/50 flex items-center justify-center relative overflow-auto"
 						style={{
 							backgroundColor: safeBrushSettings.textBackground
 								? `${safeBrushSettings.textBackgroundColor}${Math.round(
-										safeBrushSettings.textBackgroundOpacity * 2.55,
-									)
-										.toString(16)
-										.padStart(2, "0")}`
+									safeBrushSettings.textBackgroundOpacity * 2.55,
+								)
+									.toString(16)
+									.padStart(2, "0")}`
 								: "transparent",
+							minHeight: "120px",
+							maxHeight: "200px",
 						}}
 					>
 						<div
-							className="text-center transition-all duration-200"
+							className="text-center transition-all duration-200 p-2"
 							style={{
 								fontFamily: safeBrushSettings.fontFamily,
 								fontSize: `${safeBrushSettings.fontSize}px`,
@@ -1294,6 +1802,7 @@ export const TextOptionsPanel: React.FC = () => {
 									safeBrushSettings.textWrap === "none"
 										? "normal"
 										: "break-word",
+								whiteSpace: safeBrushSettings.textWrap === "none" ? "nowrap" : "normal",
 								textShadow: safeBrushSettings.textShadow
 									? `${safeBrushSettings.textShadowOffsetX}px ${safeBrushSettings.textShadowOffsetY}px ${safeBrushSettings.textShadowBlur}px ${safeBrushSettings.textShadowColor}`
 									: "none",
@@ -1310,14 +1819,26 @@ export const TextOptionsPanel: React.FC = () => {
 							)}
 						</div>
 						{isEditing && (
-							<div className="absolute top-2 right-2 px-2 py-1 bg-green-500 text-white text-xs rounded-full animate-pulse">
+							<div className="absolute top-2 right-2 px-2 py-1 bg-green-500 text-white text-xs rounded-full animate-pulse flex items-center gap-1">
+								<Edit2 className="w-3 h-3" />
 								EDITUJE SA
 							</div>
 						)}
+						{activeText && (
+							<div className="absolute bottom-2 left-2 text-xs text-muted-foreground bg-background/80 px-2 py-1 rounded">
+								{activeText.fontFamily} • {activeText.fontSize}px
+							</div>
+						)}
 					</div>
-					<div className="text-xs text-muted-foreground mt-2 text-center">
-						{safeBrushSettings.fontFamily} | {safeBrushSettings.fontSize}px |{" "}
-						{editText.length} znakov
+					<div className="text-xs text-muted-foreground mt-2 grid grid-cols-2 gap-2">
+						<div>
+							<span className="font-medium">Rozmery: </span>
+							{textMetrics.width} × {textMetrics.height}px
+						</div>
+						<div>
+							<span className="font-medium">Znaky: </span>
+							{editText.length} / {textMetrics.lines} riadkov
+						</div>
 					</div>
 				</div>
 			)}
@@ -1334,6 +1855,7 @@ export const TextOptionsPanel: React.FC = () => {
 							size="sm"
 							className="h-8 text-xs"
 							variant="default"
+							title="Aplikovať nastavenia na text (Ctrl+A)"
 						>
 							<Check className="w-3 h-3 mr-1" />
 							Aplikovať
@@ -1343,6 +1865,7 @@ export const TextOptionsPanel: React.FC = () => {
 							size="sm"
 							className="h-8 text-xs"
 							variant="outline"
+							title="Duplikovať text (Ctrl+D)"
 						>
 							<Copy className="w-3 h-3 mr-1" />
 							Duplikovať
@@ -1352,6 +1875,7 @@ export const TextOptionsPanel: React.FC = () => {
 							size="sm"
 							className="h-8 text-xs"
 							variant="destructive"
+							title="Odstrániť text (Delete)"
 						>
 							<Trash2 className="w-3 h-3 mr-1" />
 							Odstrániť
@@ -1369,10 +1893,45 @@ export const TextOptionsPanel: React.FC = () => {
 							size="sm"
 							className="h-8 text-xs"
 							variant="outline"
+							title="Vybrať text v canvase"
 						>
 							<MousePointer className="w-3 h-3 mr-1" />
 							Vybrať
 						</Button>
+					</div>
+				</div>
+			)}
+
+			{/* Klávesové skratky */}
+			<div className="pt-3 border-t">
+				<Label className="text-xs font-medium mb-2 block">Klávesové skratky</Label>
+				<div className="text-xs text-muted-foreground space-y-1">
+					<div className="grid grid-cols-2 gap-1">
+						<div>Ctrl+S: Uložiť text</div>
+						<div>Ctrl+D: Duplikovať</div>
+						<div>Delete: Odstrániť</div>
+						<div>Ctrl+A: Aplikovať nastavenia</div>
+						<div>←/→: Navigácia textami</div>
+						<div>Ctrl+Enter: Dokončiť editáciu</div>
+					</div>
+				</div>
+			</div>
+
+			{/* Štatistiky */}
+			{textObjects.length > 0 && (
+				<div className="pt-3 border-t">
+					<Label className="text-xs font-medium mb-2 block">Štatistiky</Label>
+					<div className="text-xs text-muted-foreground grid grid-cols-2 gap-2">
+						<div className="space-y-1">
+							<div>Celkový počet textov: {textObjects.length}</div>
+							<div>Aktívne editácie: {textObjects.filter(t => t.isEditing).length}</div>
+							<div>Celkové znaky: {textObjects.reduce((acc, t) => acc + t.text.length, 0)}</div>
+						</div>
+						<div className="space-y-1">
+							<div>Vrstva: {activeText?.layerId || "N/A"}</div>
+							<div>Pozícia: {activeText ? `${Math.round(activeText.x)}, ${Math.round(activeText.y)}` : "N/A"}</div>
+							<div>Aktuálny: {selectedTextIndex + 1}/{textObjects.length}</div>
+						</div>
 					</div>
 				</div>
 			)}
