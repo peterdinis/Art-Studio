@@ -262,7 +262,7 @@ interface ArtStudioState {
 	updateGradient: (id: string, updates: Partial<GradientObject>) => void;
 	removeGradient: (id: string) => void;
 	clearGradients: () => void;
-	setGradients: (gradients: GradientObject[]) => void;
+	setGradients: (gradients: any[]) => void;
 	setZoom: (zoom: number) => void;
 	setPanOffset: (offset: { x: number; y: number }) => void;
 	setCanvasSize: (size: CanvasSize) => void;
@@ -285,7 +285,6 @@ interface ArtStudioState {
 	// Session management
 	initializeSession: () => Promise<void>;
 	saveSession: () => Promise<void>;
-	loadSession: () => Promise<void>;
 	clearCurrentSession: () => Promise<void>;
 	exportSessionData: () => Promise<any>;
 	importSessionData: (data: any) => Promise<boolean>;
@@ -554,12 +553,6 @@ export const useArtStudioStore = create<ArtStudioState>()(
 			saveSession: async () => {
 				// No-op: Session saving removed (IndexedDB removed)
 				console.log("Session save called (no-op, IndexedDB removed)");
-			},
-
-			loadSession: async () => {
-				// No-op: Session loading removed (IndexedDB removed)
-				console.log("Session load called (no-op, IndexedDB removed)");
-				return null;
 			},
 
 			clearCurrentSession: async () => {
