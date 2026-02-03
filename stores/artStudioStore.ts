@@ -638,19 +638,16 @@ export const useArtStudioStore = create<ArtStudioState>()(
       // ========== SESSION MANAGEMENT ==========
 
       initializeSession: async () => {
-        // Create a simple session ID without IndexedDB
         const sessionId = `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
         set({ sessionId });
         console.log("Session initialized:", sessionId);
       },
 
       saveSession: async () => {
-        // No-op: Session saving removed (IndexedDB removed)
         console.log("Session save called (no-op, IndexedDB removed)");
       },
 
       clearCurrentSession: async () => {
-        // Reset to initial state
         set({
           sessionId: null,
           layers: [
@@ -679,7 +676,6 @@ export const useArtStudioStore = create<ArtStudioState>()(
           selectedId: null,
         });
 
-        // Start fresh session
         await get().initializeSession();
         console.log("Session cleared, new session started");
       },
@@ -711,19 +707,15 @@ export const useArtStudioStore = create<ArtStudioState>()(
 
       importSessionData: async (data: any) => {
         try {
-          // Validate import data
           if (!data.canvasState || !data.version) {
             throw new Error("Invalid session data format");
           }
 
-          // Clear current session
           await get().clearCurrentSession();
 
-          // Restore canvas state
           const restoredState = deserializeCanvasState(data.canvasState, get());
           set(restoredState);
 
-          // Notify canvas to restore
           window.dispatchEvent(
             new CustomEvent("artstudio:import-session", {
               detail: { sessionData: data.canvasState },
@@ -743,7 +735,6 @@ export const useArtStudioStore = create<ArtStudioState>()(
       addToHistory: async (canvasData, thumbnail = "", action) => {
         const state = get();
 
-        // Update in-memory state only (IndexedDB removed)
         const { history, historyIndex } = state;
         const newEntry = {
           canvasData,
@@ -755,7 +746,6 @@ export const useArtStudioStore = create<ArtStudioState>()(
         const newHistory = history.slice(0, historyIndex + 1);
         newHistory.push(newEntry);
 
-        // Keep only last 10 entries in memory for quick undo/redo
         const trimmedHistory = newHistory.slice(-10);
 
         set({
@@ -763,7 +753,6 @@ export const useArtStudioStore = create<ArtStudioState>()(
           historyIndex: trimmedHistory.length - 1,
         });
 
-        // Auto-save session state after significant actions
         const shouldAutoSave =
           action &&
           [
@@ -869,7 +858,6 @@ export const useArtStudioStore = create<ArtStudioState>()(
       },
 
       clearHistory: () => {
-        // Len čistí lokálny state
         set({
           history: [],
           historyIndex: -1,
@@ -879,13 +867,11 @@ export const useArtStudioStore = create<ArtStudioState>()(
       clearSessionHistory: async () => {
         const { sessionId } = get();
 
-        // Vymaž lokálny state
         set({
           history: [],
           historyIndex: -1,
         });
 
-        // Upozorni canvas, že história bola vymazaná
         window.dispatchEvent(
           new CustomEvent("artstudio:history-cleared", {
             detail: { sessionId },
@@ -900,7 +886,6 @@ export const useArtStudioStore = create<ArtStudioState>()(
       setRenderingEngine: (engine) => set({ renderingEngine: engine }),
 
       setActiveTool: (tool) => {
-        // Cancel text editing when switching tools
         const { editingTextId } = get();
         if (editingTextId && tool !== "text") {
           get().cancelTextEdit(editingTextId);
@@ -908,7 +893,6 @@ export const useArtStudioStore = create<ArtStudioState>()(
         
         set({ activeTool: tool });
         get().setToolDefaults(tool);
-        // Auto-save tool change
         setTimeout(
           () =>
             get()
@@ -1123,14 +1107,12 @@ export const useArtStudioStore = create<ArtStudioState>()(
           layers: [newLayer, ...state.layers],
           activeLayerId: newLayer.id,
         }));
-        // Auto-save removed (IndexedDB removed)
       },
 
       removeLayer: (id) => {
         const { layers, activeLayerId } = get();
         if (layers.length === 0) return;
         
-        // Prevent deleting the last layer
         if (layers.length === 1) {
           toast.error("Cannot delete the last layer");
           return;
@@ -1143,14 +1125,11 @@ export const useArtStudioStore = create<ArtStudioState>()(
             activeLayerId === id ? newLayers[0]?.id || null : activeLayerId,
         });
         
-        // Dispatch event to remove objects from canvas
         window.dispatchEvent(
           new CustomEvent("artstudio:remove-layer", {
             detail: { layerId: id },
           }),
         );
-        
-        // Auto-save removed (IndexedDB removed)
       },
 
       setActiveLayer: (id) => set({ activeLayerId: id }),
@@ -1198,7 +1177,6 @@ export const useArtStudioStore = create<ArtStudioState>()(
         const newLayers = [...layers];
         newLayers.splice(index, 0, newLayer);
         set({ layers: newLayers, activeLayerId: newLayer.id });
-        // Auto-save removed (IndexedDB removed)
       },
 
       reorderLayers: (fromIndex, toIndex) => {
@@ -1207,7 +1185,6 @@ export const useArtStudioStore = create<ArtStudioState>()(
         const [removed] = newLayers.splice(fromIndex, 1);
         newLayers.splice(toIndex, 0, removed);
         set({ layers: newLayers });
-        // Auto-save removed (IndexedDB removed)
       },
 
       clearLayers: () => {
@@ -1215,15 +1192,12 @@ export const useArtStudioStore = create<ArtStudioState>()(
           layers: [],
           activeLayerId: null,
         });
-        // Auto-save removed (IndexedDB removed)
       },
 
       setSelectedId: (id) => set({ selectedId: id }),
 
       mergeLayers: (layerIds) => {
         const { layers } = get();
-        // Implementation would go here
-        // Auto-save removed (IndexedDB removed)
       },
 
       addLoadedImage: (image) =>

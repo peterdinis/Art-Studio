@@ -1420,8 +1420,12 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				setLines((prev) => [...prev, newLine]);
 
 				if (tempContext) {
-					tempContext.globalCompositeOperation =
-						activeTool === "eraser" ? "destination-out" : "source-over";
+					// KLÚČOVÁ OPRAVA: iba eraser má destination-out, brush a pencil majú source-over
+					if (activeTool === "eraser") {
+						tempContext.globalCompositeOperation = "destination-out";
+					} else {
+						tempContext.globalCompositeOperation = "source-over";
+					}
 					tempContext.strokeStyle = newLine.stroke;
 					tempContext.lineWidth = newLine.strokeWidth;
 					tempContext.lineCap = "round";

@@ -172,9 +172,8 @@ export const TextOptionsPanel: React.FC = () => {
     }
   }, [safeBrushSettings.textTransform]);
 
-  // Načítanie textových objektov - FIXED: Odstránené rekurzívne volanie
+  // Načítanie textových objektov
   useEffect(() => {
-    // Nájsť aktívny text podľa selectedId alebo editingTextId
     const activeText = textObjects.find(
       (t) => t.id === selectedId || t.id === editingTextId
     );
@@ -185,7 +184,6 @@ export const TextOptionsPanel: React.FC = () => {
       setIsEditing(activeText.isEditing || false);
       setSelectedTextIndex(textObjects.findIndex(t => t.id === activeText.id));
     } else if (textObjects.length > 0) {
-      // Zobraziť prvý text objekt
       const firstText = textObjects[0];
       setActiveTextId(firstText.id);
       setEditText(firstText.text);
@@ -225,7 +223,6 @@ export const TextOptionsPanel: React.FC = () => {
     setSelectedTextIndex(newIndex);
     setSelectedId(text.id);
     
-    // Informovať canvas o výbere
     window.dispatchEvent(
       new CustomEvent("artstudio:select-text", {
         detail: { textId: text.id },
@@ -261,7 +258,6 @@ export const TextOptionsPanel: React.FC = () => {
       layerId: activeLayerId,
     };
 
-    // Pridať efekty podľa nastavení
     if (safeBrushSettings.textShadow) {
       Object.assign(newText, {
         shadowColor: safeBrushSettings.textShadowColor,
@@ -291,7 +287,6 @@ export const TextOptionsPanel: React.FC = () => {
     setIsEditing(safeBrushSettings.textEditingMode === "inline");
     setSelectedId(newText.id);
 
-    // Automaticky začať editáciu
     if (safeBrushSettings.textEditingMode === "inline") {
       startTextEdit(newText.id);
     }
@@ -318,7 +313,6 @@ export const TextOptionsPanel: React.FC = () => {
   const saveTextEdit = useCallback(() => {
     if (!activeTextId) return;
 
-    // Aplikovať transformáciu textu
     let transformedText = editText;
     switch (safeBrushSettings.textTransform) {
       case "uppercase":
@@ -334,7 +328,6 @@ export const TextOptionsPanel: React.FC = () => {
         break;
     }
 
-    // Vytvoriť aktualizácie
     const updates: any = {
       text: transformedText,
       isEditing: false,
@@ -352,7 +345,6 @@ export const TextOptionsPanel: React.FC = () => {
       opacity: safeBrushSettings.textOpacity,
     };
 
-    // Pridať efekty, ak sú aktívne
     if (safeBrushSettings.textShadow) {
       updates.shadowColor = safeBrushSettings.textShadowColor;
       updates.shadowBlur = safeBrushSettings.textShadowBlur;
@@ -383,7 +375,6 @@ export const TextOptionsPanel: React.FC = () => {
     setIsEditing(false);
     cancelTextEdit(activeTextId);
     
-    // Obnoviť pôvodný text
     const originalText = textObjects.find(t => t.id === activeTextId);
     if (originalText) {
       setEditText(originalText.text);
@@ -399,7 +390,6 @@ export const TextOptionsPanel: React.FC = () => {
     if (confirm("Naozaj chcete odstrániť tento text?")) {
       deleteTextObject(activeTextId);
       
-      // Nájsť ďalší text pre zobrazenie
       const remainingTexts = textObjects.filter(t => t.id !== activeTextId);
       if (remainingTexts.length > 0) {
         const nextText = remainingTexts[0];
@@ -458,7 +448,6 @@ export const TextOptionsPanel: React.FC = () => {
       opacity: safeBrushSettings.textOpacity,
     };
 
-    // Pridať efekty, ak sú aktívne
     if (safeBrushSettings.textShadow) {
       updates.shadowColor = safeBrushSettings.textShadowColor;
       updates.shadowBlur = safeBrushSettings.textShadowBlur;
@@ -553,7 +542,6 @@ export const TextOptionsPanel: React.FC = () => {
     };
     reader.readAsText(file);
 
-    // Reset file input
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -654,7 +642,6 @@ export const TextOptionsPanel: React.FC = () => {
     const newText = editText.substring(0, start) + formattedText + editText.substring(end);
     setEditText(newText);
 
-    // Update cursor position
     setTimeout(() => {
       if (textareaRef.current) {
         const newCursorPos = start + formattedText.length;
@@ -669,25 +656,21 @@ export const TextOptionsPanel: React.FC = () => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!activeTextId) return;
       
-      // Ctrl/Cmd + S - save
       if ((e.ctrlKey || e.metaKey) && e.key === "s" && isEditing) {
         e.preventDefault();
         saveTextEdit();
       }
       
-      // Ctrl/Cmd + D - duplicate
       if ((e.ctrlKey || e.metaKey) && e.key === "d" && activeTextId) {
         e.preventDefault();
         duplicateText();
       }
       
-      // Delete key - delete text
       if (e.key === "Delete" && activeTextId && !isEditing) {
         e.preventDefault();
         deleteText();
       }
       
-      // Arrow keys for navigation
       if (e.key === "ArrowLeft" && textObjects.length > 1) {
         e.preventDefault();
         navigateText("prev");
@@ -828,7 +811,6 @@ export const TextOptionsPanel: React.FC = () => {
                   setSelectedId(text.id);
                   setSelectedTextIndex(index);
 
-                  // Označiť text v canvase
                   window.dispatchEvent(
                     new CustomEvent("artstudio:select-text", {
                       detail: { textId: text.id },
@@ -1789,7 +1771,6 @@ export const TextOptionsPanel: React.FC = () => {
             </Button>
             <Button
               onClick={() => {
-                // Prepnúť na nástroj na výber
                 setActiveTool("select");
                 window.dispatchEvent(
                   new CustomEvent("artstudio:select-text", {
