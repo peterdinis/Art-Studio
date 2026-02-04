@@ -50,6 +50,7 @@ import {
 	AlertDialogTitle,
 	AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { toast } from "sonner";
 
 interface ToolConfig {
 	id: Tool;
@@ -301,6 +302,8 @@ export const ToolSidebar: React.FC = () => {
 		setSecondaryColor,
 		swapColors,
 		setShowColorsPanel,
+		clearCanvas,
+		clearCanvasWithConfirmation,
 	} = useArtStudioStore();
 
 	const [showClearAlert, setShowClearAlert] = useState(false);
@@ -363,20 +366,27 @@ export const ToolSidebar: React.FC = () => {
 		}
 	};
 
-	const handleClearCanvas = () => {
+	/* --- UPDATED CLEAR CANVAS HANDLER --- */
+	const handleClearCanvas = async (preserveBackground: boolean = false) => {
 		if (!canvasAvailable) {
-			console.warn("Canvas not available");
+			toast.error("Canvas not available");
 			return;
 		}
-		window.dispatchEvent(new CustomEvent("artstudio:clear-canvas"));
+		
 		try {
-			useArtStudioStore
-				.getState()
-				.addToHistory(JSON.stringify({ objects: [] }), "", "clear_canvas");
+			await clearCanvas({ preserveBackground });
+			setShowClearAlert(false);
 		} catch (error) {
-			console.error("Error adding to history:", error);
+			console.error("Error clearing canvas:", error);
+			toast.error("Failed to clear canvas");
 		}
-		setShowClearAlert(false);
+	};
+
+	const handleClearWithConfirmation = async () => {
+		const confirmed = await clearCanvasWithConfirmation();
+		if (confirmed) {
+			toast.success("Canvas cleared");
+		}
 	};
 
 	useEffect(() => {
@@ -403,7 +413,9 @@ export const ToolSidebar: React.FC = () => {
 						return;
 					case "D":
 						e.preventDefault();
-						if (e.shiftKey) setShowClearAlert(true);
+						if (e.shiftKey) {
+							handleClearWithConfirmation();
+						}
 						return;
 				}
 				return;
@@ -477,7 +489,7 @@ export const ToolSidebar: React.FC = () => {
 			window.removeEventListener("keydown", handleKeyDown);
 			window.removeEventListener("keyup", handleKeyUp);
 		};
-	}, [setActiveTool, activeTool, swapColors]);
+	}, [setActiveTool, activeTool, swapColors, handleClearWithConfirmation]);
 
 	const renderToolGroup = (category: ToolConfig["category"]) => {
 		const categoryTools = tools.filter((t) => t.category === category);
@@ -604,7 +616,10 @@ export const ToolSidebar: React.FC = () => {
 					<Tooltip delayDuration={400}>
 						<TooltipTrigger asChild>
 							<AlertDialogTrigger asChild>
-								<button className="tool-button text-red-500 hover:text-red-600 hover:bg-red-50">
+								<button 
+									className="tool-button text-red-500 hover:text-red-600 hover:bg-red-50"
+									onClick={handleClearWithConfirmation}
+								>
 									<Trash2 className="w-5 h-5" />
 								</button>
 							</AlertDialogTrigger>
@@ -624,6 +639,20 @@ export const ToolSidebar: React.FC = () => {
 								<p className="text-xs text-muted-foreground leading-relaxed">
 									Odstráni všetky kresby, tvary a obrázky z plátna.
 								</p>
+								<div className="flex flex-col gap-2 mt-2">
+									<button
+										onClick={() => handleClearCanvas(false)}
+										className="text-xs px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600"
+									>
+										Vymazať všetko
+									</button>
+									<button
+										onClick={() => handleClearCanvas(true)}
+										className="text-xs px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
+									>
+										Vymazať len kresby (zachovať pozadie)
+									</button>
+								</div>
 							</div>
 						</TooltipContent>
 					</Tooltip>
@@ -640,10 +669,16 @@ export const ToolSidebar: React.FC = () => {
 						<AlertDialogFooter>
 							<AlertDialogCancel>Zrušiť</AlertDialogCancel>
 							<AlertDialogAction
-								onClick={handleClearCanvas}
+								onClick={() => handleClearCanvas(false)}
 								className="bg-red-600 hover:bg-red-700 text-white"
 							>
-								Vymazať plátno
+								Vymazať všetko
+							</AlertDialogAction>
+							<AlertDialogAction
+								onClick={() => handleClearCanvas(true)}
+								className="bg-blue-600 hover:bg-blue-700 text-white"
+							>
+								Zachovať pozadie
 							</AlertDialogAction>
 						</AlertDialogFooter>
 					</AlertDialogContent>

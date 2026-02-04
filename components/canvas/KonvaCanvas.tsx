@@ -289,6 +289,8 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		setSelectionPath,
 		clearSelection,
 		setCanvasSize,
+		clearCanvas,
+		clearCanvasWithConfirmation,
 	} = useArtStudioStore();
 
 	// Use zoom hook for all zoom operations
@@ -489,6 +491,39 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		setActiveTool("select");
 	}, [setActiveTool]);
 
+	/* --- CLEAR CANVAS FUNCTION --- */
+	const handleClearCanvas = useCallback((options?: { preserveBackground?: boolean }) => {
+		const preserve = options?.preserveBackground ?? false;
+		
+		// Clear all canvas content
+		setLines([]);
+		setShapes([]);
+		setTextObjects([]);
+		setGradients([]);
+		setTempImage(null);
+		clearSelection();
+		
+		// Only clear images if preserveBackground is false
+		if (!preserve) {
+			setImages([]);
+		}
+		
+		// Clear all auxiliary canvases
+		[floodFillContext, eyedropperContext, healingContext, blurContext].forEach(ctx => {
+			if (ctx.current) {
+				ctx.current.clearRect(0, 0, actualWidth, actualHeight);
+			}
+		});
+		
+		// Clear temp canvas
+		if (tempContext) {
+			tempContext.clearRect(0, 0, actualWidth, actualHeight);
+		}
+		
+		toast.success(preserve ? "Canvas cleared (background preserved)" : "Canvas completely cleared");
+		saveCanvasState("Canvas cleared", true);
+	}, [clearSelection, saveCanvasState, actualWidth, actualHeight, tempContext]);
+
 	/* --- EVENT LISTENERS FOR TEXT --- */
 	useEffect(() => {
 		const handleAddTextEvent = (e: CustomEvent) => {
@@ -529,6 +564,12 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			);
 		};
 
+		/* --- NEW: Clear canvas event listener --- */
+		const handleClearCanvasEvent = (e: CustomEvent) => {
+			const preserveBackground = e.detail?.preserveBackground || false;
+			handleClearCanvas({ preserveBackground });
+		};
+
 		window.addEventListener("artstudio:add-text", handleAddTextEvent as EventListener);
 		window.addEventListener("artstudio:update-text", handleUpdateTextEvent as EventListener);
 		window.addEventListener("artstudio:delete-text", handleDeleteTextEvent as EventListener);
@@ -536,6 +577,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		window.addEventListener("artstudio:cancel-text-edit", handleCancelTextEditEvent as EventListener);
 		window.addEventListener("artstudio:select-text", handleSelectTextEvent as EventListener);
 		window.addEventListener("artstudio:request-text-objects", handleRequestTextObjects);
+		window.addEventListener("artstudio:clear-canvas", handleClearCanvasEvent as EventListener);
 
 		return () => {
 			window.removeEventListener("artstudio:add-text", handleAddTextEvent as EventListener);
@@ -545,6 +587,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			window.removeEventListener("artstudio:cancel-text-edit", handleCancelTextEditEvent as EventListener);
 			window.removeEventListener("artstudio:select-text", handleSelectTextEvent as EventListener);
 			window.removeEventListener("artstudio:request-text-objects", handleRequestTextObjects);
+			window.removeEventListener("artstudio:clear-canvas", handleClearCanvasEvent as EventListener);
 		};
 	}, [
 		handleAddText,
@@ -553,7 +596,8 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		handleStartTextEdit,
 		handleCancelTextEdit,
 		handleSelectText,
-		textObjects
+		textObjects,
+		handleClearCanvas,
 	]);
 
 	/* --- TEXT AREA POSITION UPDATER --- */
@@ -1007,17 +1051,12 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 	const originalToolRef = useRef<Tool | null>(null);
 
 	useEffect(() => {
-		const handleClearCanvas = () => {
-			setLines([]);
-			setShapes([]);
-			setImages([]);
-			setTextObjects([]);
-			setGradients([]);
-			setTempImage(null);
-			clearSelection();
-			toast.info("Canvas cleared");
+		const handleClearCanvas = (e: CustomEvent) => {
+			const preserveBackground = e.detail?.preserveBackground || false;
+			handleClearCanvas({ preserveBackground });
 		};
-		window.addEventListener("artstudio:clear-canvas", handleClearCanvas);
+		
+		window.addEventListener("artstudio:clear-canvas", handleClearCanvas as EventListener);
 
 		const handleRestoreHistory = (e: any) => {
 			if (e.detail && typeof e.detail === "string") {
@@ -1104,7 +1143,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		window.addEventListener("artstudio:temp-tool-reset", handleTempToolReset);
 
 		return () => {
-			window.removeEventListener("artstudio:clear-canvas", handleClearCanvas);
+			window.removeEventListener("artstudio:clear-canvas", handleClearCanvas as EventListener);
 			window.removeEventListener(
 				"artstudio:restore-history",
 				handleRestoreHistory,
@@ -1127,6 +1166,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		activeTool,
 		editingTextId,
 		saveCanvasState,
+		handleClearCanvas,
 	]);
 
 	// Cancel gradient drawing when tool changes

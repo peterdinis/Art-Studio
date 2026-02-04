@@ -334,6 +334,10 @@ interface ArtStudioState {
   exportSessionData: () => Promise<any>;
   importSessionData: (data: any) => Promise<boolean>;
 
+  // NEW: Clear canvas method
+  clearCanvas: (options?: { preserveBackground?: boolean }) => Promise<void>;
+  clearCanvasWithConfirmation: () => Promise<boolean>;
+
   setSelectionBounds: (
     bounds: { x: number; y: number; width: number; height: number } | null,
   ) => void;
@@ -879,6 +883,54 @@ export const useArtStudioStore = create<ArtStudioState>()(
         );
 
         console.log("Session history cleared");
+      },
+
+      // ========== NEW CLEAR CANVAS METHODS ==========
+
+      clearCanvas: async (options?: { preserveBackground?: boolean }) => {
+        const preserve = options?.preserveBackground ?? false;
+        
+        // Clear all canvas data
+        set({
+          textObjects: [],
+          selectionBounds: null,
+          selectionPath: null,
+          selectedId: null,
+          editingTextId: null,
+          fillPreview: null,
+          healingSource: null,
+        });
+
+        // Dispatch event to clear canvas content
+        window.dispatchEvent(new CustomEvent("artstudio:clear-canvas", {
+          detail: { preserveBackground: preserve }
+        }));
+
+        // Add to history
+        await get().addToHistory(JSON.stringify({ objects: [] }), "", "clear_canvas");
+        
+        toast.success(preserve ? "Canvas cleared (background preserved)" : "Canvas completely cleared");
+        
+        // Save session
+        setTimeout(() => {
+          get()
+            .saveSession()
+            .catch(() => {});
+        }, 500);
+      },
+
+      clearCanvasWithConfirmation: async () => {
+        return new Promise((resolve) => {
+          // Create custom confirmation dialog
+          const confirmed = window.confirm("Are you sure you want to clear the canvas? This action cannot be undone.");
+          
+          if (confirmed) {
+            get().clearCanvas({ preserveBackground: false });
+            resolve(true);
+          } else {
+            resolve(false);
+          }
+        });
       },
 
       // ========== TOOL AND CANVAS ACTIONS ==========
