@@ -16,6 +16,7 @@ import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useEffect, useState } from "react";
 import KonvaCanvas from "../canvas/KonvaCanvas";
 import { GradientOptionsPanel } from "../panels/GradientOptionsPanel";
+import { PaintBucketPanel } from "../panels/PaintBucketPanel";
 
 const HomeWrapper = () => {
 	const [isSessionInitialized, setIsSessionInitialized] = useState(false);
@@ -205,7 +206,6 @@ const HomeWrapper = () => {
 								"magicwand",
 							].includes(activeTool) && <BrushPanel />}
 							{activeTool === "star" && <StarPanel />}
-
 							{/* General panels */}
 							{showColorsPanel && <ColorPanel />}
 							{showLayersPanel && <LayersPanel />}

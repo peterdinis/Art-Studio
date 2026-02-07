@@ -141,11 +141,13 @@ const ImageNode = ({
 	onClick,
 	onDragEnd,
 	draggable,
+	opacity = 1,
 }: {
 	image: ImageObject;
 	onClick: (id: string) => void;
 	onDragEnd?: (id: string, x: number, y: number) => void;
 	draggable?: boolean;
+	opacity?: number;
 }) => {
 	const [img, setImg] = useState<HTMLImageElement | null>(null);
 
@@ -167,6 +169,7 @@ const ImageNode = ({
 			onClick={() => onClick(image.id)}
 			onTap={() => onClick(image.id)}
 			draggable={draggable}
+			opacity={opacity}
 		/>
 	);
 };
@@ -440,6 +443,23 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		},
 		[setGradients],
 	);
+
+	/* --- LAYER OPACITY UTILITIES --- */
+	const getLayerOpacity = useCallback((layerId: string) => {
+		const layer = layers.find(l => l.id === layerId);
+		return layer ? layer.opacity / 100 : 1; // Convert percentage to decimal (0-1)
+	}, [layers]);
+
+	const layerOpacities = useMemo(() => {
+		const opacities: Record<string, number> = {};
+		layers.forEach(layer => {
+			opacities[layer.id] = layer.opacity / 100;
+		});
+		return opacities;
+	}, [layers]);
+
+	const isLayerVisible = (id: string) =>
+		layers.find((l) => l.id === id)?.visible !== false;
 
 	/* --- TEXT TOOL FUNCTIONS --- */
 	const handleAddText = useCallback((textObject: TextObject) => {
@@ -1400,7 +1420,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				y: t.y - y,
 			})),
 		);
-		setGradients((prevGradients: any) =>
+		setGradients((prevGradients) =>
 			prevGradients.map((g) => ({
 				...g,
 				x0: g.x0 - x,
@@ -1918,8 +1938,8 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		if (activeTool === "pen" && currentPenLine) {
 			setCurrentPenLine({
 				...currentPenLine,
-				points: [...penPoints, pos.x, pos.y],
-			});
+					points: [...penPoints, pos.x, pos.y],
+				});
 			return;
 		}
 
@@ -2182,9 +2202,6 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		}
 	};
 
-	const isLayerVisible = (id: string) =>
-		layers.find((l) => l.id === id)?.visible !== false;
-
 	const getCursor = () => {
 		if (activeTool === "hand") return isPanning.current ? "grabbing" : "grab";
 		if (activeTool === "zoom") return "zoom-in";
@@ -2340,6 +2357,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 									globalCompositeOperation={
 										line.tool === "eraser" ? "destination-out" : "source-over"
 									}
+									opacity={layerOpacities[line.layerId] || 1}
 								/>
 							))}
 
@@ -2360,6 +2378,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 										);
 										saveCanvasState(`${shape.type} moved`);
 									},
+									opacity: layerOpacities[shape.layerId] || 1,
 								};
 
 								switch (shape.type) {
@@ -2484,6 +2503,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 										);
 										saveCanvasState("Image moved");
 									}}
+									opacity={layerOpacities[img.layerId] || 1}
 								/>
 							))}
 
@@ -2491,6 +2511,10 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 						{textObjects
 							.filter((text) => isLayerVisible(text.layerId))
 							.map((text) => {
+								const layerOpacity = layerOpacities[text.layerId] || 1;
+								const textOpacity = (text.opacity || 100) / 100;
+								const combinedOpacity = layerOpacity * textOpacity;
+								
 								const commonProps = {
 									id: text.id,
 									draggable: (activeTool === "select" || activeTool === "move") && !text.isEditing,
@@ -2521,6 +2545,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 									},
 									perfectDrawEnabled: false,
 									listening: !text.isEditing,
+									opacity: combinedOpacity,
 								};
 
 								// Vytvorte štýl pre text
@@ -2533,7 +2558,6 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 									lineHeight: text.lineHeight,
 									letterSpacing: text.letterSpacing,
 									fill: text.color,
-									opacity: (text.opacity || 100) / 100,
 									align: text.textAlign,
 									padding: text.padding || 0,
 									wrap: text.wrap === "none" ? "none" : text.wrap === "char" ? "char" : "word",
@@ -2565,6 +2589,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 													.padStart(2, "0")}`}
 												cornerRadius={4}
 												listening={false}
+												opacity={layerOpacity}
 											/>
 										)}
 
@@ -2590,6 +2615,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 												strokeWidth={text.outlineWidth}
 												perfectDrawEnabled={false}
 												listening={false}
+												opacity={combinedOpacity}
 											/>
 										)}
 
@@ -2641,6 +2667,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 										height={actualHeight}
 										listening={false}
 										globalCompositeOperation="multiply"
+										opacity={layerOpacities[g.layerId] || 1}
 									/>
 								);
 							})}
@@ -2653,7 +2680,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 								y={0}
 								width={actualWidth}
 								height={actualHeight}
-								opacity={1}
+								opacity={layerOpacities[activeLayerId || "layer-1"] || 1}
 								listening={false}
 								globalCompositeOperation="source-over"
 							/>
@@ -2670,6 +2697,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 								fill={currentShape.fill}
 								stroke={currentShape.stroke}
 								strokeWidth={currentShape.strokeWidth}
+								opacity={layerOpacities[currentShape.layerId] || 1}
 							/>
 						)}
 
@@ -2683,6 +2711,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 								fill={currentShape.fill}
 								stroke={currentShape.stroke}
 								strokeWidth={currentShape.strokeWidth}
+								opacity={layerOpacities[currentShape.layerId] || 1}
 							/>
 						)}
 
@@ -2695,6 +2724,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 								strokeWidth={currentShape.strokeWidth}
 								lineJoin="round"
 								lineCap="round"
+								opacity={layerOpacities[currentShape.layerId] || 1}
 							/>
 						)}
 
@@ -2704,6 +2734,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 								points={currentShape.points}
 								stroke={currentShape.stroke}
 								strokeWidth={currentShape.strokeWidth}
+								opacity={layerOpacities[currentShape.layerId] || 1}
 							/>
 						)}
 
@@ -2719,6 +2750,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 								stroke={currentShape.stroke}
 								strokeWidth={currentShape.strokeWidth}
 								rotation={currentShape.rotation}
+								opacity={layerOpacities[currentShape.layerId] || 1}
 							/>
 						)}
 
@@ -2727,6 +2759,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 								points={currentPenLine.points}
 								stroke={currentPenLine.stroke}
 								strokeWidth={currentPenLine.strokeWidth}
+								opacity={layerOpacities[currentPenLine?.layerId || activeLayerId || "layer-1"] || 1}
 							/>
 						)}
 
@@ -2748,7 +2781,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 									currentGradient.colorStops || []
 								).flatMap((s) => [s.offset, s.color])}
 								listening={false}
-								opacity={0.6}
+								opacity={0.6 * (layerOpacities[currentGradient.layerId] || 1)}
 							/>
 						)}
 
