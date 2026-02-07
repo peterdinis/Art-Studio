@@ -323,7 +323,7 @@ export const ToolSidebar: React.FC = () => {
 								</Kbd>
 							</div>
 							<p className="text-xs text-muted-foreground leading-relaxed">
-								Vrátiť späť poslednú akciu.
+								Revert the last action.
 							</p>
 						</div>
 					</TooltipContent>
@@ -349,7 +349,7 @@ export const ToolSidebar: React.FC = () => {
 								</Kbd>
 							</div>
 							<p className="text-xs text-muted-foreground leading-relaxed">
-								Znovu aplikovať predtým vrátenú akciu.
+								Re-apply previously reverted action.
 							</p>
 						</div>
 					</TooltipContent>
@@ -376,26 +376,26 @@ export const ToolSidebar: React.FC = () => {
 						>
 							<div className="space-y-1.5">
 								<div className="flex items-center justify-between gap-4">
-									<span className="font-semibold">Vymazať plátno</span>
+									<span className="font-semibold">Clear Canvas</span>
 									<Kbd className="px-1.5 py-0.5 text-xs bg-slate-100 text-black rounded font-mono">
 										Ctrl+Shift+D
 									</Kbd>
 								</div>
 								<p className="text-xs text-muted-foreground leading-relaxed">
-									Odstráni všetky kresby, tvary a obrázky z plátna.
+									Remove all drawings, shapes and images from the canvas.
 								</p>
 								<div className="flex flex-col gap-2 mt-2">
 									<button
 										onClick={() => handleClearCanvas(false)}
 										className="text-xs px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600"
 									>
-										Vymazať všetko
+										Clear Everything
 									</button>
 									<button
 										onClick={() => handleClearCanvas(true)}
 										className="text-xs px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
 									>
-										Vymazať len kresby (zachovať pozadie)
+										Clear Drawings Only (Preserve Background)
 									</button>
 								</div>
 							</div>
@@ -404,26 +404,26 @@ export const ToolSidebar: React.FC = () => {
 					<AlertDialogContent>
 						<AlertDialogHeader>
 							<AlertDialogTitle className="text-red-600">
-								Vymazať plátno
+								Clear Canvas
 							</AlertDialogTitle>
 							<AlertDialogDescription>
-								Ste si istí, že chcete vymazať celé plátno? Táto akcia odstráni
-								všetky kresby, tvary a obrázky.
+								Are you sure you want to clear the entire canvas? This action will remove
+								all drawings, shapes and images.
 							</AlertDialogDescription>
 						</AlertDialogHeader>
 						<AlertDialogFooter>
-							<AlertDialogCancel>Zrušiť</AlertDialogCancel>
+							<AlertDialogCancel>Cancel</AlertDialogCancel>
 							<AlertDialogAction
 								onClick={() => handleClearCanvas(false)}
 								className="bg-red-600 hover:bg-red-700 text-white"
 							>
-								Vymazať všetko
+								Clear Everything
 							</AlertDialogAction>
 							<AlertDialogAction
 								onClick={() => handleClearCanvas(true)}
 								className="bg-blue-600 hover:bg-blue-700 text-white"
 							>
-								Zachovať pozadie
+								Preserve Background
 							</AlertDialogAction>
 						</AlertDialogFooter>
 					</AlertDialogContent>
@@ -447,7 +447,7 @@ export const ToolSidebar: React.FC = () => {
 									}}
 									className="absolute top-0 left-0 w-6 h-6 rounded border-2 border-card bg-foreground z-10 cursor-pointer hover:scale-110 transition-transform"
 									style={{ backgroundColor: primaryColor }}
-									title="Primárna farba"
+									title="Primary Color"
 								/>
 								<button
 									onClick={() => {
@@ -462,7 +462,7 @@ export const ToolSidebar: React.FC = () => {
 									}}
 									className="absolute bottom-0 right-0 w-6 h-6 rounded border-2 border-card cursor-pointer hover:scale-110 transition-transform"
 									style={{ backgroundColor: secondaryColor }}
-									title="Sekundárna farba"
+									title="Secondary Color"
 								/>
 								<button
 									onClick={(e) => {
@@ -471,7 +471,7 @@ export const ToolSidebar: React.FC = () => {
 										swapColors();
 									}}
 									className="absolute inset-0 z-20 cursor-pointer opacity-0 hover:opacity-100 transition-opacity bg-black/10 rounded"
-									title="Výmena farieb"
+									title="Swap Colors"
 								/>
 							</div>
 						</TooltipTrigger>
@@ -482,19 +482,19 @@ export const ToolSidebar: React.FC = () => {
 						>
 							<div className="space-y-1.5">
 								<div className="flex items-center justify-between gap-4">
-									<span className="font-semibold">Farby</span>
+									<span className="font-semibold">Colors</span>
 									<Kbd className="px-1.5 py-0.5 text-xs bg-slate-100 text-black rounded font-mono">
 										X
 									</Kbd>
 								</div>
 								<p className="text-xs text-muted-foreground leading-relaxed">
-									Kliknite na farby pre zmenu, X pre výmenu, D pre reset.
+									Click on colors to change, X to swap, D to reset.
 								</p>
 								<button
 									onClick={() => setShowColorsPanel(true)}
 									className="text-xs text-primary hover:underline mt-2"
 								>
-									Otvoriť panel farieb →
+									Open Colors Panel →
 								</button>
 							</div>
 						</TooltipContent>
