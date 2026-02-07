@@ -154,14 +154,8 @@ export const TopMenuBar: React.FC = () => {
 	} = store;
 
 	// Use zoom hook for all zoom operations
-	const {
-		zoom,
-		zoomPercentage,
-		zoomIn,
-		zoomOut,
-		zoomToFit,
-		zoomToActualSize,
-	} = useZoom();
+	const { zoom, zoomPercentage, zoomIn, zoomOut, zoomToFit, zoomToActualSize } =
+		useZoom();
 
 	// Store reference on window for keyboard shortcuts
 	useEffect(() => {

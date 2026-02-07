@@ -1,6 +1,12 @@
 "use client";
 
-import React, { useRef, useEffect, useState, useCallback, useMemo } from "react";
+import React, {
+	useRef,
+	useEffect,
+	useState,
+	useCallback,
+	useMemo,
+} from "react";
 import {
 	Stage,
 	Layer,
@@ -215,7 +221,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		width: number;
 		height: number;
 	} | null>(null);
-	
+
 	// Performance: Throttle mouse move events
 	const lastMouseMoveTime = useRef<number>(0);
 	const throttleDelay = 16; // ~60fps
@@ -336,24 +342,24 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				}
 
 				const saveData = () => {
-			if (!stageRef.current) return;
-			try {
+					if (!stageRef.current) return;
+					try {
 						lastSaveTimeRef.current = Date.now();
 						const canvasState: CanvasState = {
-					lines,
-					shapes,
+							lines,
+							shapes,
 							images,
 							textObjects,
-					gradients,
+							gradients,
 							healingData,
 							blurData,
 						};
 						const stateString = JSON.stringify(canvasState);
-				const dataURL = stageRef.current.toDataURL({ pixelRatio: 0.2 });
+						const dataURL = stageRef.current.toDataURL({ pixelRatio: 0.2 });
 						addToHistory(stateString, dataURL, action);
 						pendingSaveRef.current = null;
-			} catch (err) {
-				console.error("Failed to save canvas state:", err);
+					} catch (err) {
+						console.error("Failed to save canvas state:", err);
 					}
 				};
 
@@ -374,7 +380,16 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				scheduleSave();
 			}
 		},
-		[lines, shapes, images, gradients, healingData, blurData, addToHistory, textObjects],
+		[
+			lines,
+			shapes,
+			images,
+			gradients,
+			healingData,
+			blurData,
+			addToHistory,
+			textObjects,
+		],
 	);
 
 	const updateAuxCanvases = useCallback(() => {
@@ -445,14 +460,17 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 	);
 
 	/* --- LAYER OPACITY UTILITIES --- */
-	const getLayerOpacity = useCallback((layerId: string) => {
-		const layer = layers.find(l => l.id === layerId);
-		return layer ? layer.opacity / 100 : 1; // Convert percentage to decimal (0-1)
-	}, [layers]);
+	const getLayerOpacity = useCallback(
+		(layerId: string) => {
+			const layer = layers.find((l) => l.id === layerId);
+			return layer ? layer.opacity / 100 : 1; // Convert percentage to decimal (0-1)
+		},
+		[layers],
+	);
 
 	const layerOpacities = useMemo(() => {
 		const opacities: Record<string, number> = {};
-		layers.forEach(layer => {
+		layers.forEach((layer) => {
 			opacities[layer.id] = layer.opacity / 100;
 		});
 		return opacities;
@@ -462,87 +480,111 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		layers.find((l) => l.id === id)?.visible !== false;
 
 	/* --- TEXT TOOL FUNCTIONS --- */
-	const handleAddText = useCallback((textObject: TextObject) => {
-		setTextObjects(prev => [...prev, textObject]);
-		setSelectedId(textObject.id);
-		if (textObject.isEditing) {
-			setEditingTextId(textObject.id);
-		}
-		saveCanvasState("Text added");
-	}, [saveCanvasState]);
+	const handleAddText = useCallback(
+		(textObject: TextObject) => {
+			setTextObjects((prev) => [...prev, textObject]);
+			setSelectedId(textObject.id);
+			if (textObject.isEditing) {
+				setEditingTextId(textObject.id);
+			}
+			saveCanvasState("Text added");
+		},
+		[saveCanvasState],
+	);
 
-	const handleUpdateText = useCallback((textId: string, updates: Partial<TextObject>) => {
-		setTextObjects(prev =>
-			prev.map(text =>
-				text.id === textId ? { ...text, ...updates } : text
-			)
-		);
-		saveCanvasState("Text updated");
-	}, [saveCanvasState]);
+	const handleUpdateText = useCallback(
+		(textId: string, updates: Partial<TextObject>) => {
+			setTextObjects((prev) =>
+				prev.map((text) =>
+					text.id === textId ? { ...text, ...updates } : text,
+				),
+			);
+			saveCanvasState("Text updated");
+		},
+		[saveCanvasState],
+	);
 
-	const handleDeleteText = useCallback((textId: string) => {
-		setTextObjects(prev => prev.filter(text => text.id !== textId));
-		if (selectedId === textId) setSelectedId(null);
-		if (editingTextId === textId) setEditingTextId(null);
-		saveCanvasState("Text deleted");
-	}, [selectedId, editingTextId, saveCanvasState]);
+	const handleDeleteText = useCallback(
+		(textId: string) => {
+			setTextObjects((prev) => prev.filter((text) => text.id !== textId));
+			if (selectedId === textId) setSelectedId(null);
+			if (editingTextId === textId) setEditingTextId(null);
+			saveCanvasState("Text deleted");
+		},
+		[selectedId, editingTextId, saveCanvasState],
+	);
 
 	const handleStartTextEdit = useCallback((textId: string) => {
-		setTextObjects(prev =>
-			prev.map(text =>
-				text.id === textId ? { ...text, isEditing: true } : text
-			)
+		setTextObjects((prev) =>
+			prev.map((text) =>
+				text.id === textId ? { ...text, isEditing: true } : text,
+			),
 		);
 		setEditingTextId(textId);
 		setSelectedId(textId);
 	}, []);
 
 	const handleCancelTextEdit = useCallback((textId: string) => {
-		setTextObjects(prev =>
-			prev.map(text =>
-				text.id === textId ? { ...text, isEditing: false } : text
-			)
+		setTextObjects((prev) =>
+			prev.map((text) =>
+				text.id === textId ? { ...text, isEditing: false } : text,
+			),
 		);
 		setEditingTextId(null);
 	}, []);
 
-	const handleSelectText = useCallback((textId: string) => {
-		setSelectedId(textId);
-		setActiveTool("select");
-	}, [setActiveTool]);
+	const handleSelectText = useCallback(
+		(textId: string) => {
+			setSelectedId(textId);
+			setActiveTool("select");
+		},
+		[setActiveTool],
+	);
 
 	/* --- CLEAR CANVAS FUNCTION --- */
-	const handleClearCanvas = useCallback((options?: { preserveBackground?: boolean }) => {
-		const preserve = options?.preserveBackground ?? false;
-		
-		// Clear all canvas content
-		setLines([]);
-		setShapes([]);
-		setTextObjects([]);
-		setGradients([]);
-		setTempImage(null);
-		clearSelection();
-		
-		// Only clear images if preserveBackground is false
-		if (!preserve) {
-			setImages([]);
-		}
-		
-		// Clear all auxiliary canvases
-		[floodFillContext, eyedropperContext, healingContext, blurContext].forEach(ctx => {
-			if (ctx.current) {
-				ctx.current.clearRect(0, 0, actualWidth, actualHeight);
+	const handleClearCanvas = useCallback(
+		(options?: { preserveBackground?: boolean }) => {
+			const preserve = options?.preserveBackground ?? false;
+
+			// Clear all canvas content
+			setLines([]);
+			setShapes([]);
+			setTextObjects([]);
+			setGradients([]);
+			setTempImage(null);
+			clearSelection();
+
+			// Only clear images if preserveBackground is false
+			if (!preserve) {
+				setImages([]);
 			}
-		});
-		
-		// Clear temp canvas
-		if (tempContext) {
-			tempContext.clearRect(0, 0, actualWidth, actualHeight);
-		}
-		
-		toast.success(preserve ? "Canvas cleared (background preserved)" : "Canvas completely cleared");
-		saveCanvasState("Canvas cleared", true);
-	}, [clearSelection, saveCanvasState, actualWidth, actualHeight, tempContext]);
+
+			// Clear all auxiliary canvases
+			[
+				floodFillContext,
+				eyedropperContext,
+				healingContext,
+				blurContext,
+			].forEach((ctx) => {
+				if (ctx.current) {
+					ctx.current.clearRect(0, 0, actualWidth, actualHeight);
+				}
+			});
+
+			// Clear temp canvas
+			if (tempContext) {
+				tempContext.clearRect(0, 0, actualWidth, actualHeight);
+			}
+
+			toast.success(
+				preserve
+					? "Canvas cleared (background preserved)"
+					: "Canvas completely cleared",
+			);
+			saveCanvasState("Canvas cleared", true);
+		},
+		[clearSelection, saveCanvasState, actualWidth, actualHeight, tempContext],
+	);
 
 	/* --- EVENT LISTENERS FOR TEXT --- */
 	useEffect(() => {
@@ -579,8 +621,8 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		const handleRequestTextObjects = () => {
 			window.dispatchEvent(
 				new CustomEvent("artstudio:text-objects", {
-					detail: { textObjects }
-				})
+					detail: { textObjects },
+				}),
 			);
 		};
 
@@ -590,24 +632,72 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			handleClearCanvas({ preserveBackground });
 		};
 
-		window.addEventListener("artstudio:add-text", handleAddTextEvent as EventListener);
-		window.addEventListener("artstudio:update-text", handleUpdateTextEvent as EventListener);
-		window.addEventListener("artstudio:delete-text", handleDeleteTextEvent as EventListener);
-		window.addEventListener("artstudio:start-text-edit", handleStartTextEditEvent as EventListener);
-		window.addEventListener("artstudio:cancel-text-edit", handleCancelTextEditEvent as EventListener);
-		window.addEventListener("artstudio:select-text", handleSelectTextEvent as EventListener);
-		window.addEventListener("artstudio:request-text-objects", handleRequestTextObjects);
-		window.addEventListener("artstudio:clear-canvas", handleClearCanvasEvent as EventListener);
+		window.addEventListener(
+			"artstudio:add-text",
+			handleAddTextEvent as EventListener,
+		);
+		window.addEventListener(
+			"artstudio:update-text",
+			handleUpdateTextEvent as EventListener,
+		);
+		window.addEventListener(
+			"artstudio:delete-text",
+			handleDeleteTextEvent as EventListener,
+		);
+		window.addEventListener(
+			"artstudio:start-text-edit",
+			handleStartTextEditEvent as EventListener,
+		);
+		window.addEventListener(
+			"artstudio:cancel-text-edit",
+			handleCancelTextEditEvent as EventListener,
+		);
+		window.addEventListener(
+			"artstudio:select-text",
+			handleSelectTextEvent as EventListener,
+		);
+		window.addEventListener(
+			"artstudio:request-text-objects",
+			handleRequestTextObjects,
+		);
+		window.addEventListener(
+			"artstudio:clear-canvas",
+			handleClearCanvasEvent as EventListener,
+		);
 
 		return () => {
-			window.removeEventListener("artstudio:add-text", handleAddTextEvent as EventListener);
-			window.removeEventListener("artstudio:update-text", handleUpdateTextEvent as EventListener);
-			window.removeEventListener("artstudio:delete-text", handleDeleteTextEvent as EventListener);
-			window.removeEventListener("artstudio:start-text-edit", handleStartTextEditEvent as EventListener);
-			window.removeEventListener("artstudio:cancel-text-edit", handleCancelTextEditEvent as EventListener);
-			window.removeEventListener("artstudio:select-text", handleSelectTextEvent as EventListener);
-			window.removeEventListener("artstudio:request-text-objects", handleRequestTextObjects);
-			window.removeEventListener("artstudio:clear-canvas", handleClearCanvasEvent as EventListener);
+			window.removeEventListener(
+				"artstudio:add-text",
+				handleAddTextEvent as EventListener,
+			);
+			window.removeEventListener(
+				"artstudio:update-text",
+				handleUpdateTextEvent as EventListener,
+			);
+			window.removeEventListener(
+				"artstudio:delete-text",
+				handleDeleteTextEvent as EventListener,
+			);
+			window.removeEventListener(
+				"artstudio:start-text-edit",
+				handleStartTextEditEvent as EventListener,
+			);
+			window.removeEventListener(
+				"artstudio:cancel-text-edit",
+				handleCancelTextEditEvent as EventListener,
+			);
+			window.removeEventListener(
+				"artstudio:select-text",
+				handleSelectTextEvent as EventListener,
+			);
+			window.removeEventListener(
+				"artstudio:request-text-objects",
+				handleRequestTextObjects,
+			);
+			window.removeEventListener(
+				"artstudio:clear-canvas",
+				handleClearCanvasEvent as EventListener,
+			);
 		};
 	}, [
 		handleAddText,
@@ -623,17 +713,17 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 	/* --- TEXT AREA POSITION UPDATER --- */
 	useEffect(() => {
 		if (editingTextId && stageRef.current) {
-			const text = textObjects.find(t => t.id === editingTextId);
+			const text = textObjects.find((t) => t.id === editingTextId);
 			if (text) {
 				const stage = stageRef.current;
 				const stageBox = stage.container().getBoundingClientRect();
-				
+
 				// Convert canvas coordinates to screen coordinates
-				const x = (text.x * (zoom / 100)) + panOffset.x + stageBox.left;
-				const y = (text.y * (zoom / 100)) + panOffset.y + stageBox.top;
+				const x = text.x * (zoom / 100) + panOffset.x + stageBox.left;
+				const y = text.y * (zoom / 100) + panOffset.y + stageBox.top;
 				const width = (text.width || 200) * (zoom / 100);
 				const height = (text.height || 100) * (zoom / 100);
-				
+
 				setTextAreaPosition({ x, y, width, height });
 			}
 		} else {
@@ -761,7 +851,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			updateAuxCanvases();
 			if (!eyedropperContext.current) return;
 
-		const ctx = eyedropperContext.current;
+			const ctx = eyedropperContext.current;
 			const pixel = ctx.getImageData(Math.floor(x), Math.floor(y), 1, 1).data;
 
 			// Konvertovať RGBA na hex
@@ -775,7 +865,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			if (isAltPressed) {
 				setSecondaryColor(hexColor);
 				toast.success(`Secondary color picked: ${hexColor}`);
-				} else {
+			} else {
 				setPrimaryColor(hexColor);
 				toast.success(`Primary color picked: ${hexColor}`);
 			}
@@ -795,9 +885,11 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				return;
 			}
 
-			console.log(`Starting flood fill at (${startX}, ${startY}) with color ${fillColor}`);
+			console.log(
+				`Starting flood fill at (${startX}, ${startY}) with color ${fillColor}`,
+			);
 
-		const ctx = floodFillContext.current;
+			const ctx = floodFillContext.current;
 			const imageData = ctx.getImageData(0, 0, actualWidth, actualHeight);
 			const { data, width, height } = imageData;
 
@@ -862,7 +954,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			const visited = new Uint8Array(width * height);
 			const stack: [number, number][] = [[x, y]];
 			const filledPixels: [number, number][] = [];
-			
+
 			// Performance: Limit max iterations to prevent freezing
 			const maxIterations = width * height;
 			let iterations = 0;
@@ -882,31 +974,39 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				const a = data[pixelIdx + 3];
 
 				// Use faster Manhattan distance for performance
-				const colorDistance = Math.abs(r - targetColor.r) + 
-					Math.abs(g - targetColor.g) + 
-					Math.abs(b - targetColor.b) + 
+				const colorDistance =
+					Math.abs(r - targetColor.r) +
+					Math.abs(g - targetColor.g) +
+					Math.abs(b - targetColor.b) +
 					Math.abs(a - targetColor.a);
 
-				if (colorDistance <= tolerance * 4) { // Adjust threshold for Manhattan distance
+				if (colorDistance <= tolerance * 4) {
+					// Adjust threshold for Manhattan distance
 					// Pridať pixel do zoznamu vyplnených
 					filledPixels.push([currentX, currentY]);
 
 					// Pridať susedné pixely do zásobníka (check visited first for performance)
-					if (currentX > 0 && !visited[(currentY * width + currentX - 1)]) {
+					if (currentX > 0 && !visited[currentY * width + currentX - 1]) {
 						stack.push([currentX - 1, currentY]);
 					}
-					if (currentX < width - 1 && !visited[(currentY * width + currentX + 1)]) {
+					if (
+						currentX < width - 1 &&
+						!visited[currentY * width + currentX + 1]
+					) {
 						stack.push([currentX + 1, currentY]);
 					}
-					if (currentY > 0 && !visited[((currentY - 1) * width + currentX)]) {
+					if (currentY > 0 && !visited[(currentY - 1) * width + currentX]) {
 						stack.push([currentX, currentY - 1]);
 					}
-					if (currentY < height - 1 && !visited[((currentY + 1) * width + currentX)]) {
+					if (
+						currentY < height - 1 &&
+						!visited[(currentY + 1) * width + currentX]
+					) {
 						stack.push([currentX, currentY + 1]);
 					}
 				}
 			}
-			
+
 			if (iterations >= maxIterations) {
 				toast.warning("Fill area too large, showing partial result");
 			}
@@ -945,7 +1045,9 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			// Pridať do stavu
 			setImages((prev) => {
 				// Odstrániť predchádzajúce vyplnenie na rovnakej vrstve
-				const filtered = prev.filter(img => img.layerId !== activeLayerId || !img.id.includes("fill"));
+				const filtered = prev.filter(
+					(img) => img.layerId !== activeLayerId || !img.id.includes("fill"),
+				);
 				return [...filtered, fillImage];
 			});
 
@@ -1008,19 +1110,15 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			}
 
 			if (brushSettings.textBackground) {
-				newText.backgroundColor = brushSettings.textBackgroundColor || "#ffffff";
+				newText.backgroundColor =
+					brushSettings.textBackgroundColor || "#ffffff";
 				newText.backgroundOpacity = brushSettings.textBackgroundOpacity || 20;
 			}
 
 			handleAddText(newText);
 			toast.success("Text added - click to edit");
 		},
-		[
-			primaryColor,
-			activeLayerId,
-			brushSettings,
-			handleAddText,
-		],
+		[primaryColor, activeLayerId, brushSettings, handleAddText],
 	);
 
 	useEffect(() => {
@@ -1093,8 +1191,11 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			const preserveBackground = e.detail?.preserveBackground || false;
 			handleClearCanvas({ preserveBackground });
 		};
-		
-		window.addEventListener("artstudio:clear-canvas", handleClearCanvas as EventListener);
+
+		window.addEventListener(
+			"artstudio:clear-canvas",
+			handleClearCanvas as EventListener,
+		);
 
 		const handleRestoreHistory = (e: any) => {
 			if (e.detail && typeof e.detail === "string") {
@@ -1112,7 +1213,10 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 					const filtered = prev.filter((l) => l.layerId !== layerId);
 					// Clear selection if it was on this layer
 					setSelectedId((currentId) => {
-						if (currentId && prev.some((l) => l.id === currentId && l.layerId === layerId)) {
+						if (
+							currentId &&
+							prev.some((l) => l.id === currentId && l.layerId === layerId)
+						) {
 							return null;
 						}
 						return currentId;
@@ -1123,7 +1227,10 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 					const filtered = prev.filter((s) => s.layerId !== layerId);
 					// Clear selection if it was on this layer
 					setSelectedId((currentId) => {
-						if (currentId && prev.some((s) => s.id === currentId && s.layerId === layerId)) {
+						if (
+							currentId &&
+							prev.some((s) => s.id === currentId && s.layerId === layerId)
+						) {
 							return null;
 						}
 						return currentId;
@@ -1134,7 +1241,12 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 					const filtered = prev.filter((img) => img.layerId !== layerId);
 					// Clear selection if it was on this layer
 					setSelectedId((currentId) => {
-						if (currentId && prev.some((img) => img.id === currentId && img.layerId === layerId)) {
+						if (
+							currentId &&
+							prev.some(
+								(img) => img.id === currentId && img.layerId === layerId,
+							)
+						) {
 							return null;
 						}
 						return currentId;
@@ -1145,22 +1257,35 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 					const filtered = prev.filter((text) => text.layerId !== layerId);
 					// Clear selection if it was on this layer
 					setSelectedId((currentId) => {
-						if (currentId && prev.some((text) => text.id === currentId && text.layerId === layerId)) {
+						if (
+							currentId &&
+							prev.some(
+								(text) => text.id === currentId && text.layerId === layerId,
+							)
+						) {
 							return null;
 						}
 						return currentId;
 					});
-					if (editingTextId && prev.some((text) => text.id === editingTextId && text.layerId === layerId)) {
+					if (
+						editingTextId &&
+						prev.some(
+							(text) => text.id === editingTextId && text.layerId === layerId,
+						)
+					) {
 						setEditingTextId(null);
 					}
 					return filtered;
 				});
 				setGradients((prev) => prev.filter((g) => g.layerId !== layerId));
-				
+
 				saveCanvasState("Layer deleted");
 			}
 		};
-		window.addEventListener("artstudio:remove-layer", handleRemoveLayer as EventListener);
+		window.addEventListener(
+			"artstudio:remove-layer",
+			handleRemoveLayer as EventListener,
+		);
 
 		const handleTempToolChange = (e: any) => {
 			if (e.detail && e.detail.tool) {
@@ -1181,12 +1306,18 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		window.addEventListener("artstudio:temp-tool-reset", handleTempToolReset);
 
 		return () => {
-			window.removeEventListener("artstudio:clear-canvas", handleClearCanvas as EventListener);
+			window.removeEventListener(
+				"artstudio:clear-canvas",
+				handleClearCanvas as EventListener,
+			);
 			window.removeEventListener(
 				"artstudio:restore-history",
 				handleRestoreHistory,
 			);
-			window.removeEventListener("artstudio:remove-layer", handleRemoveLayer as EventListener);
+			window.removeEventListener(
+				"artstudio:remove-layer",
+				handleRemoveLayer as EventListener,
+			);
 			window.removeEventListener(
 				"artstudio:temp-tool-change",
 				handleTempToolChange,
@@ -1219,7 +1350,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 	const getCanvasPosition = useCallback(
 		(clientX: number, clientY: number) => {
 			if (!stageRef.current) return null;
-		const stage = stageRef.current;
+			const stage = stageRef.current;
 			const pos = stage.getRelativePointerPosition();
 			if (!pos) return null;
 			return {
@@ -1252,7 +1383,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				[Math.floor(startX), Math.floor(startY)],
 			];
 			const path: number[] = [];
-			
+
 			// Performance: Limit max iterations to prevent freezing on large selections
 			const maxIterations = width * height;
 			let iterations = 0;
@@ -1271,18 +1402,24 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				const a = data[dataIdx + 3];
 
 				// Use faster Manhattan distance for performance
-				const distance = Math.abs(r - targetR) + Math.abs(g - targetG) + 
-					Math.abs(b - targetB) + Math.abs(a - targetA);
+				const distance =
+					Math.abs(r - targetR) +
+					Math.abs(g - targetG) +
+					Math.abs(b - targetB) +
+					Math.abs(a - targetA);
 
-				if (distance <= magicWandTolerance * 4) { // Adjust threshold for Manhattan distance
+				if (distance <= magicWandTolerance * 4) {
+					// Adjust threshold for Manhattan distance
 					// Only add every Nth point to reduce path size
 					if (path.length % 2 === 0 || iterations % 2 === 0) {
 						path.push(x, y);
 					}
-					if (x > 0 && !visited[(y * width + x - 1)]) queue.push([x - 1, y]);
-					if (x < width - 1 && !visited[(y * width + x + 1)]) queue.push([x + 1, y]);
-					if (y > 0 && !visited[((y - 1) * width + x)]) queue.push([x, y - 1]);
-					if (y < height - 1 && !visited[((y + 1) * width + x)]) queue.push([x, y + 1]);
+					if (x > 0 && !visited[y * width + x - 1]) queue.push([x - 1, y]);
+					if (x < width - 1 && !visited[y * width + x + 1])
+						queue.push([x + 1, y]);
+					if (y > 0 && !visited[(y - 1) * width + x]) queue.push([x, y - 1]);
+					if (y < height - 1 && !visited[(y + 1) * width + x])
+						queue.push([x, y + 1]);
 				}
 			}
 
@@ -1307,7 +1444,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 	const handleCloneBrush = useCallback(
 		(targetX: number, targetY: number) => {
 			if (!cloneSourcePoint.current || !shapeStartPoint.current || !tempContext)
-			return;
+				return;
 			updateAuxCanvases();
 			const ctx = floodFillContext.current;
 			if (!ctx) return;
@@ -1430,7 +1567,9 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				y: s.y - (s.y ? y : 0),
 			})),
 		);
-		setImages((prevImages) => prevImages.map((img) => ({ ...img, x: img.x - x, y: img.y - y })));
+		setImages((prevImages) =>
+			prevImages.map((img) => ({ ...img, x: img.x - x, y: img.y - y })),
+		);
 		setTextObjects((prevTexts) =>
 			prevTexts.map((t) => ({
 				...t,
@@ -1476,8 +1615,8 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 
 			if (activeTool === "clone" && !cloneSourcePoint.current) {
 				toast.error("Alt+click to set clone source first");
-			return;
-		}
+				return;
+			}
 
 			setIsDrawing(true);
 			shapeStartPoint.current = pos;
@@ -1485,7 +1624,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			// Handle brush, pencil, eraser
 			if (["brush", "pencil", "eraser"].includes(activeTool)) {
 				const strokeColor = activeTool === "eraser" ? "#000000" : primaryColor;
-			const newLine: DrawingLine = {
+				const newLine: DrawingLine = {
 					id: generateId("line"),
 					points: [pos.x, pos.y],
 					stroke: strokeColor,
@@ -1575,7 +1714,8 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				// Only update preview every few frames to avoid expensive image creation
 				if (tempCanvas && activeTool !== "eraser") {
 					const now = Date.now();
-					if (now - lastMouseMoveTime.current > 50) { // Update preview max 20 times per second
+					if (now - lastMouseMoveTime.current > 50) {
+						// Update preview max 20 times per second
 						lastMouseMoveTime.current = now;
 						// Use requestAnimationFrame to avoid blocking
 						requestAnimationFrame(() => {
@@ -1685,7 +1825,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		// Ak je v editácii textu, nechajme textarea spracovať kliknutie
 		if (editingTextId && e.target === stageRef.current) {
 			// Uložiť editáciu a zavrieť textarea
-			const text = textObjects.find(t => t.id === editingTextId);
+			const text = textObjects.find((t) => t.id === editingTextId);
 			if (text) {
 				handleUpdateText(editingTextId, { isEditing: false });
 				setEditingTextId(null);
@@ -1732,7 +1872,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				setCurrentGradient(null);
 				setIsDrawingGradient(false);
 			}
-			
+
 			setIsDrawingGradient(true);
 			gradientStartPoint.current = pos;
 			const newGradient: GradientObject = {
@@ -1751,7 +1891,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			setCurrentGradient(newGradient);
 			return;
 		}
-		
+
 		// If another tool is selected while drawing gradient, cancel gradient
 		if (isDrawingGradient) {
 			setCurrentGradient(null);
@@ -1762,7 +1902,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		if (activeTool === "pen") {
 			if (e.evt.button === 0) {
 				if (!currentPenLine) {
-			const newLine: DrawingLine = {
+					const newLine: DrawingLine = {
 						id: generateId("pen"),
 						points: [pos.x, pos.y],
 						stroke: primaryColor,
@@ -1773,7 +1913,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 					setCurrentPenLine(newLine);
 					setPenPoints([pos.x, pos.y]);
 					setIsDrawing(true);
-			} else {
+				} else {
 					setPenPoints((prev) => [...prev, pos.x, pos.y]);
 					setCurrentPenLine((prev) =>
 						prev ? { ...prev, points: [...prev.points, pos.x, pos.y] } : null,
@@ -1840,8 +1980,8 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				layerId: activeLayerId || "layer-1",
 			};
 			setCurrentShape(starShape);
-				return;
-			}
+			return;
+		}
 
 		const drawingTools = [
 			"brush",
@@ -1860,8 +2000,8 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				return;
 			}
 			startDrawing(pos);
-				return;
-			}
+			return;
+		}
 
 		if (["rectangle", "ellipse", "line"].includes(activeTool)) {
 			shapeStartPoint.current = pos;
@@ -1917,7 +2057,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			if (stage) {
 				const pointer = stage.getPointerPosition();
 				if (pointer) {
-			if (e.evt.altKey) {
+					if (e.evt.altKey) {
 						zoomOut(20, { centerOnPoint: pointer });
 					} else {
 						zoomIn(20, { centerOnPoint: pointer });
@@ -1931,7 +2071,11 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 	const handleMouseMove = (e: Konva.KonvaEventObject<MouseEvent>) => {
 		// Throttle mouse move events for performance
 		const now = performance.now();
-		if (now - lastMouseMoveTime.current < throttleDelay && !isDrawing && !isSelecting) {
+		if (
+			now - lastMouseMoveTime.current < throttleDelay &&
+			!isDrawing &&
+			!isSelecting
+		) {
 			return;
 		}
 		lastMouseMoveTime.current = now;
@@ -1943,7 +2087,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		if (activeTool === "fill" && !isDrawing && tempContext) {
 			// Clear previous preview
 			tempContext.clearRect(0, 0, actualWidth, actualHeight);
-			
+
 			// Draw preview circle
 			tempContext.save();
 			tempContext.globalAlpha = 0.5;
@@ -1952,7 +2096,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			tempContext.arc(pos.x, pos.y, 10, 0, Math.PI * 2);
 			tempContext.fill();
 			tempContext.restore();
-			
+
 			// Update preview image
 			if (tempCanvas) {
 				const img = new window.Image();
@@ -1972,9 +2116,11 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				setSelectionBounds({ x, y, width, height });
 			} else if (activeTool === "lasso" && selectionPath) {
 				// Throttle lasso point addition to avoid huge arrays
-				if (selectionPath.length === 0 || 
+				if (
+					selectionPath.length === 0 ||
 					Math.abs(selectionPath[selectionPath.length - 2] - pos.x) > 2 ||
-					Math.abs(selectionPath[selectionPath.length - 1] - pos.y) > 2) {
+					Math.abs(selectionPath[selectionPath.length - 1] - pos.y) > 2
+				) {
 					setSelectionPath([...selectionPath, pos.x, pos.y]);
 				}
 			}
@@ -1983,13 +2129,13 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		if (activeTool === "pen" && currentPenLine) {
 			setCurrentPenLine({
 				...currentPenLine,
-					points: [...penPoints, pos.x, pos.y],
-				});
+				points: [...penPoints, pos.x, pos.y],
+			});
 			return;
 		}
 
 		if (isDrawingPolygon && polygonPoints.length > 0) {
-				setCurrentShape({
+			setCurrentShape({
 				id: "polygon-preview",
 				type: "polygon",
 				x: 0,
@@ -2208,19 +2354,20 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			const dx = currentGradient.x1 - currentGradient.x0;
 			const dy = currentGradient.y1 - currentGradient.y0;
 			const distance = Math.sqrt(dx * dx + dy * dy);
-			
-			if (distance > 5) { // Minimum distance to create gradient
+
+			if (distance > 5) {
+				// Minimum distance to create gradient
 				addGradient(currentGradient);
 				saveCanvasState("Gradient added");
 			}
-			
+
 			// Always reset gradient drawing state
 			setCurrentGradient(null);
 			setIsDrawingGradient(false);
 			gradientStartPoint.current = null;
 		}
 
-			isPanning.current = false;
+		isPanning.current = false;
 	};
 
 	const handleDblClick = () => {
@@ -2235,7 +2382,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 	) => {
 		if (activeTool === "select" || activeTool === "move") {
 			setSelectedId(id);
-			
+
 			// Check if it's a text object
 			const text = textObjects.find((t) => t.id === id);
 			if (text && !text.isEditing) {
@@ -2268,31 +2415,33 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				"burn",
 			].includes(activeTool)
 		)
-				return "crosshair";
+			return "crosshair";
 		if (["marquee", "lasso", "magicwand"].includes(activeTool))
-				return "crosshair";
+			return "crosshair";
 		if (activeTool === "text") return "text";
 		if (activeTool === "move") return "move";
 		if (activeTool === "eyedropper") return "copy";
 		if (activeTool === "fill") return "alias";
 		if (activeTool === "star") return "crosshair";
-				return "default";
+		return "default";
 	};
 
 	// Textarea change handler
 	const handleTextAreaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
 		if (!editingTextId) return;
-		
-		const text = textObjects.find(t => t.id === editingTextId);
+
+		const text = textObjects.find((t) => t.id === editingTextId);
 		if (text) {
 			handleUpdateText(editingTextId, { text: e.target.value });
 		}
 	};
 
 	// Textarea key down handler
-	const handleTextAreaKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+	const handleTextAreaKeyDown = (
+		e: React.KeyboardEvent<HTMLTextAreaElement>,
+	) => {
 		if (!editingTextId) return;
-		
+
 		if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
 			// Save and exit edit mode
 			handleUpdateText(editingTextId, { isEditing: false });
@@ -2434,17 +2583,17 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 
 								switch (shape.type) {
 									case "rect":
-									return (
-										<Rect
-											key={shape.id}
-											id={shape.id}
-											x={shape.x}
-											y={shape.y}
-											width={shape.width}
-											height={shape.height}
-											fill={shape.fill}
-											stroke={shape.stroke}
-											strokeWidth={shape.strokeWidth}
+										return (
+											<Rect
+												key={shape.id}
+												id={shape.id}
+												x={shape.x}
+												y={shape.y}
+												width={shape.width}
+												height={shape.height}
+												fill={shape.fill}
+												stroke={shape.stroke}
+												strokeWidth={shape.strokeWidth}
 												rotation={shape.rotation}
 												scaleX={shape.scaleX}
 												scaleY={shape.scaleY}
@@ -2452,17 +2601,17 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 											/>
 										);
 									case "ellipse":
-									return (
-										<Ellipse
-											key={shape.id}
-											id={shape.id}
-											x={shape.x}
-											y={shape.y}
+										return (
+											<Ellipse
+												key={shape.id}
+												id={shape.id}
+												x={shape.x}
+												y={shape.y}
 												radiusX={shape.radiusX || 0}
 												radiusY={shape.radiusY || 0}
-											fill={shape.fill}
-											stroke={shape.stroke}
-											strokeWidth={shape.strokeWidth}
+												fill={shape.fill}
+												stroke={shape.stroke}
+												strokeWidth={shape.strokeWidth}
 												rotation={shape.rotation}
 												scaleX={shape.scaleX}
 												scaleY={shape.scaleY}
@@ -2470,33 +2619,33 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 											/>
 										);
 									case "polygon":
-									return (
-										<Line
-											key={shape.id}
-											id={shape.id}
+										return (
+											<Line
+												key={shape.id}
+												id={shape.id}
 												points={shape.points}
 												closed
 												fill={shape.fill}
 												stroke={shape.stroke}
-											strokeWidth={shape.strokeWidth}
+												strokeWidth={shape.strokeWidth}
 												rotation={shape.rotation}
 												scaleX={shape.scaleX}
 												scaleY={shape.scaleY}
 												lineJoin="round"
-											lineCap="round"
+												lineCap="round"
 												{...commonProps}
 											/>
 										);
 									case "text":
-									return (
-										<Text
-											key={shape.id}
-											id={shape.id}
+										return (
+											<Text
+												key={shape.id}
+												id={shape.id}
 												text={shape.text}
-											x={shape.x}
-											y={shape.y}
-											fontSize={shape.fontSize}
-											fill={shape.fill}
+												x={shape.x}
+												y={shape.y}
+												fontSize={shape.fontSize}
+												fill={shape.fill}
 												rotation={shape.rotation}
 												scaleX={shape.scaleX}
 												scaleY={shape.scaleY}
@@ -2536,7 +2685,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 											/>
 										);
 									default:
-								return null;
+										return null;
 								}
 							})}
 
@@ -2565,10 +2714,12 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 								const layerOpacity = layerOpacities[text.layerId] || 1;
 								const textOpacity = (text.opacity || 100) / 100;
 								const combinedOpacity = layerOpacity * textOpacity;
-								
+
 								const commonProps = {
 									id: text.id,
-									draggable: (activeTool === "select" || activeTool === "move") && !text.isEditing,
+									draggable:
+										(activeTool === "select" || activeTool === "move") &&
+										!text.isEditing,
 									onClick: (e: any) => {
 										if (activeTool === "select" || activeTool === "move") {
 											setSelectedId(text.id);
@@ -2585,12 +2736,12 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 									},
 									onDragEnd: (e: any) => {
 										if (text.isEditing) return;
-										setTextObjects(prev =>
-											prev.map(t =>
+										setTextObjects((prev) =>
+											prev.map((t) =>
 												t.id === text.id
 													? { ...t, x: e.target.x(), y: e.target.y() }
-													: t
-											)
+													: t,
+											),
 										);
 										saveCanvasState("Text moved");
 									},
@@ -2611,7 +2762,12 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 									fill: text.color,
 									align: text.textAlign,
 									padding: text.padding || 0,
-									wrap: text.wrap === "none" ? "none" : text.wrap === "char" ? "char" : "word",
+									wrap:
+										text.wrap === "none"
+											? "none"
+											: text.wrap === "char"
+												? "char"
+												: "word",
 								};
 
 								// Pridajte tieň
@@ -2634,7 +2790,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 												width={(text.width || 100) + (text.padding || 0) * 2}
 												height={(text.height || 50) + (text.padding || 0) * 2}
 												fill={`${text.backgroundColor}${Math.round(
-													(text.backgroundOpacity || 20) * 2.55
+													(text.backgroundOpacity || 20) * 2.55,
 												)
 													.toString(16)
 													.padStart(2, "0")}`}
@@ -2698,7 +2854,12 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 									canvas.height = actualHeight;
 									const ctx = canvas.getContext("2d");
 									if (ctx && g.colorStops && g.colorStops.length > 0) {
-										const gradient = ctx.createLinearGradient(g.x0, g.y0, g.x1, g.y1);
+										const gradient = ctx.createLinearGradient(
+											g.x0,
+											g.y0,
+											g.x1,
+											g.y1,
+										);
 										g.colorStops.forEach((stop) => {
 											gradient.addColorStop(stop.offset, stop.color);
 										});
@@ -2706,8 +2867,17 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 										ctx.fillRect(0, 0, actualWidth, actualHeight);
 									}
 									return canvas;
-								}, [g.id, g.x0, g.y0, g.x1, g.y1, g.colorStops, actualWidth, actualHeight]);
-								
+								}, [
+									g.id,
+									g.x0,
+									g.y0,
+									g.x1,
+									g.y1,
+									g.colorStops,
+									actualWidth,
+									actualHeight,
+								]);
+
 								return (
 									<KonvaImage
 										key={g.id}
@@ -2810,7 +2980,11 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 								points={currentPenLine.points}
 								stroke={currentPenLine.stroke}
 								strokeWidth={currentPenLine.strokeWidth}
-								opacity={layerOpacities[currentPenLine?.layerId || activeLayerId || "layer-1"] || 1}
+								opacity={
+									layerOpacities[
+										currentPenLine?.layerId || activeLayerId || "layer-1"
+									] || 1
+								}
 							/>
 						)}
 
@@ -2818,8 +2992,8 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 							<Rect
 								x={0}
 								y={0}
-				width={actualWidth}
-				height={actualHeight}
+								width={actualWidth}
+								height={actualHeight}
 								fillLinearGradientStartPoint={{
 									x: currentGradient.x0,
 									y: currentGradient.y0,
@@ -2868,19 +3042,27 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 						autoFocus
 						className="fixed bg-white text-black border-2 border-blue-500 rounded p-2 resize-none z-50 shadow-lg"
 						style={{
-							fontFamily: textObjects.find(t => t.id === editingTextId)?.fontFamily || "Arial",
-							fontSize: `${textObjects.find(t => t.id === editingTextId)?.fontSize || 16}px`,
-							fontWeight: textObjects.find(t => t.id === editingTextId)?.fontWeight || "normal",
-							fontStyle: textObjects.find(t => t.id === editingTextId)?.fontStyle || "normal",
+							fontFamily:
+								textObjects.find((t) => t.id === editingTextId)?.fontFamily ||
+								"Arial",
+							fontSize: `${textObjects.find((t) => t.id === editingTextId)?.fontSize || 16}px`,
+							fontWeight:
+								textObjects.find((t) => t.id === editingTextId)?.fontWeight ||
+								"normal",
+							fontStyle:
+								textObjects.find((t) => t.id === editingTextId)?.fontStyle ||
+								"normal",
 							left: `${textAreaPosition.x}px`,
 							top: `${textAreaPosition.y}px`,
 							width: `${Math.max(100, textAreaPosition.width)}px`,
 							height: `${Math.max(50, textAreaPosition.height)}px`,
-							textAlign: textObjects.find(t => t.id === editingTextId)?.textAlign as any || "left",
-							lineHeight: `${(textObjects.find(t => t.id === editingTextId)?.lineHeight || 1.2)}`,
-							letterSpacing: `${textObjects.find(t => t.id === editingTextId)?.letterSpacing || 0}px`,
+							textAlign:
+								(textObjects.find((t) => t.id === editingTextId)
+									?.textAlign as any) || "left",
+							lineHeight: `${textObjects.find((t) => t.id === editingTextId)?.lineHeight || 1.2}`,
+							letterSpacing: `${textObjects.find((t) => t.id === editingTextId)?.letterSpacing || 0}px`,
 						}}
-						value={textObjects.find(t => t.id === editingTextId)?.text || ""}
+						value={textObjects.find((t) => t.id === editingTextId)?.text || ""}
 						onChange={handleTextAreaChange}
 						onKeyDown={handleTextAreaKeyDown}
 						onBlur={handleTextAreaBlur}
