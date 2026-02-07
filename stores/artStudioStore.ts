@@ -775,7 +775,7 @@ export const useArtStudioStore = create<ArtStudioState>()(
           setTimeout(() => {
             get()
               .saveSession()
-              .catch(() => {});
+              .catch(() => { });
           }, 1000);
         }
       },
@@ -889,7 +889,7 @@ export const useArtStudioStore = create<ArtStudioState>()(
 
       clearCanvas: async (options?: { preserveBackground?: boolean }) => {
         const preserve = options?.preserveBackground ?? false;
-        
+
         // Clear all canvas data
         set({
           textObjects: [],
@@ -908,14 +908,14 @@ export const useArtStudioStore = create<ArtStudioState>()(
 
         // Add to history
         await get().addToHistory(JSON.stringify({ objects: [] }), "", "clear_canvas");
-        
+
         toast.success(preserve ? "Canvas cleared (background preserved)" : "Canvas completely cleared");
-        
+
         // Save session
         setTimeout(() => {
           get()
             .saveSession()
-            .catch(() => {});
+            .catch(() => { });
         }, 500);
       },
 
@@ -923,7 +923,7 @@ export const useArtStudioStore = create<ArtStudioState>()(
         return new Promise((resolve) => {
           // Create custom confirmation dialog
           const confirmed = window.confirm("Are you sure you want to clear the canvas? This action cannot be undone.");
-          
+
           if (confirmed) {
             get().clearCanvas({ preserveBackground: false });
             resolve(true);
@@ -942,14 +942,14 @@ export const useArtStudioStore = create<ArtStudioState>()(
         if (editingTextId && tool !== "text") {
           get().cancelTextEdit(editingTextId);
         }
-        
+
         set({ activeTool: tool });
         get().setToolDefaults(tool);
         setTimeout(
           () =>
             get()
               .saveSession()
-              .catch(() => {}),
+              .catch(() => { }),
           2000,
         );
       },
@@ -961,7 +961,7 @@ export const useArtStudioStore = create<ArtStudioState>()(
           () =>
             get()
               .saveSession()
-              .catch(() => {}),
+              .catch(() => { }),
           2000,
         );
       },
@@ -1164,19 +1164,19 @@ export const useArtStudioStore = create<ArtStudioState>()(
       removeLayer: (id) => {
         const { layers, activeLayerId } = get();
         if (layers.length === 0) return;
-        
+
         if (layers.length === 1) {
           toast.error("Cannot delete the last layer");
           return;
         }
-        
+
         const newLayers = layers.filter((l) => l.id !== id);
         set({
           layers: newLayers,
           activeLayerId:
             activeLayerId === id ? newLayers[0]?.id || null : activeLayerId,
         });
-        
+
         window.dispatchEvent(
           new CustomEvent("artstudio:remove-layer", {
             detail: { layerId: id },
@@ -1283,6 +1283,10 @@ export const useArtStudioStore = create<ArtStudioState>()(
 
       setGradients: (gradients) => set({ gradients }),
 
+      clearRecentColors: () => {
+        set({ recentColors: [] });
+      },
+
       setZoom: (zoom) => set({ zoom: Math.max(10, Math.min(500, zoom)) }),
 
       setPanOffset: (offset) => set({ panOffset: offset }),
@@ -1299,7 +1303,7 @@ export const useArtStudioStore = create<ArtStudioState>()(
           () =>
             get()
               .saveSession()
-              .catch(() => {}),
+              .catch(() => { }),
           500,
         );
       },

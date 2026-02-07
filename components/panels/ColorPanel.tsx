@@ -2,7 +2,7 @@
 
 import React, { useState, useRef } from "react";
 import { useArtStudioStore } from "@/stores/artStudioStore";
-import { ArrowLeftRight } from "lucide-react";
+import { ArrowLeftRight, Trash2 } from "lucide-react";
 
 export const ColorPanel: React.FC = () => {
 	const {
@@ -12,6 +12,7 @@ export const ColorPanel: React.FC = () => {
 		setSecondaryColor,
 		swapColors,
 		recentColors,
+		clearRecentColors,
 	} = useArtStudioStore();
 
 	const primaryInputRef = useRef<HTMLInputElement>(null);
@@ -107,9 +108,29 @@ export const ColorPanel: React.FC = () => {
 		setSecondaryColor(hexColor);
 	};
 
+	// Clear all selected colors
+	const handleClearColors = () => {
+		setPrimaryColor("#ffffff"); // Reset to white
+		setSecondaryColor("#000000"); // Reset to black
+		// Optionally clear recent colors too
+		if (clearRecentColors) {
+			clearRecentColors();
+		}
+	};
+
 	return (
 		<div className="panel-glass p-4 w-full space-y-4 animate-fade-in">
-			<h3 className="text-sm font-medium text-foreground">Colors</h3>
+			{/* Header with clear button */}
+			<div className="flex items-center justify-between">
+				<h3 className="text-sm font-medium text-foreground">Colors</h3>
+				<button
+					onClick={handleClearColors}
+					className="tool-button p-1.5 text-muted-foreground hover:text-red-500 hover:bg-red-50"
+					title="Clear all colors"
+				>
+					<Trash2 className="w-3.5 h-3.5" />
+				</button>
+			</div>
 
 			{/* Primary/Secondary Color Display */}
 			<div className="flex items-center gap-4">
@@ -153,6 +174,7 @@ export const ColorPanel: React.FC = () => {
 					onMouseEnter={() => setIsHovering(true)}
 					onMouseLeave={() => setIsHovering(false)}
 					className="tool-button"
+					title="Swap colors"
 				>
 					<ArrowLeftRight
 						className={`w-4 h-4 transition-transform duration-200 ${isHovering ? "rotate-180" : ""}`}
@@ -200,9 +222,19 @@ export const ColorPanel: React.FC = () => {
 				</div>
 			</div>
 
-			{/* Recent Colors */}
+			{/* Recent Colors with clear option */}
 			<div>
-				<h4 className="text-xs text-muted-foreground mb-2">Recent Colors</h4>
+				<div className="flex items-center justify-between mb-2">
+					<h4 className="text-xs text-muted-foreground">Recent Colors</h4>
+					{recentColors.length > 0 && (
+						<button
+							onClick={clearRecentColors}
+							className="text-xs text-muted-foreground hover:text-red-500"
+						>
+							Clear
+						</button>
+					)}
+				</div>
 				<div className="grid grid-cols-8 gap-1">
 					{recentColors.map((color, index) => (
 						<button
