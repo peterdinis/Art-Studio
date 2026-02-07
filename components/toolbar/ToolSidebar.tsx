@@ -20,7 +20,7 @@ import {
 	AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { tools } from "./tools";
+import { tools } from "./tools"; // Importuj svoje nástroje
 import { Redo2, Trash2, Undo2 } from "lucide-react";
 import { Kbd } from "../ui/kbd";
 
@@ -111,7 +111,6 @@ export const ToolSidebar: React.FC = () => {
 		}
 	};
 
-	/* --- UPDATED CLEAR CANVAS HANDLER --- */
 	const handleClearCanvas = async (preserveBackground: boolean = false) => {
 		if (!canvasAvailable) {
 			toast.error("Canvas not available");
@@ -442,6 +441,7 @@ export const ToolSidebar: React.FC = () => {
 										input.onchange = (e) => {
 											const color = (e.target as HTMLInputElement).value;
 											setPrimaryColor(color);
+											useArtStudioStore.getState().addRecentColor(color);
 										};
 										input.click();
 									}}
@@ -457,6 +457,7 @@ export const ToolSidebar: React.FC = () => {
 										input.onchange = (e) => {
 											const color = (e.target as HTMLInputElement).value;
 											setSecondaryColor(color);
+											useArtStudioStore.getState().addRecentColor(color);
 										};
 										input.click();
 									}}
@@ -469,6 +470,10 @@ export const ToolSidebar: React.FC = () => {
 										e.preventDefault();
 										e.stopPropagation();
 										swapColors();
+										// Pridaj obe farby do recent colors
+										const store = useArtStudioStore.getState();
+										store.addRecentColor(primaryColor);
+										store.addRecentColor(secondaryColor);
 									}}
 									className="absolute inset-0 z-20 cursor-pointer opacity-0 hover:opacity-100 transition-opacity bg-black/10 rounded"
 									title="Swap Colors"

@@ -334,6 +334,7 @@ interface ArtStudioState {
   exportSessionData: () => Promise<any>;
   importSessionData: (data: any) => Promise<boolean>;
 
+  clearRecentColors: () => any;
   // NEW: Clear canvas method
   clearCanvas: (options?: { preserveBackground?: boolean }) => Promise<void>;
   clearCanvasWithConfirmation: () => Promise<boolean>;
