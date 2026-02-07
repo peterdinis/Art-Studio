@@ -22,6 +22,7 @@ import {
 import { toast } from "sonner";
 import { tools } from "./tools";
 import { Redo2, Trash2, Undo2 } from "lucide-react";
+import { Kbd } from "../ui/kbd";
 
 export interface ToolConfig {
 	id: Tool;
@@ -259,9 +260,9 @@ export const ToolSidebar: React.FC = () => {
 							<div className="space-y-1.5">
 								<div className="flex items-center justify-between gap-4">
 									<span className="font-semibold">{tool.label}</span>
-									<kbd className="px-1.5 py-0.5 text-xs bg-muted rounded font-mono">
+									<Kbd className="px-1.5 py-0.5 text-xs bg-slate-100 text-black rounded font-mono">
 										{tool.shortcut}
-									</kbd>
+									</Kbd>
 								</div>
 								<p className="text-xs text-muted-foreground leading-relaxed">
 									{tool.description}
@@ -317,9 +318,9 @@ export const ToolSidebar: React.FC = () => {
 						<div className="space-y-1.5">
 							<div className="flex items-center justify-between gap-4">
 								<span className="font-semibold">Undo</span>
-								<kbd className="px-1.5 py-0.5 text-xs bg-muted rounded font-mono">
+								<Kbd className="px-1.5 py-0.5 text-xs bg-slate-100 text-black rounded font-mono">
 									Ctrl+Z
-								</kbd>
+								</Kbd>
 							</div>
 							<p className="text-xs text-muted-foreground leading-relaxed">
 								Vrátiť späť poslednú akciu.
@@ -343,9 +344,9 @@ export const ToolSidebar: React.FC = () => {
 						<div className="space-y-1.5">
 							<div className="flex items-center justify-between gap-4">
 								<span className="font-semibold">Redo</span>
-								<kbd className="px-1.5 py-0.5 text-xs bg-muted rounded font-mono">
+								<Kbd className="px-1.5 py-0.5 text-xs bg-slate-100 text-black rounded font-mono">
 									Ctrl+Y
-								</kbd>
+								</Kbd>
 							</div>
 							<p className="text-xs text-muted-foreground leading-relaxed">
 								Znovu aplikovať predtým vrátenú akciu.
@@ -376,9 +377,9 @@ export const ToolSidebar: React.FC = () => {
 							<div className="space-y-1.5">
 								<div className="flex items-center justify-between gap-4">
 									<span className="font-semibold">Vymazať plátno</span>
-									<kbd className="px-1.5 py-0.5 text-xs bg-muted rounded font-mono">
+									<Kbd className="px-1.5 py-0.5 text-xs bg-slate-100 text-black rounded font-mono">
 										Ctrl+Shift+D
-									</kbd>
+									</Kbd>
 								</div>
 								<p className="text-xs text-muted-foreground leading-relaxed">
 									Odstráni všetky kresby, tvary a obrázky z plátna.
@@ -482,9 +483,9 @@ export const ToolSidebar: React.FC = () => {
 							<div className="space-y-1.5">
 								<div className="flex items-center justify-between gap-4">
 									<span className="font-semibold">Farby</span>
-									<kbd className="px-1.5 py-0.5 text-xs bg-muted rounded font-mono">
+									<Kbd className="px-1.5 py-0.5 text-xs bg-slate-100 text-black rounded font-mono">
 										X
-									</kbd>
+									</Kbd>
 								</div>
 								<p className="text-xs text-muted-foreground leading-relaxed">
 									Kliknite na farby pre zmenu, X pre výmenu, D pre reset.
