@@ -795,6 +795,8 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				return;
 			}
 
+			console.log(`Starting flood fill at (${startX}, ${startY}) with color ${fillColor}`);
+
 		const ctx = floodFillContext.current;
 			const imageData = ctx.getImageData(0, 0, actualWidth, actualHeight);
 			const { data, width, height } = imageData;
@@ -915,6 +917,8 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				return;
 			}
 
+			console.log(`Filling ${filledPixels.length} pixels`);
+
 			// Aplikovať farbu na vyplnené pixely
 			filledPixels.forEach(([px, py]) => {
 				const idx = (py * width + px) * 4;
@@ -938,9 +942,19 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				layerId: activeLayerId || "layer-1",
 			};
 
-			setImages((prev) => [...prev, fillImage]);
-			saveCanvasState("Flood Fill applied");
+			// Pridať do stavu
+			setImages((prev) => {
+				// Odstrániť predchádzajúce vyplnenie na rovnakej vrstve
+				const filtered = prev.filter(img => img.layerId !== activeLayerId || !img.id.includes("fill"));
+				return [...filtered, fillImage];
+			});
 
+			// Okamžite aktualizovať pomocné canvasy pre nasledujúce operácie
+			setTimeout(() => {
+				updateAuxCanvases();
+			}, 100);
+
+			saveCanvasState("Flood Fill applied");
 			toast.success(`Filled ${filledPixels.length} pixels`);
 		},
 		[
@@ -951,6 +965,8 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			setImages,
 			updateAuxCanvases,
 			brushSettings.fillTolerance,
+			primaryColor,
+			generateId,
 		],
 	);
 
@@ -1057,7 +1073,9 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 					ref.current = canvas;
 				}
 				if (ref.current && !ctx.current) {
-					ctx.current = ref.current.getContext("2d");
+					ctx.current = ref.current.getContext("2d", {
+						willReadFrequently: true,
+					});
 				}
 			});
 
@@ -1510,7 +1528,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		},
 		[
 			activeTool,
-						primaryColor,
+			primaryColor,
 			brushSettings.size,
 			activeLayerId,
 			tempContext,
@@ -1661,6 +1679,8 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 	const handleMouseDown = (e: Konva.KonvaEventObject<MouseEvent>) => {
 		const pos = getCanvasPosition(e.evt.clientX, e.evt.clientY);
 		if (!pos) return;
+
+		console.log(`Mouse down at (${pos.x}, ${pos.y}) with tool: ${activeTool}`);
 
 		// Ak je v editácii textu, nechajme textarea spracovať kliknutie
 		if (editingTextId && e.target === stageRef.current) {
@@ -1876,6 +1896,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		}
 
 		if (activeTool === "fill") {
+			console.log("Paint bucket clicked at:", pos.x, pos.y);
 			floodFill(pos.x, pos.y, primaryColor);
 			return;
 		}
@@ -1917,6 +1938,30 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 
 		const pos = getCanvasPosition(e.evt.clientX, e.evt.clientY);
 		if (!pos) return;
+
+		// Paint bucket preview
+		if (activeTool === "fill" && !isDrawing && tempContext) {
+			// Clear previous preview
+			tempContext.clearRect(0, 0, actualWidth, actualHeight);
+			
+			// Draw preview circle
+			tempContext.save();
+			tempContext.globalAlpha = 0.5;
+			tempContext.fillStyle = primaryColor;
+			tempContext.beginPath();
+			tempContext.arc(pos.x, pos.y, 10, 0, Math.PI * 2);
+			tempContext.fill();
+			tempContext.restore();
+			
+			// Update preview image
+			if (tempCanvas) {
+				const img = new window.Image();
+				img.src = tempCanvas.toDataURL();
+				img.onload = () => {
+					setTempImage(img);
+				};
+			}
+		}
 
 		if (isSelecting && selectionStartPoint) {
 			if (activeTool === "marquee" || activeTool === "crop") {
@@ -2040,6 +2085,12 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 	};
 
 	const handleMouseUp = () => {
+		// Clear paint bucket preview
+		if (activeTool === "fill" && tempContext) {
+			tempContext.clearRect(0, 0, actualWidth, actualHeight);
+			setTempImage(null);
+		}
+
 		if (isSelecting) {
 			setIsSelecting(false);
 			if (activeTool === "marquee" && selectionBounds) {
@@ -2673,14 +2724,14 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 							})}
 
 						{/* TEMP IMAGE PRE REAL-TIME PREVIEW - Only show during active drawing */}
-						{tempImage && isDrawing && (
+						{tempImage && (
 							<KonvaImage
 								image={tempImage}
 								x={0}
 								y={0}
 								width={actualWidth}
 								height={actualHeight}
-								opacity={layerOpacities[activeLayerId || "layer-1"] || 1}
+								opacity={0.7}
 								listening={false}
 								globalCompositeOperation="source-over"
 							/>
