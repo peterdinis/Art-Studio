@@ -6,9 +6,9 @@ import React from "react";
 
 // Mock resize observer
 global.ResizeObserver = class ResizeObserver {
-	observe() { }
-	unobserve() { }
-	disconnect() { }
+	observe() {}
+	unobserve() {}
+	disconnect() {}
 };
 
 // Mock localStorage

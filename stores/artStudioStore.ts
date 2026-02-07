@@ -1,8 +1,8 @@
 "use client";
 
-import { sessionDB } from "@/db/indexedDB";
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
+import { toast } from "sonner";
 
 export type Tool =
   | "brush"
@@ -65,6 +65,38 @@ export interface LineSettings {
   tension: number;
   precision: number;
   arrowSize: number;
+}
+
+export interface TextObject {
+  id: string;
+  text: string;
+  x: number;
+  y: number;
+  width?: number;
+  height?: number;
+  fontFamily: string;
+  fontSize: number;
+  fontWeight: string;
+  fontStyle: string;
+  textDecoration: string;
+  textAlign: "left" | "center" | "right" | "justify";
+  lineHeight: number;
+  letterSpacing: number;
+  color: string;
+  backgroundColor?: string;
+  backgroundOpacity?: number;
+  shadowColor?: string;
+  shadowBlur?: number;
+  shadowOffsetX?: number;
+  shadowOffsetY?: number;
+  outlineColor?: string;
+  outlineWidth?: number;
+  rotation?: number;
+  opacity?: number;
+  wrap: "word" | "char" | "none";
+  padding?: number;
+  isEditing?: boolean;
+  layerId: string;
 }
 
 export interface BrushSettings {
@@ -195,6 +227,10 @@ interface ArtStudioState {
   panOffset: { x: number; y: number };
   canvasSize: CanvasSize | null;
 
+  // Text objects state
+  textObjects: TextObject[];
+  editingTextId: string | null;
+
   // History (stored in session DB)
   history: HistoryEntry[];
   historyIndex: number;
@@ -262,11 +298,20 @@ interface ArtStudioState {
   updateGradient: (id: string, updates: Partial<GradientObject>) => void;
   removeGradient: (id: string) => void;
   clearGradients: () => void;
-  setGradients: (gradients: GradientObject[]) => void;
+  setGradients: (gradients: any[]) => void;
   setZoom: (zoom: number) => void;
   setPanOffset: (offset: { x: number; y: number }) => void;
   setCanvasSize: (size: CanvasSize) => void;
   resetCanvasView: () => void;
+
+  // Text operations
+  addTextObject: (textObject: TextObject) => void;
+  updateTextObject: (id: string, updates: Partial<TextObject>) => void;
+  deleteTextObject: (id: string) => void;
+  startTextEdit: (id: string) => void;
+  cancelTextEdit: (id: string) => void;
+  setEditingTextId: (id: string | null) => void;
+  setTextObjects: (textObjects: TextObject[]) => void;
 
   // Enhanced history methods with session DB
   addToHistory: (
@@ -285,10 +330,14 @@ interface ArtStudioState {
   // Session management
   initializeSession: () => Promise<void>;
   saveSession: () => Promise<void>;
-  loadSession: () => Promise<void>;
   clearCurrentSession: () => Promise<void>;
   exportSessionData: () => Promise<any>;
   importSessionData: (data: any) => Promise<boolean>;
+
+  clearRecentColors: () => any;
+  // NEW: Clear canvas method
+  clearCanvas: (options?: { preserveBackground?: boolean }) => Promise<void>;
+  clearCanvasWithConfirmation: () => Promise<boolean>;
 
   setSelectionBounds: (
     bounds: { x: number; y: number; width: number; height: number } | null,
@@ -410,7 +459,7 @@ const defaultBrushSettings: BrushSettings = {
     tension: 0.5,
     precision: 10,
     arrowSize: 10,
-  }
+  },
 };
 
 // Helper to serialize canvas state (excluding UI)
@@ -439,6 +488,7 @@ const serializeCanvasState = (state: any) => {
     history,
     historyIndex,
     sessionId,
+    editingTextId,
     ...canvasState
   } = state;
 
@@ -458,6 +508,7 @@ const serializeCanvasState = (state: any) => {
     brushSettings: canvasState.brushSettings,
     selectionBounds: canvasState.selectionBounds,
     selectionPath: canvasState.selectionPath,
+    textObjects: canvasState.textObjects,
   };
 };
 
@@ -480,6 +531,7 @@ const deserializeCanvasState = (data: any, currentState: any) => {
     brushSettings: data.brushSettings || currentState.brushSettings,
     selectionBounds: data.selectionBounds || currentState.selectionBounds,
     selectionPath: data.selectionPath || currentState.selectionPath,
+    textObjects: data.textObjects || currentState.textObjects,
   };
 };
 
@@ -518,6 +570,8 @@ export const useArtStudioStore = create<ArtStudioState>()(
       zoom: 100,
       panOffset: { x: 0, y: 0 },
       canvasSize: null,
+      textObjects: [],
+      editingTextId: null,
       history: [],
       historyIndex: -1,
       selectionBounds: null,
@@ -542,224 +596,131 @@ export const useArtStudioStore = create<ArtStudioState>()(
       healingSource: null,
       selectedId: null,
 
+      // ========== TEXT OPERATIONS ==========
+
+      addTextObject: (textObject) =>
+        set((state) => ({
+          textObjects: [...state.textObjects, textObject],
+          selectedId: textObject.id,
+          editingTextId: textObject.isEditing ? textObject.id : state.editingTextId,
+        })),
+
+      updateTextObject: (id, updates) =>
+        set((state) => ({
+          textObjects: state.textObjects.map((text) =>
+            text.id === id ? { ...text, ...updates } : text,
+          ),
+        })),
+
+      deleteTextObject: (id) =>
+        set((state) => ({
+          textObjects: state.textObjects.filter((text) => text.id !== id),
+          selectedId: state.selectedId === id ? null : state.selectedId,
+          editingTextId: state.editingTextId === id ? null : state.editingTextId,
+        })),
+
+      startTextEdit: (id) =>
+        set((state) => ({
+          textObjects: state.textObjects.map((text) =>
+            text.id === id ? { ...text, isEditing: true } : text,
+          ),
+          editingTextId: id,
+          selectedId: id,
+        })),
+
+      cancelTextEdit: (id) =>
+        set((state) => ({
+          textObjects: state.textObjects.map((text) =>
+            text.id === id ? { ...text, isEditing: false } : text,
+          ),
+          editingTextId: null,
+        })),
+
+      setEditingTextId: (id) => set({ editingTextId: id }),
+
+      setTextObjects: (textObjects) => set({ textObjects }),
+
       // ========== SESSION MANAGEMENT ==========
 
       initializeSession: async () => {
-        try {
-          console.log("Initializing session from IndexedDB...");
-
-          // Ensure DB is initialized
-          await sessionDB.init();
-
-          // Auto-cleanup old sessions on startup
-          await sessionDB.cleanupOldSessions();
-
-          // Get current session (creates new if none exists)
-          const sessionId = await sessionDB.getCurrentSession();
-          console.log("Current session ID:", sessionId);
-
-          set({ sessionId });
-
-          // Check if we have saved session data
-          const hasData = await sessionDB.hasSavedData();
-
-          if (hasData) {
-            // Load session data
-            const savedData = await sessionDB.loadSessionData();
-            if (savedData) {
-              console.log("Loading saved session data:", savedData);
-              const restoredState = deserializeCanvasState(savedData, get());
-              set(restoredState);
-
-              // Trigger canvas restore event
-              window.dispatchEvent(
-                new CustomEvent("artstudio:load-session", {
-                  detail: { sessionData: savedData },
-                }),
-              );
-            }
-          }
-
-          // Load session history
-          const historyEntries = await sessionDB.getHistory(20);
-          console.log("Loaded history entries:", historyEntries.length);
-
-          const formattedHistory = historyEntries.map((entry) => ({
-            canvasData: entry.canvasData,
-            thumbnail: entry.thumbnail,
-            timestamp: entry.timestamp,
-            action: entry.action,
-          }));
-
-          set({
-            history: formattedHistory,
-            historyIndex: formattedHistory.length - 1,
-          });
-
-          // Auto-save every 30 seconds if we're active
-          if (typeof window !== "undefined") {
-            const autoSaveInterval = setInterval(async () => {
-              const state = get();
-              if (state.sessionId) {
-                try {
-                  await state.saveSession();
-                  console.log("Auto-saved session");
-                } catch (error) {
-                  console.error("Auto-save failed:", error);
-                }
-              }
-            }, 30000);
-
-            // Cleanup interval on unmount
-            if (typeof window !== "undefined") {
-              window.addEventListener("beforeunload", () => {
-                clearInterval(autoSaveInterval);
-                get().saveSession().catch(console.error);
-              });
-            }
-          }
-        } catch (error) {
-          console.error("Error initializing session:", error);
-          // Fallback: create a temporary session ID
-          set({ sessionId: `temp-${Date.now()}` });
-        }
+        const sessionId = `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        set({ sessionId });
+        console.log("Session initialized:", sessionId);
       },
 
       saveSession: async () => {
-        try {
-          const state = get();
-          if (!state.sessionId) {
-            console.warn("No session ID to save to");
-            return;
-          }
-
-          const canvasState = serializeCanvasState(state);
-          await sessionDB.saveSessionData(canvasState);
-
-          // Also save session info for debugging
-          const sessionInfo = await sessionDB.getSessionInfo();
-          console.log("Session saved:", {
-            sessionId: state.sessionId,
-            info: sessionInfo,
-            dataSize: JSON.stringify(canvasState).length,
-          });
-        } catch (error) {
-          console.error("Error saving session:", error);
-          throw error;
-        }
-      },
-
-      loadSession: async () => {
-        try {
-          const savedData = await sessionDB.loadSessionData();
-          if (savedData) {
-            const restoredState = deserializeCanvasState(savedData, get());
-            set(restoredState);
-
-            // Notify canvas component to restore
-            window.dispatchEvent(
-              new CustomEvent("artstudio:restore-state", {
-                detail: { sessionData: savedData },
-              }),
-            );
-
-            console.log("Session data loaded from IndexedDB");
-            return savedData;
-          }
-          return null;
-        } catch (error) {
-          console.error("Error loading session:", error);
-          return null;
-        }
+        console.log("Session save called (no-op, IndexedDB removed)");
       },
 
       clearCurrentSession: async () => {
-        try {
-          const { sessionId } = get();
-          if (sessionId) {
-            await sessionDB.clearSession(sessionId);
-          }
+        set({
+          sessionId: null,
+          layers: [
+            {
+              id: "layer-1",
+              name: "Background",
+              visible: true,
+              opacity: 100,
+              locked: false,
+            },
+          ],
+          activeLayerId: "layer-1",
+          loadedImages: [],
+          gradients: [],
+          zoom: 100,
+          panOffset: { x: 0, y: 0 },
+          canvasSize: null,
+          textObjects: [],
+          editingTextId: null,
+          history: [],
+          historyIndex: -1,
+          selectionBounds: null,
+          selectionPath: null,
+          fillPreview: null,
+          healingSource: null,
+          selectedId: null,
+        });
 
-          // Reset to initial state
-          set({
-            sessionId: null,
-            layers: [
-              {
-                id: "layer-1",
-                name: "Background",
-                visible: true,
-                opacity: 100,
-                locked: false,
-              },
-            ],
-            activeLayerId: "layer-1",
-            loadedImages: [],
-            gradients: [],
-            zoom: 100,
-            panOffset: { x: 0, y: 0 },
-            canvasSize: null,
-            history: [],
-            historyIndex: -1,
-            selectionBounds: null,
-            selectionPath: null,
-            fillPreview: null,
-            healingSource: null,
-            selectedId: null,
-          });
-
-          // Start fresh session
-          await get().initializeSession();
-          console.log("Session cleared, new session started");
-        } catch (error) {
-          console.error("Error clearing session:", error);
-        }
+        await get().initializeSession();
+        console.log("Session cleared, new session started");
       },
 
       exportSessionData: async () => {
-        try {
-          const state = get();
-          const canvasState = serializeCanvasState(state);
-          const historyEntries = await sessionDB.getHistory(100);
+        const state = get();
+        const canvasState = serializeCanvasState(state);
 
-          const exportData = {
-            version: "1.0",
-            timestamp: Date.now(),
-            sessionId: state.sessionId,
-            canvasState,
-            history: historyEntries.map((entry) => ({
-              canvasData: entry.canvasData,
-              action: entry.action,
-              timestamp: entry.timestamp,
-            })),
-            metadata: {
-              layersCount: state.layers.length,
-              imagesCount: state.loadedImages.length,
-              gradientsCount: state.gradients.length,
-            },
-          };
+        const exportData = {
+          version: "1.0",
+          timestamp: Date.now(),
+          sessionId: state.sessionId,
+          canvasState,
+          history: state.history.map((entry) => ({
+            canvasData: entry.canvasData,
+            action: entry.action,
+            timestamp: entry.timestamp,
+          })),
+          metadata: {
+            layersCount: state.layers.length,
+            imagesCount: state.loadedImages.length,
+            gradientsCount: state.gradients.length,
+            textObjectsCount: state.textObjects.length,
+          },
+        };
 
-          return exportData;
-        } catch (error) {
-          console.error("Error exporting session:", error);
-          throw error;
-        }
+        return exportData;
       },
 
       importSessionData: async (data: any) => {
         try {
-          // Validate import data
           if (!data.canvasState || !data.version) {
             throw new Error("Invalid session data format");
           }
 
-          // Clear current session
           await get().clearCurrentSession();
 
-          // Restore canvas state
           const restoredState = deserializeCanvasState(data.canvasState, get());
           set(restoredState);
 
-          // Notify canvas to restore
           window.dispatchEvent(
             new CustomEvent("artstudio:import-session", {
               detail: { sessionData: data.canvasState },
@@ -779,20 +740,6 @@ export const useArtStudioStore = create<ArtStudioState>()(
       addToHistory: async (canvasData, thumbnail = "", action) => {
         const state = get();
 
-        try {
-          // Save to session DB
-          await sessionDB.addHistoryEntry({
-            canvasData,
-            thumbnail,
-            action,
-          });
-
-          console.log("History entry saved to IndexedDB:", action);
-        } catch (error) {
-          console.error("Error saving history to IndexedDB:", error);
-        }
-
-        // Update in-memory state
         const { history, historyIndex } = state;
         const newEntry = {
           canvasData,
@@ -804,7 +751,6 @@ export const useArtStudioStore = create<ArtStudioState>()(
         const newHistory = history.slice(0, historyIndex + 1);
         newHistory.push(newEntry);
 
-        // Keep only last 10 entries in memory for quick undo/redo
         const trimmedHistory = newHistory.slice(-10);
 
         set({
@@ -812,7 +758,6 @@ export const useArtStudioStore = create<ArtStudioState>()(
           historyIndex: trimmedHistory.length - 1,
         });
 
-        // Auto-save session state after significant actions
         const shouldAutoSave =
           action &&
           [
@@ -831,7 +776,7 @@ export const useArtStudioStore = create<ArtStudioState>()(
           setTimeout(() => {
             get()
               .saveSession()
-              .catch(() => {});
+              .catch(() => { });
           }, 1000);
         }
       },
@@ -845,30 +790,7 @@ export const useArtStudioStore = create<ArtStudioState>()(
 
           const entry = history[newIndex];
 
-          if (!entry) {
-            // Try to load from IndexedDB if not in memory
-            try {
-              const dbHistory = await sessionDB.getHistory(50);
-              const dbEntry = dbHistory.sort(
-                (a, b) => b.timestamp - a.timestamp,
-              )[newIndex];
-
-              if (dbEntry) {
-                window.dispatchEvent(
-                  new CustomEvent("artstudio:restore-history", {
-                    detail: {
-                      canvasData: dbEntry.canvasData,
-                      action: "undo",
-                      timestamp: dbEntry.timestamp,
-                    },
-                  }),
-                );
-                return dbEntry;
-              }
-            } catch (error) {
-              console.error("Error loading from history DB:", error);
-            }
-          } else if (entry?.canvasData) {
+          if (entry?.canvasData) {
             window.dispatchEvent(
               new CustomEvent("artstudio:restore-history", {
                 detail: {
@@ -941,7 +863,6 @@ export const useArtStudioStore = create<ArtStudioState>()(
       },
 
       clearHistory: () => {
-        // Len čistí lokálny state, ale nie IndexedDB
         set({
           history: [],
           historyIndex: -1,
@@ -949,32 +870,68 @@ export const useArtStudioStore = create<ArtStudioState>()(
       },
 
       clearSessionHistory: async () => {
-        try {
-          const { sessionId } = get();
+        const { sessionId } = get();
 
-          if (sessionId) {
-            // Vymaž históriu z IndexedDB pre aktuálnu session
-            await sessionDB.deleteAllHistoryForSession(sessionId);
+        set({
+          history: [],
+          historyIndex: -1,
+        });
+
+        window.dispatchEvent(
+          new CustomEvent("artstudio:history-cleared", {
+            detail: { sessionId },
+          }),
+        );
+
+        console.log("Session history cleared");
+      },
+
+      // ========== NEW CLEAR CANVAS METHODS ==========
+
+      clearCanvas: async (options?: { preserveBackground?: boolean }) => {
+        const preserve = options?.preserveBackground ?? false;
+
+        // Clear all canvas data
+        set({
+          textObjects: [],
+          selectionBounds: null,
+          selectionPath: null,
+          selectedId: null,
+          editingTextId: null,
+          fillPreview: null,
+          healingSource: null,
+        });
+
+        // Dispatch event to clear canvas content
+        window.dispatchEvent(new CustomEvent("artstudio:clear-canvas", {
+          detail: { preserveBackground: preserve }
+        }));
+
+        // Add to history
+        await get().addToHistory(JSON.stringify({ objects: [] }), "", "clear_canvas");
+
+        toast.success(preserve ? "Canvas cleared (background preserved)" : "Canvas completely cleared");
+
+        // Save session
+        setTimeout(() => {
+          get()
+            .saveSession()
+            .catch(() => { });
+        }, 500);
+      },
+
+      clearCanvasWithConfirmation: async () => {
+        return new Promise((resolve) => {
+          // Create custom confirmation dialog
+          const confirmed = window.confirm("Are you sure you want to clear the canvas? This action cannot be undone.");
+
+          if (confirmed) {
+            get().clearCanvas({ preserveBackground: false });
+            resolve(true);
+          } else {
+            resolve(false);
           }
-
-          // Vymaž lokálny state
-          set({
-            history: [],
-            historyIndex: -1,
-          });
-
-          // Upozorni canvas, že história bola vymazaná
-          window.dispatchEvent(
-            new CustomEvent("artstudio:history-cleared", {
-              detail: { sessionId },
-            }),
-          );
-
-          console.log("Session history cleared from IndexedDB");
-        } catch (error) {
-          console.error("Error clearing session history:", error);
-          throw error;
-        }
+        });
       },
 
       // ========== TOOL AND CANVAS ACTIONS ==========
@@ -982,14 +939,18 @@ export const useArtStudioStore = create<ArtStudioState>()(
       setRenderingEngine: (engine) => set({ renderingEngine: engine }),
 
       setActiveTool: (tool) => {
+        const { editingTextId } = get();
+        if (editingTextId && tool !== "text") {
+          get().cancelTextEdit(editingTextId);
+        }
+
         set({ activeTool: tool });
         get().setToolDefaults(tool);
-        // Auto-save tool change
         setTimeout(
           () =>
             get()
               .saveSession()
-              .catch(() => {}),
+              .catch(() => { }),
           2000,
         );
       },
@@ -1001,32 +962,18 @@ export const useArtStudioStore = create<ArtStudioState>()(
           () =>
             get()
               .saveSession()
-              .catch(() => {}),
+              .catch(() => { }),
           2000,
         );
       },
 
       setSecondaryColor: (color) => {
         set({ secondaryColor: color });
-        setTimeout(
-          () =>
-            get()
-              .saveSession()
-              .catch(() => {}),
-          2000,
-        );
       },
 
       swapColors: () => {
         const { primaryColor, secondaryColor } = get();
         set({ primaryColor: secondaryColor, secondaryColor: primaryColor });
-        setTimeout(
-          () =>
-            get()
-              .saveSession()
-              .catch(() => {}),
-          2000,
-        );
       },
 
       addRecentColor: (color) => {
@@ -1132,7 +1079,7 @@ export const useArtStudioStore = create<ArtStudioState>()(
                 tension: 0.5,
                 precision: 10,
                 arrowSize: 10,
-              }
+              },
             };
             break;
           case "star":
@@ -1213,30 +1160,28 @@ export const useArtStudioStore = create<ArtStudioState>()(
           layers: [newLayer, ...state.layers],
           activeLayerId: newLayer.id,
         }));
-        setTimeout(
-          () =>
-            get()
-              .saveSession()
-              .catch(() => {}),
-          1000,
-        );
       },
 
       removeLayer: (id) => {
         const { layers, activeLayerId } = get();
         if (layers.length === 0) return;
+
+        if (layers.length === 1) {
+          toast.error("Cannot delete the last layer");
+          return;
+        }
+
         const newLayers = layers.filter((l) => l.id !== id);
         set({
           layers: newLayers,
           activeLayerId:
             activeLayerId === id ? newLayers[0]?.id || null : activeLayerId,
         });
-        setTimeout(
-          () =>
-            get()
-              .saveSession()
-              .catch(() => {}),
-          1000,
+
+        window.dispatchEvent(
+          new CustomEvent("artstudio:remove-layer", {
+            detail: { layerId: id },
+          }),
         );
       },
 
@@ -1285,13 +1230,6 @@ export const useArtStudioStore = create<ArtStudioState>()(
         const newLayers = [...layers];
         newLayers.splice(index, 0, newLayer);
         set({ layers: newLayers, activeLayerId: newLayer.id });
-        setTimeout(
-          () =>
-            get()
-              .saveSession()
-              .catch(() => {}),
-          1000,
-        );
       },
 
       reorderLayers: (fromIndex, toIndex) => {
@@ -1300,13 +1238,6 @@ export const useArtStudioStore = create<ArtStudioState>()(
         const [removed] = newLayers.splice(fromIndex, 1);
         newLayers.splice(toIndex, 0, removed);
         set({ layers: newLayers });
-        setTimeout(
-          () =>
-            get()
-              .saveSession()
-              .catch(() => {}),
-          1000,
-        );
       },
 
       clearLayers: () => {
@@ -1314,27 +1245,12 @@ export const useArtStudioStore = create<ArtStudioState>()(
           layers: [],
           activeLayerId: null,
         });
-        setTimeout(
-          () =>
-            get()
-              .saveSession()
-              .catch(() => {}),
-          1000,
-        );
       },
 
       setSelectedId: (id) => set({ selectedId: id }),
 
       mergeLayers: (layerIds) => {
         const { layers } = get();
-        // Implementation would go here
-        setTimeout(
-          () =>
-            get()
-              .saveSession()
-              .catch(() => {}),
-          1000,
-        );
       },
 
       addLoadedImage: (image) =>
@@ -1368,6 +1284,10 @@ export const useArtStudioStore = create<ArtStudioState>()(
 
       setGradients: (gradients) => set({ gradients }),
 
+      clearRecentColors: () => {
+        set({ recentColors: [] });
+      },
+
       setZoom: (zoom) => set({ zoom: Math.max(10, Math.min(500, zoom)) }),
 
       setPanOffset: (offset) => set({ panOffset: offset }),
@@ -1384,7 +1304,7 @@ export const useArtStudioStore = create<ArtStudioState>()(
           () =>
             get()
               .saveSession()
-              .catch(() => {}),
+              .catch(() => { }),
           500,
         );
       },

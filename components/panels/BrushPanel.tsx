@@ -15,6 +15,11 @@ import { CropPanel } from "@/components/panels/CropPanel";
 import { LineOptionsPanel } from "@/components/panels/LineOptionsPanel";
 import { TransformPanel } from "@/components/panels/TransformPanel";
 import { GradientOptionsPanel } from "@/components/panels/GradientOptionsPanel";
+import { PenOptionsPanel } from "@/components/panels/PenOptionsPanel";
+import { PolygonOptionsPanel } from "@/components/panels/PolygonOptionsPanel";
+import { ShapeOptionsPanel } from "@/components/panels/ShapeOptionsPanel";
+import { SelectionOptionsPanel } from "@/components/panels/SelectionOptionsPanel";
+import { useZoom } from "@/hooks/useZoom";
 
 interface ToolOption {
 	name: string;
@@ -37,21 +42,37 @@ const drawingTools: Tool[] = [
 	"burn",
 ];
 const selectionTools: Tool[] = ["select", "marquee", "lasso", "magicwand"];
-const shapeTools: Tool[] = ["rectangle", "ellipse", "polygon", "line", "pen", "star"];
+const shapeTools: Tool[] = [
+	"rectangle",
+	"ellipse",
+	"polygon",
+	"line",
+	"pen",
+	"star",
+];
 
 const ZoomOptions: React.FC = () => {
-	const { zoom, setZoom, resetCanvasView } = useArtStudioStore();
+	const {
+		zoom,
+		zoomPercentage,
+		zoomIn,
+		zoomOut,
+		zoomToFit,
+		zoomToActualSize,
+		isAtMinZoom,
+		isAtMaxZoom,
+	} = useZoom();
 
 	return (
 		<div className="space-y-4">
 			<div className="space-y-2">
 				<div className="flex justify-between items-center mb-1">
 					<Label className="text-xs text-muted-foreground">Zoom Level</Label>
-					<span className="text-xs font-mono">{Math.round(zoom)}%</span>
+					<span className="text-xs font-mono">{zoomPercentage}%</span>
 				</div>
 				<Slider
 					value={[zoom]}
-					onValueChange={([val]) => setZoom(val)}
+					onValueChange={([val]) => zoomIn(val - zoom, { min: 10, max: 500 })}
 					min={10}
 					max={500}
 					step={10}
@@ -60,25 +81,27 @@ const ZoomOptions: React.FC = () => {
 
 			<div className="grid grid-cols-2 gap-2">
 				<button
-					onClick={() => setZoom(Math.min(zoom + 25, 500))}
-					className="px-3 py-2 bg-muted/50 hover:bg-muted rounded text-xs transition-colors"
+					onClick={() => zoomIn(25)}
+					disabled={isAtMaxZoom()}
+					className="px-3 py-2 bg-muted/50 hover:bg-muted rounded text-xs transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
 				>
 					Zoom In
 				</button>
 				<button
-					onClick={() => setZoom(Math.max(zoom - 25, 10))}
-					className="px-3 py-2 bg-muted/50 hover:bg-muted rounded text-xs transition-colors"
+					onClick={() => zoomOut(25)}
+					disabled={isAtMinZoom()}
+					className="px-3 py-2 bg-muted/50 hover:bg-muted rounded text-xs transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
 				>
 					Zoom Out
 				</button>
 				<button
-					onClick={() => setZoom(100)}
+					onClick={zoomToActualSize}
 					className="px-3 py-2 bg-muted/50 hover:bg-muted rounded text-xs transition-colors"
 				>
 					Actual Size
 				</button>
 				<button
-					onClick={resetCanvasView}
+					onClick={() => zoomToFit({ maxZoom: 100 })}
 					className="px-3 py-2 bg-muted/50 hover:bg-muted rounded text-xs transition-colors"
 				>
 					Fit Screen
@@ -86,6 +109,14 @@ const ZoomOptions: React.FC = () => {
 			</div>
 		</div>
 	);
+};
+
+// Helper function to safely get numeric values
+const safeNumber = (value: any, defaultValue: number = 0): number => {
+	if (value === undefined || value === null || isNaN(value)) {
+		return defaultValue;
+	}
+	return Number(value);
 };
 
 export const BrushPanel: React.FC = () => {
@@ -104,10 +135,13 @@ export const BrushPanel: React.FC = () => {
 			clone: "Clone Stamp",
 			healing: "Healing Brush",
 			blur: "Blur",
+			dodge: "Dodge Tool",
+			burn: "Burn Tool",
 			marquee: "Marquee Selection",
 			lasso: "Lasso Selection",
 			magicwand: "Magic Wand",
-			select: "Move Tool",
+			select: "Select Tool",
+			move: "Move Tool",
 			rectangle: "Rectangle",
 			ellipse: "Ellipse",
 			polygon: "Polygon",
@@ -117,13 +151,15 @@ export const BrushPanel: React.FC = () => {
 			fill: "Paint Bucket",
 			gradient: "Gradient",
 			eyedropper: "Eyedropper",
-			hand: "Hand",
-			zoom: "Zoom",
+			hand: "Hand Tool",
+			zoom: "Zoom Tool",
+			crop: "Crop Tool",
+			star: "Star Tool",
 		};
-		return titles[activeTool] || "Tool";
+		return titles[activeTool] || "Tool Options";
 	};
 
-	// Pokud je aktivní text tool, zobrazte TextOptionsPanel
+	// Route to specific panels for tools that have dedicated panels
 	if (isTextTool) {
 		return <TextOptionsPanel />;
 	}
@@ -143,6 +179,28 @@ export const BrushPanel: React.FC = () => {
 	if (activeTool === "gradient") {
 		return <GradientOptionsPanel />;
 	}
+
+	if (activeTool === "pen") {
+		return <PenOptionsPanel />;
+	}
+
+	if (activeTool === "polygon") {
+		return <PolygonOptionsPanel />;
+	}
+
+	if (activeTool === "rectangle" || activeTool === "ellipse") {
+		return <ShapeOptionsPanel />;
+	}
+
+	if (
+		activeTool === "marquee" ||
+		activeTool === "lasso" ||
+		activeTool === "magicwand"
+	) {
+		return <SelectionOptionsPanel />;
+	}
+
+	// Note: "star" tool has its own StarPanel shown in HomeWrapper
 
 	const renderSliderWithTooltip = (option: ToolOption) => (
 		<div className="space-y-2" key={option.name}>
@@ -182,12 +240,14 @@ export const BrushPanel: React.FC = () => {
 					"Controls the diameter of the brush tip. Use [ and ] keys to quickly adjust.",
 				min: 1,
 				max: 500,
-				value:
+				value: safeNumber(
 					activeTool === "healing"
 						? brushSettings.healingSize
 						: activeTool === "blur"
 							? brushSettings.blurSize
 							: brushSettings.size,
+					10,
+				),
 				onChange: (value) =>
 					activeTool === "healing"
 						? setBrushSettings({ healingSize: value })
@@ -205,12 +265,14 @@ export const BrushPanel: React.FC = () => {
 				description: "Controls the transparency of each stroke.",
 				min: 1,
 				max: 100,
-				value:
+				value: safeNumber(
 					activeTool === "healing"
 						? brushSettings.healingOpacity
 						: activeTool === "clone"
 							? brushSettings.cloneOpacity
 							: brushSettings.opacity,
+					100,
+				),
 				onChange: (value) =>
 					activeTool === "healing"
 						? setBrushSettings({ healingOpacity: value })
@@ -222,18 +284,17 @@ export const BrushPanel: React.FC = () => {
 		}
 
 		// Hardness - hide for dodge/burn if not applicable (or keep if needed)
-		// Assuming dodge/burn might use soft brushes, but let's keep it simple or enable if requested.
-		// Standard dodge/burn usually has hardness. Let's keep it enabled for now but after Opacity.
 		options.push({
 			name: "Hardness",
-			description:
-				"Controls the edge softness of the brush. 100% = hard edge.",
+			description: "Controls the edge softness of the brush. 100% = hard edge.",
 			min: 0,
 			max: 100,
-			value:
+			value: safeNumber(
 				activeTool === "healing"
 					? brushSettings.healingHardness
 					: brushSettings.hardness,
+				100,
+			),
 			onChange: (value) =>
 				activeTool === "healing"
 					? setBrushSettings({ healingHardness: value })
@@ -247,7 +308,7 @@ export const BrushPanel: React.FC = () => {
 				description: "Controls the intensity of the lightening effect.",
 				min: 1,
 				max: 100,
-				value: brushSettings.dodgeIntensity || 50,
+				value: safeNumber(brushSettings.dodgeIntensity, 50),
 				onChange: (value) => setBrushSettings({ dodgeIntensity: value }),
 				unit: "%",
 			});
@@ -259,7 +320,7 @@ export const BrushPanel: React.FC = () => {
 				description: "Controls the intensity of the darkening effect.",
 				min: 1,
 				max: 100,
-				value: brushSettings.burnIntensity || 50,
+				value: safeNumber(brushSettings.burnIntensity, 50),
 				onChange: (value) => setBrushSettings({ burnIntensity: value }),
 				unit: "%",
 			});
@@ -271,7 +332,7 @@ export const BrushPanel: React.FC = () => {
 				description: "Controls how strong the blur effect is.",
 				min: 1,
 				max: 100,
-				value: brushSettings.blurIntensity,
+				value: safeNumber(brushSettings.blurIntensity, 10),
 				onChange: (value) => setBrushSettings({ blurIntensity: value }),
 				unit: "%",
 			});
@@ -291,10 +352,11 @@ export const BrushPanel: React.FC = () => {
 								<button
 									key={mode}
 									onClick={() => setBrushSettings({ healingMode: mode as any })}
-									className={`px-2 py-1 text-[10px] rounded transition-colors capitalize ${brushSettings.healingMode === mode
-										? "bg-primary/20 border border-primary/30"
-										: "bg-muted/50 hover:bg-muted"
-										}`}
+									className={`px-2 py-1 text-[10px] rounded transition-colors capitalize ${
+										brushSettings.healingMode === mode
+											? "bg-primary/20 border border-primary/30"
+											: "bg-muted/50 hover:bg-muted"
+									}`}
 								>
 									{mode}
 								</button>
@@ -310,12 +372,14 @@ export const BrushPanel: React.FC = () => {
 							onClick={() =>
 								setBrushSettings({ cloneAligned: !brushSettings.cloneAligned })
 							}
-							className={`w-10 h-5 rounded-full transition-colors relative ${brushSettings.cloneAligned ? "bg-primary" : "bg-muted"
-								}`}
+							className={`w-10 h-5 rounded-full transition-colors relative ${
+								brushSettings.cloneAligned ? "bg-primary" : "bg-muted"
+							}`}
 						>
 							<div
-								className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-all ${brushSettings.cloneAligned ? "left-6" : "left-1"
-									}`}
+								className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-all ${
+									brushSettings.cloneAligned ? "left-6" : "left-1"
+								}`}
 							/>
 						</button>
 					</div>
@@ -341,140 +405,99 @@ export const BrushPanel: React.FC = () => {
 							</TooltipContent>
 						</Tooltip>
 					</div>
-					<span className="text-xs font-mono">{brushSettings.feather}px</span>
+					<span className="text-xs font-mono">
+						{safeNumber(brushSettings.feather, 0)}px
+					</span>
 				</div>
 				<Slider
-					value={[brushSettings.feather]}
+					value={[safeNumber(brushSettings.feather, 0)]}
 					onValueChange={([val]) => setBrushSettings({ feather: val })}
 					min={0}
 					max={100}
 					step={1}
 				/>
 			</div>
-
-			{activeTool === "magicwand" && (
-				<div className="space-y-2">
-					<div className="flex justify-between items-center mb-1">
-						<div className="flex items-center gap-1.5">
-							<Label className="text-xs text-muted-foreground">Tolerance</Label>
-							<Tooltip delayDuration={300}>
-								<TooltipTrigger asChild>
-									<HelpCircle className="w-3 h-3 text-muted-foreground/50 cursor-help" />
-								</TooltipTrigger>
-								<TooltipContent side="right" className="max-w-50">
-									<p className="text-xs">
-										Determines the range of similar colors selected.
-									</p>
-								</TooltipContent>
-							</Tooltip>
-						</div>
-						<span className="text-xs font-mono">{brushSettings.tolerance}</span>
-					</div>
-					<Slider
-						value={[brushSettings.tolerance]}
-						onValueChange={([val]) => setBrushSettings({ tolerance: val })}
-						min={0}
-						max={255}
-						step={1}
-					/>
-				</div>
-			)}
 		</div>
 	);
 
-	const renderShapeOptions = () => (
-		<div className="space-y-4">
-			<div className="space-y-2">
-				<div className="flex items-center gap-1.5">
-					<Label className="text-xs text-muted-foreground">Stroke Width</Label>
-					<Tooltip delayDuration={300}>
-						<TooltipTrigger asChild>
-							<HelpCircle className="w-3 h-3 text-muted-foreground/50 cursor-help" />
-						</TooltipTrigger>
-						<TooltipContent side="right" className="max-w-50">
-							<p className="text-xs">The thickness of the shape's outline.</p>
-						</TooltipContent>
-					</Tooltip>
-				</div>
-				<Slider
-					value={[brushSettings.strokeWidth]}
-					onValueChange={([val]) => setBrushSettings({ strokeWidth: val })}
-					min={0}
-					max={50}
-					step={1}
-				/>
-			</div>
+	const renderShapeOptions = () => {
+		const strokeWidth = safeNumber(brushSettings.strokeWidth, 2);
+		const cornerRadius = safeNumber(brushSettings.cornerRadius, 0);
 
-			<div className="space-y-2">
-				<Label className="text-xs text-muted-foreground">Fill Type</Label>
-				<div className="flex gap-1">
-					<button
-						onClick={() => setBrushSettings({ fillType: "solid" })}
-						className={`flex-1 px-2 py-1.5 text-xs rounded transition-colors flex items-center justify-center gap-1 ${brushSettings.fillType === "solid"
-							? "bg-primary/20 border border-primary/30"
-							: "bg-muted/50 hover:bg-muted"
-							}`}
-					>
-						<Square className="w-3 h-3" /> Solid
-					</button>
-					<button
-						onClick={() => setBrushSettings({ fillType: "gradient" })}
-						className={`flex-1 px-2 py-1.5 text-xs rounded transition-colors flex items-center justify-center gap-1 ${brushSettings.fillType === "gradient"
-							? "bg-primary/20 border border-primary/30"
-							: "bg-muted/50 hover:bg-muted"
-							}`}
-					>
-						<Blend className="w-3 h-3" /> Gradient
-					</button>
-					<button
-						onClick={() => setBrushSettings({ fillType: "none" })}
-						className={`flex-1 px-2 py-1.5 text-xs rounded transition-colors flex items-center justify-center gap-1 ${brushSettings.fillType === "none"
-							? "bg-primary/20 border border-primary/30"
-							: "bg-muted/50 hover:bg-muted"
-							}`}
-					>
-						<Circle className="w-3 h-3" /> None
-					</button>
-				</div>
-			</div>
-
-			{activeTool === "polygon" && (
+		return (
+			<div className="space-y-4">
 				<div className="space-y-2">
 					<div className="flex items-center gap-1.5">
-						<Label className="text-xs text-muted-foreground">Sides</Label>
+						<Label className="text-xs text-muted-foreground">Stroke Width</Label>
 						<Tooltip delayDuration={300}>
 							<TooltipTrigger asChild>
 								<HelpCircle className="w-3 h-3 text-muted-foreground/50 cursor-help" />
 							</TooltipTrigger>
 							<TooltipContent side="right" className="max-w-50">
-								<p className="text-xs">Number of sides for the polygon.</p>
+								<p className="text-xs">The thickness of the shape's outline.</p>
 							</TooltipContent>
 						</Tooltip>
 					</div>
 					<Slider
-						value={[brushSettings.sides]}
-						onValueChange={([val]) => setBrushSettings({ sides: val })}
-						min={3}
-						max={12}
+						value={[strokeWidth]}
+						onValueChange={([val]) => setBrushSettings({ strokeWidth: val })}
+						min={0}
+						max={50}
 						step={1}
 					/>
 				</div>
-			)}
 
-			<div className="space-y-2">
-				<div className="flex items-center gap-1.5">
-					<Label className="text-xs text-muted-foreground">Corner Radius</Label>
+				<div className="space-y-2">
+					<Label className="text-xs text-muted-foreground">Fill Type</Label>
+					<div className="flex gap-1">
+						<button
+							onClick={() => setBrushSettings({ fillType: "solid" })}
+							className={`flex-1 px-2 py-1.5 text-xs rounded transition-colors flex items-center justify-center gap-1 ${
+								brushSettings.fillType === "solid"
+									? "bg-primary/20 border border-primary/30"
+									: "bg-muted/50 hover:bg-muted"
+							}`}
+						>
+							<Square className="w-3 h-3" /> Solid
+						</button>
+						<button
+							onClick={() => setBrushSettings({ fillType: "gradient" })}
+							className={`flex-1 px-2 py-1.5 text-xs rounded transition-colors flex items-center justify-center gap-1 ${
+								brushSettings.fillType === "gradient"
+									? "bg-primary/20 border border-primary/30"
+									: "bg-muted/50 hover:bg-muted"
+							}`}
+						>
+							<Blend className="w-3 h-3" /> Gradient
+						</button>
+						<button
+							onClick={() => setBrushSettings({ fillType: "none" })}
+							className={`flex-1 px-2 py-1.5 text-xs rounded transition-colors flex items-center justify-center gap-1 ${
+								brushSettings.fillType === "none"
+									? "bg-primary/20 border border-primary/30"
+									: "bg-muted/50 hover:bg-muted"
+							}`}
+						>
+							<Circle className="w-3 h-3" /> None
+						</button>
+					</div>
 				</div>
-				<Slider
-					value={[brushSettings.cornerRadius]}
-					onValueChange={([val]) => setBrushSettings({ cornerRadius: val })}
-					min={0}
-					max={50}
-					step={1}
-				/>
+
+				<div className="space-y-2">
+					<div className="flex items-center gap-1.5">
+						<Label className="text-xs text-muted-foreground">Corner Radius</Label>
+					</div>
+					<Slider
+						value={[cornerRadius]}
+						onValueChange={([val]) => setBrushSettings({ cornerRadius: val })}
+						min={0}
+						max={50}
+						step={1}
+					/>
+				</div>
 			</div>
-		</div>
-	);
+		);
+	};
 
 	const renderUtilityOptions = () => {
 		if (activeTool === "fill") {
@@ -484,11 +507,11 @@ export const BrushPanel: React.FC = () => {
 						<div className="flex justify-between items-center mb-1">
 							<Label className="text-xs text-muted-foreground">Tolerance</Label>
 							<span className="text-xs font-mono">
-								{brushSettings.fillTolerance}
+								{safeNumber(brushSettings.fillTolerance, 32)}
 							</span>
 						</div>
 						<Slider
-							value={[brushSettings.fillTolerance]}
+							value={[safeNumber(brushSettings.fillTolerance, 32)]}
 							onValueChange={([val]) =>
 								setBrushSettings({ fillTolerance: val })
 							}
@@ -506,12 +529,14 @@ export const BrushPanel: React.FC = () => {
 									fillContiguous: !brushSettings.fillContiguous,
 								})
 							}
-							className={`w-10 h-5 rounded-full transition-colors relative ${brushSettings.fillContiguous ? "bg-primary" : "bg-muted"
-								}`}
+							className={`w-10 h-5 rounded-full transition-colors relative ${
+								brushSettings.fillContiguous ? "bg-primary" : "bg-muted"
+							}`}
 						>
 							<div
-								className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-all ${brushSettings.fillContiguous ? "left-6" : "left-1"
-									}`}
+								className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-all ${
+									brushSettings.fillContiguous ? "left-6" : "left-1"
+								}`}
 							/>
 						</button>
 					</div>
@@ -520,11 +545,11 @@ export const BrushPanel: React.FC = () => {
 						<div className="flex justify-between items-center mb-1">
 							<Label className="text-xs text-muted-foreground">Opacity</Label>
 							<span className="text-xs font-mono">
-								{brushSettings.fillOpacity}%
+								{safeNumber(brushSettings.fillOpacity, 100)}%
 							</span>
 						</div>
 						<Slider
-							value={[brushSettings.fillOpacity]}
+							value={[safeNumber(brushSettings.fillOpacity, 100)]}
 							onValueChange={([val]) => setBrushSettings({ fillOpacity: val })}
 							min={1}
 							max={100}
@@ -541,8 +566,14 @@ export const BrushPanel: React.FC = () => {
 					<div className="bg-muted/30 p-3 rounded-md border border-border/50 text-xs space-y-2">
 						<p className="font-medium text-foreground">Usage:</p>
 						<ul className="list-disc list-inside space-y-1 text-muted-foreground">
-							<li><span className="text-foreground">Click</span> to pick Primary Color</li>
-							<li><span className="text-foreground">Alt + Click</span> to pick Secondary Color</li>
+							<li>
+								<span className="text-foreground">Click</span> to pick Primary
+								Color
+							</li>
+							<li>
+								<span className="text-foreground">Alt + Click</span> to pick
+								Secondary Color
+							</li>
 						</ul>
 					</div>
 				</div>
@@ -554,15 +585,7 @@ export const BrushPanel: React.FC = () => {
 
 	const renderNavigationOptions = () => {
 		if (activeTool === "zoom") {
-			// Need to access zoom functions from store, might need to update store usage in component if not spread
-			// Assuming setZoom and zoom are available from useArtStudioStore hook call at top of component
-			// We need to check if they are destructured. 
-			// Checking file content: const { brushSettings, setBrushSettings, activeTool } = useArtStudioStore();
-			// Only those were destructured. We need to grab zoom-related ones.
-
-			return (
-				<ZoomOptions />
-			);
+			return <ZoomOptions />;
 		}
 
 		if (activeTool === "hand") {
@@ -571,8 +594,14 @@ export const BrushPanel: React.FC = () => {
 					<div className="bg-muted/30 p-3 rounded-md border border-border/50 text-xs space-y-2">
 						<p className="font-medium text-foreground">Usage:</p>
 						<ul className="list-disc list-inside space-y-1 text-muted-foreground">
-							<li><span className="text-foreground">Click & Drag</span> to pan the canvas</li>
-							<li>Hold <span className="text-foreground">Spacebar</span> with any tool to temporarily switch to Hand tool</li>
+							<li>
+								<span className="text-foreground">Click & Drag</span> to pan the
+								canvas
+							</li>
+							<li>
+								Hold <span className="text-foreground">Spacebar</span> with any
+								tool to temporarily switch to Hand tool
+							</li>
 						</ul>
 					</div>
 				</div>
@@ -580,7 +609,7 @@ export const BrushPanel: React.FC = () => {
 		}
 
 		return renderGenericOptions();
-	}
+	};
 
 	const renderGenericOptions = () => (
 		<div className="text-center py-4">
@@ -590,6 +619,11 @@ export const BrushPanel: React.FC = () => {
 			</p>
 		</div>
 	);
+
+	// Bezpečné získanie hodnôt pre preview
+	const brushSize = safeNumber(brushSettings.size, 10);
+	const brushOpacity = safeNumber(brushSettings.opacity, 100);
+	const brushHardness = safeNumber(brushSettings.hardness, 100);
 
 	return (
 		<div className="panel-glass p-4 w-full space-y-5 animate-fade-in">
@@ -610,8 +644,11 @@ export const BrushPanel: React.FC = () => {
 			{isDrawingTool && renderDrawingOptions()}
 			{isSelectionTool && renderSelectionOptions()}
 			{isShapeTool && renderShapeOptions()}
-			{activeTool === "fill" || activeTool === "eyedropper" ? renderUtilityOptions() : null}
-			{(activeTool === "zoom" || activeTool === "hand") && renderNavigationOptions()}
+			{activeTool === "fill" || activeTool === "eyedropper"
+				? renderUtilityOptions()
+				: null}
+			{(activeTool === "zoom" || activeTool === "hand") &&
+				renderNavigationOptions()}
 
 			{!isDrawingTool &&
 				!isSelectionTool &&
@@ -632,10 +669,10 @@ export const BrushPanel: React.FC = () => {
 						<div
 							className="rounded-full bg-foreground transition-all duration-150"
 							style={{
-								width: Math.min(brushSettings.size, 56),
-								height: Math.min(brushSettings.size, 56),
-								opacity: brushSettings.opacity / 100,
-								filter: `blur(${(100 - brushSettings.hardness) / 25}px)`,
+								width: `${Math.min(brushSize, 56)}px`,
+								height: `${Math.min(brushSize, 56)}px`,
+								opacity: brushOpacity / 100,
+								filter: `blur(${(100 - brushHardness) / 25}px)`,
 							}}
 						/>
 					</div>

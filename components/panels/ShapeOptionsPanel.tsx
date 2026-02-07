@@ -6,8 +6,14 @@ import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Input } from "@/components/ui/input";
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { HelpCircle } from "lucide-react";
 
-export const ShapeOptionsPanel = () => {
+export const ShapeOptionsPanel: React.FC = () => {
 	const {
 		brushSettings,
 		setBrushSettings,
@@ -18,15 +24,42 @@ export const ShapeOptionsPanel = () => {
 		activeTool,
 	} = useArtStudioStore();
 
+	const getToolTitle = () => {
+		const titles: Record<string, string> = {
+			rectangle: "Rectangle",
+			ellipse: "Ellipse",
+		};
+		return titles[activeTool] || "Shape";
+	};
+
 	return (
-		<div className="space-y-4 p-4 bg-card rounded-lg border">
-			<h3 className="font-semibold text-sm">Shape Options</h3>
+		<div className="panel-glass p-4 w-full space-y-5 animate-fade-in">
+			<div className="flex items-center justify-between">
+				<h3 className="text-sm font-medium text-foreground">
+					{getToolTitle()} Options
+				</h3>
+				<Tooltip delayDuration={300}>
+					<TooltipTrigger asChild>
+						<HelpCircle className="w-4 h-4 text-muted-foreground/50 cursor-help" />
+					</TooltipTrigger>
+					<TooltipContent side="left" className="max-w-50">
+						<p className="text-xs">
+							{activeTool === "rectangle"
+								? "Draw rectangles and squares. Hold Shift for perfect squares."
+								: "Draw ellipses and circles. Hold Shift for perfect circles."}
+						</p>
+					</TooltipContent>
+				</Tooltip>
+			</div>
 
 			{/* Stroke Width */}
 			<div className="space-y-2">
-				<Label className="text-xs">
-					Stroke Width: {brushSettings.strokeWidth || 2}px
-				</Label>
+				<div className="flex justify-between items-center">
+					<Label className="text-xs text-muted-foreground">Stroke Width</Label>
+					<span className="text-xs font-mono">
+						{brushSettings.strokeWidth || 2}px
+					</span>
+				</div>
 				<Slider
 					value={[brushSettings.strokeWidth || 2]}
 					onValueChange={([value]) => setBrushSettings({ strokeWidth: value })}
@@ -38,7 +71,7 @@ export const ShapeOptionsPanel = () => {
 
 			{/* Fill Type */}
 			<div className="space-y-2">
-				<Label className="text-xs">Fill Type</Label>
+				<Label className="text-xs text-muted-foreground">Fill Type</Label>
 				<RadioGroup
 					value={brushSettings.fillType || "solid"}
 					onValueChange={(value) =>
@@ -69,66 +102,49 @@ export const ShapeOptionsPanel = () => {
 			</div>
 
 			{/* Corner Radius (for rectangles) */}
-			<div className="space-y-2">
-				<Label className="text-xs">
-					Corner Radius: {brushSettings.cornerRadius || 0}px
-				</Label>
-				<Slider
-					value={[brushSettings.cornerRadius || 0]}
-					onValueChange={([value]) => setBrushSettings({ cornerRadius: value })}
-					min={0}
-					max={50}
-					step={1}
-				/>
-			</div>
-
-			{/* Sides/Points (for polygon/star) */}
-			<div className="space-y-2">
-				<Label className="text-xs">
-					Sides/Points: {brushSettings.sides || 5}
-				</Label>
-				<Slider
-					value={[brushSettings.sides || 5]}
-					onValueChange={([value]) => setBrushSettings({ sides: value })}
-					min={3}
-					max={12}
-					step={1}
-				/>
-			</div>
-
-			{activeTool === "star" && (
-				<>
-					<div className="space-y-2">
-						<Label className="text-xs">
-							Inner Radius: {brushSettings.starInnerRadius || 30}px
+			{activeTool === "rectangle" && (
+				<div className="space-y-2">
+					<div className="flex justify-between items-center">
+						<Label className="text-xs text-muted-foreground">
+							Corner Radius
 						</Label>
-						<Slider
-							value={[brushSettings.starInnerRadius || 30]}
-							onValueChange={([value]) => setBrushSettings({ starInnerRadius: value })}
-							min={10}
-							max={200}
-							step={1}
-						/>
+						<span className="text-xs font-mono">
+							{brushSettings.cornerRadius || 0}px
+						</span>
 					</div>
-
-					<div className="space-y-2">
-						<Label className="text-xs">
-							Outer Radius: {brushSettings.starOuterRadius || 60}px
-						</Label>
-						<Slider
-							value={[brushSettings.starOuterRadius || 60]}
-							onValueChange={([value]) => setBrushSettings({ starOuterRadius: value })}
-							min={10}
-							max={300}
-							step={1}
-						/>
-					</div>
-				</>
+					<Slider
+						value={[brushSettings.cornerRadius || 0]}
+						onValueChange={([value]) =>
+							setBrushSettings({ cornerRadius: value })
+						}
+						min={0}
+						max={50}
+						step={1}
+					/>
+				</div>
 			)}
 
 			{/* Colors */}
 			<div className="space-y-2">
-				<Label className="text-xs">Stroke Color</Label>
+				<Label className="text-xs text-muted-foreground">Fill Color</Label>
+				<div className="flex gap-2">
+					<Input
+						type="color"
+						value={primaryColor}
+						onChange={(e) => setPrimaryColor(e.target.value)}
+						className="h-10 w-full"
+					/>
+					<Input
+						type="text"
+						value={primaryColor}
+						onChange={(e) => setPrimaryColor(e.target.value)}
+						className="h-10 flex-1 font-mono text-xs"
+					/>
+				</div>
+			</div>
+
+			<div className="space-y-2">
+				<Label className="text-xs text-muted-foreground">Stroke Color</Label>
 				<div className="flex gap-2">
 					<Input
 						type="color"
@@ -145,22 +161,22 @@ export const ShapeOptionsPanel = () => {
 				</div>
 			</div>
 
-			<div className="space-y-2">
-				<Label className="text-xs">Fill Color</Label>
-				<div className="flex gap-2">
-					<Input
-						type="color"
-						value={primaryColor}
-						onChange={(e) => setPrimaryColor(e.target.value)}
-						className="h-10 w-full"
-					/>
-					<Input
-						type="text"
-						value={primaryColor}
-						onChange={(e) => setPrimaryColor(e.target.value)}
-						className="h-10 flex-1 font-mono text-xs"
-					/>
-				</div>
+			{/* Usage Info */}
+			<div className="bg-muted/30 p-3 rounded-md border border-border/50 text-xs space-y-2">
+				<p className="font-medium text-foreground">Usage:</p>
+				<ul className="list-disc list-inside space-y-1 text-muted-foreground">
+					<li>
+						<span className="text-foreground">Click & Drag</span> to draw
+					</li>
+					<li>
+						Hold <span className="text-foreground">Shift</span> for perfect{" "}
+						{activeTool === "rectangle" ? "square" : "circle"}
+					</li>
+					<li>
+						Hold <span className="text-foreground">Alt</span> to draw from
+						center
+					</li>
+				</ul>
 			</div>
 		</div>
 	);
