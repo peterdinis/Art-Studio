@@ -189,11 +189,15 @@ export const TopMenuBar: React.FC = () => {
 								if (canvas) {
 									canvas.loadFromJSON(result, () => {
 										canvas.renderAll();
-										toast.success(`Loaded project: ${file.name}`);
+										toast.success(`Loaded project: ${file.name}`, {
+											duration: 3000,
+										});
 									});
 								}
 							} catch (err) {
-								toast.error("Failed to load project file");
+								toast.error("Failed to load project file", {
+									duration: 3000,
+								});
 							}
 						} else {
 							// Load as image
@@ -223,7 +227,9 @@ export const TopMenuBar: React.FC = () => {
 								};
 								img.src = result;
 							}
-							toast.success(`Opened: ${file.name}`);
+							toast.success(`Opened: ${file.name}`, {
+								duration: 3000,
+							});
 						}
 					}
 				};
@@ -241,45 +247,8 @@ export const TopMenuBar: React.FC = () => {
 	const handleSave = () => {
 		const canvas = getCanvas();
 		if (canvas) {
-			const json = JSON.stringify(canvas.toJSON());
-			const blob = new Blob([json], { type: "application/json" });
-			const url = URL.createObjectURL(blob);
-			const a = document.createElement("a");
-			a.href = url;
-			a.download = "artwork.json";
-			a.click();
-			URL.revokeObjectURL(url);
-			toast.success("Project saved");
-		} else {
-			toast.success("Project saved");
-		}
-	};
-
-	const handleSaveAs = () => {
-		const canvas = getCanvas();
-		const name = prompt("Enter file name:", "artwork");
-		if (name && canvas) {
-			const json = JSON.stringify(canvas.toJSON());
-			const blob = new Blob([json], { type: "application/json" });
-			const url = URL.createObjectURL(blob);
-			const a = document.createElement("a");
-			a.href = url;
-			a.download = `${name}.json`;
-			a.click();
-			URL.revokeObjectURL(url);
-			toast.success(`Saved as ${name}.json`);
-		}
-	};
-
-	const handleExport = (format: string) => {
-		const canvas = getCanvas();
-		if (canvas) {
-			if (format === "JSON") {
-				const json = JSON.stringify(
-					isFabric() ? canvas.toJSON() : canvas.toJSON(),
-					null,
-					2,
-				);
+			try {
+				const json = JSON.stringify(canvas.toJSON());
 				const blob = new Blob([json], { type: "application/json" });
 				const url = URL.createObjectURL(blob);
 				const a = document.createElement("a");
@@ -287,49 +256,131 @@ export const TopMenuBar: React.FC = () => {
 				a.download = "artwork.json";
 				a.click();
 				URL.revokeObjectURL(url);
-				toast.success("Exported as JSON");
-				return;
+				toast.success("Project saved successfully!", {
+					duration: 3000,
+					icon: <Check className="w-4 h-4" />,
+				});
+			} catch (error) {
+				toast.error("Failed to save project", {
+					duration: 3000,
+				});
 			}
+		} else {
+			toast.error("No canvas to save", {
+				duration: 3000,
+			});
+		}
+	};
 
-			if (format === "SVG") {
-				if (isFabric()) {
-					const svg = canvas.toSVG();
-					const blob = new Blob([svg], { type: "image/svg+xml" });
+	const handleSaveAs = () => {
+		const canvas = getCanvas();
+		const name = prompt("Enter file name:", "artwork");
+		if (name && canvas) {
+			try {
+				const json = JSON.stringify(canvas.toJSON());
+				const blob = new Blob([json], { type: "application/json" });
+				const url = URL.createObjectURL(blob);
+				const a = document.createElement("a");
+				a.href = url;
+				a.download = `${name}.json`;
+				a.click();
+				URL.revokeObjectURL(url);
+				toast.success(`Project saved as "${name}.json"`, {
+					duration: 3000,
+					icon: <Check className="w-4 h-4" />,
+				});
+			} catch (error) {
+				toast.error("Failed to save project", {
+					duration: 3000,
+				});
+			}
+		} else if (!canvas) {
+			toast.error("No canvas to save", {
+				duration: 3000,
+			});
+		}
+	};
+
+	const handleExport = (format: string) => {
+		const canvas = getCanvas();
+		if (canvas) {
+			try {
+				if (format === "JSON") {
+					const json = JSON.stringify(
+						isFabric() ? canvas.toJSON() : canvas.toJSON(),
+						null,
+						2,
+					);
+					const blob = new Blob([json], { type: "application/json" });
 					const url = URL.createObjectURL(blob);
 					const a = document.createElement("a");
 					a.href = url;
-					a.download = "artwork.svg";
+					a.download = "artwork.json";
 					a.click();
 					URL.revokeObjectURL(url);
-					toast.success("Exported as SVG");
-				} else {
-					toast.error("SVG export not supported for Konva yet");
+					toast.success("Exported as JSON", {
+						duration: 3000,
+						icon: <Check className="w-4 h-4" />,
+					});
+					return;
 				}
-				return;
+
+				if (format === "SVG") {
+					if (isFabric()) {
+						const svg = canvas.toSVG();
+						const blob = new Blob([svg], { type: "image/svg+xml" });
+						const url = URL.createObjectURL(blob);
+						const a = document.createElement("a");
+						a.href = url;
+						a.download = "artwork.svg";
+						a.click();
+						URL.revokeObjectURL(url);
+						toast.success("Exported as SVG", {
+							duration: 3000,
+							icon: <Check className="w-4 h-4" />,
+						});
+					} else {
+						toast.error("SVG export not supported for Konva yet", {
+							duration: 3000,
+						});
+					}
+					return;
+				}
+
+				const dataURL = isFabric()
+					? canvas.toDataURL({
+							format: format.toLowerCase() === "jpeg" ? "jpeg" : "png",
+							quality: 0.9,
+							multiplier: 1,
+						})
+					: canvas.toDataURL({ pixelRatio: 2 });
+
+				const a = document.createElement("a");
+				a.href = dataURL;
+				a.download = `artwork.${format.toLowerCase()}`;
+				a.click();
+				toast.success(`Exported as ${format}`, {
+					duration: 3000,
+					icon: <Check className="w-4 h-4" />,
+				});
+			} catch (error) {
+				toast.error(`Failed to export as ${format}`, {
+					duration: 3000,
+				});
 			}
-
-			const dataURL = isFabric()
-				? canvas.toDataURL({
-						format: format.toLowerCase() === "jpeg" ? "jpeg" : "png",
-						quality: 0.9,
-						multiplier: 1,
-					})
-				: canvas.toDataURL({ pixelRatio: 2 });
-
-			const a = document.createElement("a");
-			a.href = dataURL;
-			a.download = `artwork.${format.toLowerCase()}`;
-			a.click();
-			toast.success(`Exported as ${format}`);
 		} else {
-			toast.error("No canvas to export");
+			toast.error("No canvas to export", {
+				duration: 3000,
+			});
 		}
 	};
 
 	const handleExportPDF = async () => {
 		const canvas = getCanvas();
 		if (!canvas) {
-			toast.error("No canvas to export");
+			toast.error("No canvas to export", {
+				duration: 3000,
+			});
 			return;
 		}
 
@@ -353,17 +404,24 @@ export const TopMenuBar: React.FC = () => {
 
 			pdf.addImage(dataURL, "PNG", 0, 0, canvas.width!, canvas.height!);
 			pdf.save("artwork.pdf");
-			toast.success("Exported as PDF");
+			toast.success("Exported as PDF", {
+				duration: 3000,
+				icon: <Check className="w-4 h-4" />,
+			});
 		} catch (error) {
 			console.error("Error exporting PDF:", error);
-			toast.error("Failed to export PDF");
+			toast.error("Failed to export PDF", {
+				duration: 3000,
+			});
 		}
 	};
 
 	const handleExportWithTransparentBackground = () => {
 		const canvas = getCanvas();
 		if (!canvas) {
-			toast.error("No canvas to export");
+			toast.error("No canvas to export", {
+				duration: 3000,
+			});
 			return;
 		}
 
@@ -389,13 +447,18 @@ export const TopMenuBar: React.FC = () => {
 		a.href = dataURL;
 		a.download = "artwork-transparent.png";
 		a.click();
-		toast.success("Exported with transparent background");
+		toast.success("Exported with transparent background", {
+			duration: 3000,
+			icon: <Check className="w-4 h-4" />,
+		});
 	};
 
 	const handleExportFaviconPackage = () => {
 		const canvas = getCanvas();
 		if (!canvas) {
-			toast.error("No canvas to export");
+			toast.error("No canvas to export", {
+				duration: 3000,
+			});
 			return;
 		}
 
@@ -448,20 +511,27 @@ export const TopMenuBar: React.FC = () => {
 							a.download = "favicon-package.zip";
 							a.click();
 							URL.revokeObjectURL(url);
-							toast.success("Favicon package exported");
+							toast.success("Favicon package exported", {
+								duration: 3000,
+								icon: <Check className="w-4 h-4" />,
+							});
 						});
 				});
 			})
 			.catch((error) => {
 				console.error("Error creating favicon package:", error);
-				toast.error("Failed to export favicon package");
+				toast.error("Failed to export favicon package", {
+					duration: 3000,
+				});
 			});
 	};
 
 	const handleExportSocialMedia = (platform: string) => {
 		const canvas = getCanvas();
 		if (!canvas) {
-			toast.error("No canvas to export");
+			toast.error("No canvas to export", {
+				duration: 3000,
+			});
 			return;
 		}
 
@@ -474,7 +544,9 @@ export const TopMenuBar: React.FC = () => {
 
 		const dim = dimensions[platform];
 		if (!dim) {
-			toast.error("Invalid platform");
+			toast.error("Invalid platform", {
+				duration: 3000,
+			});
 			return;
 		}
 
@@ -506,14 +578,19 @@ export const TopMenuBar: React.FC = () => {
 			a.href = dataURL;
 			a.download = `artwork-${platform}.png`;
 			a.click();
-			toast.success(`Exported for ${platform}`);
+			toast.success(`Exported for ${platform}`, {
+				duration: 3000,
+				icon: <Check className="w-4 h-4" />,
+			});
 		}
 	};
 
 	const handleExportMultipleSizes = () => {
 		const canvas = getCanvas();
 		if (!canvas) {
-			toast.error("No canvas to export");
+			toast.error("No canvas to export", {
+				duration: 3000,
+			});
 			return;
 		}
 
@@ -577,45 +654,59 @@ export const TopMenuBar: React.FC = () => {
 							a.download = "artwork-multiple-sizes.zip";
 							a.click();
 							URL.revokeObjectURL(url);
-							toast.success("Multiple sizes exported");
+							toast.success("Multiple sizes exported", {
+								duration: 3000,
+								icon: <Check className="w-4 h-4" />,
+							});
 						});
 				});
 			})
 			.catch((error) => {
 				console.error("Error creating multiple sizes package:", error);
-				toast.error("Failed to export multiple sizes");
+				toast.error("Failed to export multiple sizes", {
+					duration: 3000,
+				});
 			});
 	};
 
 	const handleShare = () => {
 		const canvas = getCanvas();
 		if (canvas) {
-			const dataURL = canvas.toDataURL({ format: "png", quality: 0.9 });
+			try {
+				const dataURL = canvas.toDataURL({ format: "png", quality: 0.9 });
 
-			// Try Web Share API
-			if (navigator.share && navigator.canShare) {
-				fetch(dataURL)
-					.then((res) => res.blob())
-					.then((blob) => {
-						const file = new File([blob], "artwork.png", { type: "image/png" });
-						if (navigator.canShare({ files: [file] })) {
-							navigator
-								.share({
-									title: "My Artwork",
-									files: [file],
-								})
-								.then(() => {
-									toast.success("Shared successfully");
-								})
-								.catch(() => {
-									copyImageToClipboard(dataURL);
-								});
-						} else {
-							copyImageToClipboard(dataURL);
-						}
-					});
-			} else {
-				copyImageToClipboard(dataURL);
+				// Try Web Share API
+				if (navigator.share && navigator.canShare) {
+					fetch(dataURL)
+						.then((res) => res.blob())
+						.then((blob) => {
+							const file = new File([blob], "artwork.png", { type: "image/png" });
+							if (navigator.canShare({ files: [file] })) {
+								navigator
+									.share({
+										title: "My Artwork",
+										files: [file],
+									})
+									.then(() => {
+										toast.success("Shared successfully", {
+											duration: 3000,
+											icon: <Check className="w-4 h-4" />,
+										});
+									})
+									.catch(() => {
+										copyImageToClipboard(dataURL);
+									});
+							} else {
+								copyImageToClipboard(dataURL);
+							}
+						});
+				} else {
+					copyImageToClipboard(dataURL);
+				}
+			} catch (error) {
+				toast.error("Failed to share image", {
+					duration: 3000,
+				});
 			}
 		}
 	};
@@ -627,27 +718,34 @@ export const TopMenuBar: React.FC = () => {
 			await navigator.clipboard.write([
 				new ClipboardItem({ [blob.type]: blob }),
 			]);
-			toast.success("Image copied to clipboard");
+			toast.success("Image copied to clipboard", {
+				duration: 3000,
+				icon: <Check className="w-4 h-4" />,
+			});
 		} catch (err) {
 			// Fallback: copy data URL
 			await navigator.clipboard.writeText(dataURL);
-			toast.success("Image URL copied to clipboard");
+			toast.success("Image URL copied to clipboard", {
+				duration: 3000,
+				icon: <Check className="w-4 h-4" />,
+			});
 		}
 	};
 
 	const handlePrint = () => {
 		const canvas = getCanvas();
 		if (canvas) {
-			const dataURL = isFabric()
-				? canvas.toDataURL({
-						format: "png",
-						quality: 1,
-						multiplier: 2,
-					})
-				: canvas.toDataURL({ pixelRatio: 2 });
-			const printWindow = window.open("", "_blank");
-			if (printWindow) {
-				printWindow.document.write(`
+			try {
+				const dataURL = isFabric()
+					? canvas.toDataURL({
+							format: "png",
+							quality: 1,
+							multiplier: 2,
+						})
+					: canvas.toDataURL({ pixelRatio: 2 });
+				const printWindow = window.open("", "_blank");
+				if (printWindow) {
+					printWindow.document.write(`
           <html>
             <head>
               <title>Print Artwork</title>
@@ -665,10 +763,21 @@ export const TopMenuBar: React.FC = () => {
             </body>
           </html>
         `);
-				printWindow.document.close();
+					printWindow.document.close();
+					toast.success("Print dialog opened", {
+						duration: 3000,
+						icon: <Check className="w-4 h-4" />,
+					});
+				}
+			} catch (error) {
+				toast.error("Failed to open print dialog", {
+					duration: 3000,
+				});
 			}
 		} else {
-			toast.error("No canvas to print");
+			toast.error("No canvas to print", {
+				duration: 3000,
+			});
 		}
 	};
 
@@ -684,95 +793,158 @@ export const TopMenuBar: React.FC = () => {
 			}
 			clearHistory();
 		}
-		toast.warning("All canvas content deleted");
+		toast.warning("All canvas content deleted", {
+			duration: 3000,
+		});
 	};
 
 	const handleClearCanvas = () => {
 		const canvas = getCanvas();
 		if (canvas) {
-			if (isFabric()) {
-				canvas.clear();
-				canvas.backgroundColor = "#2d3748";
-				canvas.renderAll();
-			} else {
-				window.dispatchEvent(new CustomEvent("artstudio:clear-canvas"));
+			try {
+				if (isFabric()) {
+					canvas.clear();
+					canvas.backgroundColor = "#2d3748";
+					canvas.renderAll();
+				} else {
+					window.dispatchEvent(new CustomEvent("artstudio:clear-canvas"));
+				}
+				toast.success("Canvas cleared", {
+					duration: 3000,
+					icon: <Check className="w-4 h-4" />,
+				});
+			} catch (error) {
+				toast.error("Failed to clear canvas", {
+					duration: 3000,
+				});
 			}
-			toast.success("Canvas cleared");
+		} else {
+			toast.error("No canvas available", {
+				duration: 3000,
+			});
 		}
 	};
 
 	const handleDeleteSelection = () => {
 		const canvas = getCanvas();
 		if (canvas) {
-			if (isFabric()) {
-				const activeObjects = canvas.getActiveObjects();
-				if (activeObjects.length > 0) {
-					activeObjects.forEach((obj: unknown) => canvas.remove(obj));
-					canvas.discardActiveObject();
-					canvas.renderAll();
-					toast.success("Selection deleted");
-				} else {
-					toast.info("No selection to delete");
+			try {
+				if (isFabric()) {
+					const activeObjects = canvas.getActiveObjects();
+					if (activeObjects.length > 0) {
+						activeObjects.forEach((obj: unknown) => canvas.remove(obj));
+						canvas.discardActiveObject();
+						canvas.renderAll();
+						toast.success("Selection deleted", {
+							duration: 3000,
+							icon: <Check className="w-4 h-4" />,
+						});
+					} else {
+						toast.info("No selection to delete", {
+							duration: 3000,
+						});
+					}
+				} else if (isKonva()) {
+					// Trigger a custom event for Konva to handle deletion
+					window.dispatchEvent(new CustomEvent("artstudio:delete-selection"));
+					toast.success("Selection deleted", {
+						duration: 3000,
+						icon: <Check className="w-4 h-4" />,
+					});
 				}
-			} else if (isKonva()) {
-				// Trigger a custom event for Konva to handle deletion
-				window.dispatchEvent(new CustomEvent("artstudio:delete-selection"));
-				toast.success("Selection deleted");
+			} catch (error) {
+				toast.error("Failed to delete selection", {
+					duration: 3000,
+				});
 			}
 		} else {
-			toast.error("No canvas available");
+			toast.error("No canvas available", {
+				duration: 3000,
+			});
 		}
 	};
 
 	const handleCopy = () => {
 		const canvas = getCanvas();
 		if (canvas) {
-			if (isFabric()) {
-				const activeObject = canvas.getActiveObject();
-				if (activeObject) {
-					activeObject.clone().then((cloned: unknown) => {
-						window.copiedObject = cloned;
-						toast.success("Copied");
+			try {
+				if (isFabric()) {
+					const activeObject = canvas.getActiveObject();
+					if (activeObject) {
+						activeObject.clone().then((cloned: unknown) => {
+							window.copiedObject = cloned;
+							toast.success("Copied", {
+								duration: 3000,
+								icon: <Check className="w-4 h-4" />,
+							});
+						});
+					} else {
+						toast.info("Nothing to copy", {
+							duration: 3000,
+						});
+					}
+				} else if (isKonva()) {
+					window.dispatchEvent(new CustomEvent("artstudio:copy-selection"));
+					toast.success("Copied", {
+						duration: 3000,
+						icon: <Check className="w-4 h-4" />,
 					});
-				} else {
-					toast.info("Nothing to copy");
 				}
-			} else if (isKonva()) {
-				window.dispatchEvent(new CustomEvent("artstudio:copy-selection"));
-				toast.success("Copied");
+			} catch (error) {
+				toast.error("Failed to copy", {
+					duration: 3000,
+				});
 			}
+		} else {
+			toast.error("No canvas available", {
+				duration: 3000,
+			});
 		}
 	};
 
 	const handlePaste = () => {
 		const canvas = getCanvas();
 		if (canvas) {
-			if (isFabric() && (window as Window).copiedObject) {
-				(window as Window).copiedObject
-					.clone()
-					.then(
-						(cloned: {
-							set: (arg0: { left: number; top: number }) => void;
-							left: number;
-							top: number;
-						}) => {
-							cloned.set({
-								left: (cloned.left || 0) + 20,
-								top: (cloned.top || 0) + 20,
-							});
-							canvas.add(cloned);
-							canvas.setActiveObject(cloned);
-							canvas.renderAll();
-							toast.success("Pasted");
-						},
+			try {
+				if (isFabric() && (window as Window).copiedObject) {
+					(window as Window).copiedObject
+						.clone()
+						.then(
+							(cloned: {
+								set: (arg0: { left: number; top: number }) => void;
+								left: number;
+								top: number;
+							}) => {
+								cloned.set({
+									left: (cloned.left || 0) + 20,
+									top: (cloned.top || 0) + 20,
+								});
+								canvas.add(cloned);
+								canvas.setActiveObject(cloned);
+								canvas.renderAll();
+								toast.success("Pasted", {
+									duration: 3000,
+									icon: <Check className="w-4 h-4" />,
+								});
+							},
+						);
+				} else if (isKonva()) {
+					window.dispatchEvent(
+						new CustomEvent("artstudio:paste", { detail: { offset: true } }),
 					);
-			} else if (isKonva()) {
-				window.dispatchEvent(
-					new CustomEvent("artstudio:paste", { detail: { offset: true } }),
-				);
-				toast.success("Pasted");
-			} else {
-				toast.info("Nothing to paste");
+					toast.success("Pasted", {
+						duration: 3000,
+						icon: <Check className="w-4 h-4" />,
+					});
+				} else {
+					toast.info("Nothing to paste", {
+						duration: 3000,
+					});
+				}
+			} catch (error) {
+				toast.error("Failed to paste", {
+					duration: 3000,
+				});
 			}
 		}
 	};
@@ -780,29 +952,43 @@ export const TopMenuBar: React.FC = () => {
 	const handlePasteInPlace = () => {
 		const canvas = getCanvas();
 		if (canvas) {
-			if (isFabric() && (window as Window).copiedObject) {
-				(window as Window).copiedObject
-					.clone()
-					.then(
-						(cloned: {
-							set: (arg0: { left: number; top: number }) => void;
-							left: number;
-							top: number;
-						}) => {
-							// Paste at original position (no offset)
-							canvas.add(cloned);
-							canvas.setActiveObject(cloned);
-							canvas.renderAll();
-							toast.success("Pasted in place");
-						},
+			try {
+				if (isFabric() && (window as Window).copiedObject) {
+					(window as Window).copiedObject
+						.clone()
+						.then(
+							(cloned: {
+								set: (arg0: { left: number; top: number }) => void;
+								left: number;
+								top: number;
+							}) => {
+								// Paste at original position (no offset)
+								canvas.add(cloned);
+								canvas.setActiveObject(cloned);
+								canvas.renderAll();
+								toast.success("Pasted in place", {
+									duration: 3000,
+									icon: <Check className="w-4 h-4" />,
+								});
+							},
+						);
+				} else if (isKonva()) {
+					window.dispatchEvent(
+						new CustomEvent("artstudio:paste", { detail: { offset: false } }),
 					);
-			} else if (isKonva()) {
-				window.dispatchEvent(
-					new CustomEvent("artstudio:paste", { detail: { offset: false } }),
-				);
-				toast.success("Pasted in place");
-			} else {
-				toast.info("Nothing to paste");
+					toast.success("Pasted in place", {
+						duration: 3000,
+						icon: <Check className="w-4 h-4" />,
+					});
+				} else {
+					toast.info("Nothing to paste", {
+						duration: 3000,
+					});
+				}
+			} catch (error) {
+				toast.error("Failed to paste in place", {
+					duration: 3000,
+				});
 			}
 		}
 	};
@@ -810,21 +996,35 @@ export const TopMenuBar: React.FC = () => {
 	const handleCut = () => {
 		const canvas = getCanvas();
 		if (canvas) {
-			if (isFabric()) {
-				const activeObject = canvas.getActiveObject();
-				if (activeObject) {
-					activeObject.clone().then((cloned: unknown) => {
-						(window as Window).copiedObject = cloned;
-						canvas.remove(activeObject);
-						canvas.renderAll();
-						toast.success("Cut");
+			try {
+				if (isFabric()) {
+					const activeObject = canvas.getActiveObject();
+					if (activeObject) {
+						activeObject.clone().then((cloned: unknown) => {
+							(window as Window).copiedObject = cloned;
+							canvas.remove(activeObject);
+							canvas.renderAll();
+							toast.success("Cut", {
+								duration: 3000,
+								icon: <Check className="w-4 h-4" />,
+							});
+						});
+					} else {
+						toast.info("Nothing to cut", {
+							duration: 3000,
+						});
+					}
+				} else if (isKonva()) {
+					window.dispatchEvent(new CustomEvent("artstudio:cut-selection"));
+					toast.success("Cut", {
+						duration: 3000,
+						icon: <Check className="w-4 h-4" />,
 					});
-				} else {
-					toast.info("Nothing to cut");
 				}
-			} else if (isKonva()) {
-				window.dispatchEvent(new CustomEvent("artstudio:cut-selection"));
-				toast.success("Cut");
+			} catch (error) {
+				toast.error("Failed to cut", {
+					duration: 3000,
+				});
 			}
 		}
 	};
@@ -832,22 +1032,36 @@ export const TopMenuBar: React.FC = () => {
 	const handleFlipHorizontal = () => {
 		const canvas = getCanvas();
 		if (canvas) {
-			if (isFabric()) {
-				const activeObject = canvas.getActiveObject();
-				if (activeObject) {
-					activeObject.set("flipX", !activeObject.flipX);
-					canvas.renderAll();
-					toast.success("Flipped horizontal");
-				} else {
-					toast.info("Select an object to flip");
+			try {
+				if (isFabric()) {
+					const activeObject = canvas.getActiveObject();
+					if (activeObject) {
+						activeObject.set("flipX", !activeObject.flipX);
+						canvas.renderAll();
+						toast.success("Flipped horizontal", {
+							duration: 3000,
+							icon: <Check className="w-4 h-4" />,
+						});
+					} else {
+						toast.info("Select an object to flip", {
+							duration: 3000,
+						});
+					}
+				} else if (isKonva()) {
+					window.dispatchEvent(
+						new CustomEvent("artstudio:flip-selection", {
+							detail: { direction: "horizontal" },
+						}),
+					);
+					toast.success("Flipped horizontal", {
+						duration: 3000,
+						icon: <Check className="w-4 h-4" />,
+					});
 				}
-			} else if (isKonva()) {
-				window.dispatchEvent(
-					new CustomEvent("artstudio:flip-selection", {
-						detail: { direction: "horizontal" },
-					}),
-				);
-				toast.success("Flipped horizontal");
+			} catch (error) {
+				toast.error("Failed to flip horizontal", {
+					duration: 3000,
+				});
 			}
 		}
 	};
@@ -855,22 +1069,36 @@ export const TopMenuBar: React.FC = () => {
 	const handleFlipVertical = () => {
 		const canvas = getCanvas();
 		if (canvas) {
-			if (isFabric()) {
-				const activeObject = canvas.getActiveObject();
-				if (activeObject) {
-					activeObject.set("flipY", !activeObject.flipY);
-					canvas.renderAll();
-					toast.success("Flipped vertical");
-				} else {
-					toast.info("Select an object to flip");
+			try {
+				if (isFabric()) {
+					const activeObject = canvas.getActiveObject();
+					if (activeObject) {
+						activeObject.set("flipY", !activeObject.flipY);
+						canvas.renderAll();
+						toast.success("Flipped vertical", {
+							duration: 3000,
+							icon: <Check className="w-4 h-4" />,
+						});
+					} else {
+						toast.info("Select an object to flip", {
+							duration: 3000,
+						});
+					}
+				} else if (isKonva()) {
+					window.dispatchEvent(
+						new CustomEvent("artstudio:flip-selection", {
+							detail: { direction: "vertical" },
+						}),
+					);
+					toast.success("Flipped vertical", {
+						duration: 3000,
+						icon: <Check className="w-4 h-4" />,
+					});
 				}
-			} else if (isKonva()) {
-				window.dispatchEvent(
-					new CustomEvent("artstudio:flip-selection", {
-						detail: { direction: "vertical" },
-					}),
-				);
-				toast.success("Flipped vertical");
+			} catch (error) {
+				toast.error("Failed to flip vertical", {
+					duration: 3000,
+				});
 			}
 		}
 	};
@@ -878,22 +1106,36 @@ export const TopMenuBar: React.FC = () => {
 	const handleRotate = (angle: number) => {
 		const canvas = getCanvas();
 		if (canvas) {
-			if (isFabric()) {
-				const activeObject = canvas.getActiveObject();
-				if (activeObject) {
-					activeObject.rotate((activeObject.angle || 0) + angle);
-					canvas.renderAll();
-					toast.success(`Rotated ${angle}°`);
-				} else {
-					toast.info("Select an object to rotate");
+			try {
+				if (isFabric()) {
+					const activeObject = canvas.getActiveObject();
+					if (activeObject) {
+						activeObject.rotate((activeObject.angle || 0) + angle);
+						canvas.renderAll();
+						toast.success(`Rotated ${angle}°`, {
+							duration: 3000,
+							icon: <Check className="w-4 h-4" />,
+						});
+					} else {
+						toast.info("Select an object to rotate", {
+							duration: 3000,
+						});
+					}
+				} else if (isKonva()) {
+					window.dispatchEvent(
+						new CustomEvent("artstudio:rotate-selection", {
+							detail: { angle },
+						}),
+					);
+					toast.success(`Rotated ${angle}°`, {
+						duration: 3000,
+						icon: <Check className="w-4 h-4" />,
+					});
 				}
-			} else if (isKonva()) {
-				window.dispatchEvent(
-					new CustomEvent("artstudio:rotate-selection", {
-						detail: { angle },
-					}),
-				);
-				toast.success(`Rotated ${angle}°`);
+			} catch (error) {
+				toast.error(`Failed to rotate ${angle}°`, {
+					duration: 3000,
+				});
 			}
 		}
 	};
@@ -901,45 +1143,76 @@ export const TopMenuBar: React.FC = () => {
 	const handleFillWithColor = (color: string) => {
 		const canvas = getCanvas();
 		if (canvas) {
-			if (isFabric()) {
-				const activeObject = canvas.getActiveObject();
-				if (activeObject) {
-					activeObject.set("fill", color);
-					canvas.renderAll();
-					toast.success("Fill applied");
-				} else {
-					canvas.backgroundColor = color;
-					canvas.renderAll();
-					toast.success("Background filled");
+			try {
+				if (isFabric()) {
+					const activeObject = canvas.getActiveObject();
+					if (activeObject) {
+						activeObject.set("fill", color);
+						canvas.renderAll();
+						toast.success("Fill applied", {
+							duration: 3000,
+							icon: <Check className="w-4 h-4" />,
+						});
+					} else {
+						canvas.backgroundColor = color;
+						canvas.renderAll();
+						toast.success("Background filled", {
+							duration: 3000,
+							icon: <Check className="w-4 h-4" />,
+						});
+					}
+				} else if (isKonva()) {
+					window.dispatchEvent(
+						new CustomEvent("artstudio:fill-selection", {
+							detail: { color },
+						}),
+					);
+					toast.success("Fill applied", {
+						duration: 3000,
+						icon: <Check className="w-4 h-4" />,
+					});
 				}
-			} else if (isKonva()) {
-				window.dispatchEvent(
-					new CustomEvent("artstudio:fill-selection", {
-						detail: { color },
-					}),
-				);
-				toast.success("Fill applied");
+			} catch (error) {
+				toast.error("Failed to apply fill", {
+					duration: 3000,
+				});
 			}
 		} else {
-			toast.error("No canvas available");
+			toast.error("No canvas available", {
+				duration: 3000,
+			});
 		}
 	};
 
 	const handleBringForward = () => {
 		const canvas = getCanvas();
 		if (canvas) {
-			if (isFabric()) {
-				const activeObject = canvas.getActiveObject();
-				if (activeObject) {
-					canvas.bringObjectForward(activeObject);
-					canvas.renderAll();
-					toast.success("Brought forward");
-				} else {
-					toast.info("Select an object to bring forward");
+			try {
+				if (isFabric()) {
+					const activeObject = canvas.getActiveObject();
+					if (activeObject) {
+						canvas.bringObjectForward(activeObject);
+						canvas.renderAll();
+						toast.success("Brought forward", {
+							duration: 3000,
+							icon: <Check className="w-4 h-4" />,
+						});
+					} else {
+						toast.info("Select an object to bring forward", {
+							duration: 3000,
+						});
+					}
+				} else if (isKonva()) {
+					window.dispatchEvent(new CustomEvent("artstudio:bring-forward"));
+					toast.success("Brought forward", {
+						duration: 3000,
+						icon: <Check className="w-4 h-4" />,
+					});
 				}
-			} else if (isKonva()) {
-				window.dispatchEvent(new CustomEvent("artstudio:bring-forward"));
-				toast.success("Brought forward");
+			} catch (error) {
+				toast.error("Failed to bring forward", {
+					duration: 3000,
+				});
 			}
 		}
 	};
@@ -947,18 +1220,32 @@ export const TopMenuBar: React.FC = () => {
 	const handleSendBackward = () => {
 		const canvas = getCanvas();
 		if (canvas) {
-			if (isFabric()) {
-				const activeObject = canvas.getActiveObject();
-				if (activeObject) {
-					canvas.sendObjectBackwards(activeObject);
-					canvas.renderAll();
-					toast.success("Sent backward");
-				} else {
-					toast.info("Select an object to send backward");
+			try {
+				if (isFabric()) {
+					const activeObject = canvas.getActiveObject();
+					if (activeObject) {
+						canvas.sendObjectBackwards(activeObject);
+						canvas.renderAll();
+						toast.success("Sent backward", {
+							duration: 3000,
+							icon: <Check className="w-4 h-4" />,
+						});
+					} else {
+						toast.info("Select an object to send backward", {
+							duration: 3000,
+						});
+					}
+				} else if (isKonva()) {
+					window.dispatchEvent(new CustomEvent("artstudio:send-backward"));
+					toast.success("Sent backward", {
+						duration: 3000,
+						icon: <Check className="w-4 h-4" />,
+					});
 				}
-			} else if (isKonva()) {
-				window.dispatchEvent(new CustomEvent("artstudio:send-backward"));
-				toast.success("Sent backward");
+			} catch (error) {
+				toast.error("Failed to send backward", {
+					duration: 3000,
+				});
 			}
 		}
 	};
@@ -966,18 +1253,32 @@ export const TopMenuBar: React.FC = () => {
 	const handleBringToFront = () => {
 		const canvas = getCanvas();
 		if (canvas) {
-			if (isFabric()) {
-				const activeObject = canvas.getActiveObject();
-				if (activeObject) {
-					canvas.bringObjectToFront(activeObject);
-					canvas.renderAll();
-					toast.success("Brought to front");
-				} else {
-					toast.info("Select an object to bring to front");
+			try {
+				if (isFabric()) {
+					const activeObject = canvas.getActiveObject();
+					if (activeObject) {
+						canvas.bringObjectToFront(activeObject);
+						canvas.renderAll();
+						toast.success("Brought to front", {
+							duration: 3000,
+							icon: <Check className="w-4 h-4" />,
+						});
+					} else {
+						toast.info("Select an object to bring to front", {
+							duration: 3000,
+						});
+					}
+				} else if (isKonva()) {
+					window.dispatchEvent(new CustomEvent("artstudio:bring-to-front"));
+					toast.success("Brought to front", {
+						duration: 3000,
+						icon: <Check className="w-4 h-4" />,
+					});
 				}
-			} else if (isKonva()) {
-				window.dispatchEvent(new CustomEvent("artstudio:bring-to-front"));
-				toast.success("Brought to front");
+			} catch (error) {
+				toast.error("Failed to bring to front", {
+					duration: 3000,
+				});
 			}
 		}
 	};
@@ -985,116 +1286,150 @@ export const TopMenuBar: React.FC = () => {
 	const handleSendToBack = () => {
 		const canvas = getCanvas();
 		if (canvas) {
-			if (isFabric()) {
-				const activeObject = canvas.getActiveObject();
-				if (activeObject) {
-					canvas.sendObjectToBack(activeObject);
-					canvas.renderAll();
-					toast.success("Sent to back");
-				} else {
-					toast.info("Select an object to send to back");
+			try {
+				if (isFabric()) {
+					const activeObject = canvas.getActiveObject();
+					if (activeObject) {
+						canvas.sendObjectToBack(activeObject);
+						canvas.renderAll();
+						toast.success("Sent to back", {
+							duration: 3000,
+							icon: <Check className="w-4 h-4" />,
+						});
+					} else {
+						toast.info("Select an object to send to back", {
+							duration: 3000,
+						});
+					}
+				} else if (isKonva()) {
+					window.dispatchEvent(new CustomEvent("artstudio:send-to-back"));
+					toast.success("Sent to back", {
+						duration: 3000,
+						icon: <Check className="w-4 h-4" />,
+					});
 				}
-			} else if (isKonva()) {
-				window.dispatchEvent(new CustomEvent("artstudio:send-to-back"));
-				toast.success("Sent to back");
+			} catch (error) {
+				toast.error("Failed to send to back", {
+					duration: 3000,
+				});
 			}
 		}
 	};
 
 	const handleSelectTool = (tool: Tool) => {
 		setActiveTool(tool);
-		toast.info(`${tool} tool selected`);
+		toast.info(`${tool} tool selected`, {
+			duration: 3000,
+		});
 	};
 
 	// Canvas manipulation functions
 	const handleRotateCanvas = (angle: number) => {
 		const canvas = getCanvas();
 		if (canvas) {
-			const objects = canvas.getObjects();
-			const centerX = canvas.width! / 2;
-			const centerY = canvas.height! / 2;
+			try {
+				const objects = canvas.getObjects();
+				const centerX = canvas.width! / 2;
+				const centerY = canvas.height! / 2;
 
-			objects.forEach(
-				(obj: {
-					left: number;
-					width: number;
-					scaleX: number;
-					top: number;
-					height: number;
-					scaleY: number;
-					set: (arg0: { left: number; top: number; angle: number }) => void;
-					angle: number;
-					setCoords: () => void;
-				}) => {
-					const objCenterX = obj.left + (obj.width * obj.scaleX) / 2;
-					const objCenterY = obj.top + (obj.height * obj.scaleY) / 2;
+				objects.forEach(
+					(obj: {
+						left: number;
+						width: number;
+						scaleX: number;
+						top: number;
+						height: number;
+						scaleY: number;
+						set: (arg0: { left: number; top: number; angle: number }) => void;
+						angle: number;
+						setCoords: () => void;
+					}) => {
+						const objCenterX = obj.left + (obj.width * obj.scaleX) / 2;
+						const objCenterY = obj.top + (obj.height * obj.scaleY) / 2;
 
-					const radians = (angle * Math.PI) / 180;
-					const cos = Math.cos(radians);
-					const sin = Math.sin(radians);
+						const radians = (angle * Math.PI) / 180;
+						const cos = Math.cos(radians);
+						const sin = Math.sin(radians);
 
-					const dx = objCenterX - centerX;
-					const dy = objCenterY - centerY;
+						const dx = objCenterX - centerX;
+						const dy = objCenterY - centerY;
 
-					const newCenterX = centerX + dx * cos - dy * sin;
-					const newCenterY = centerY + dx * sin + dy * cos;
+						const newCenterX = centerX + dx * cos - dy * sin;
+						const newCenterY = centerY + dx * sin + dy * cos;
 
-					obj.set({
-						left: newCenterX - (obj.width * obj.scaleX) / 2,
-						top: newCenterY - (obj.height * obj.scaleY) / 2,
-						angle: (obj.angle || 0) + angle,
-					});
-					obj.setCoords();
-				},
-			);
+						obj.set({
+							left: newCenterX - (obj.width * obj.scaleX) / 2,
+							top: newCenterY - (obj.height * obj.scaleY) / 2,
+							angle: (obj.angle || 0) + angle,
+						});
+						obj.setCoords();
+					},
+				);
 
-			canvas.renderAll();
-			toast.success(`Canvas rotated ${angle}°`);
+				canvas.renderAll();
+				toast.success(`Canvas rotated ${angle}°`, {
+					duration: 3000,
+					icon: <Check className="w-4 h-4" />,
+				});
+			} catch (error) {
+				toast.error(`Failed to rotate canvas ${angle}°`, {
+					duration: 3000,
+				});
+			}
 		}
 	};
 
 	const handleFlipCanvas = (direction: "horizontal" | "vertical") => {
 		const canvas = getCanvas();
 		if (canvas) {
-			const objects = canvas.getObjects();
-			const centerX = canvas.width! / 2;
-			const centerY = canvas.height! / 2;
+			try {
+				const objects = canvas.getObjects();
+				const centerX = canvas.width! / 2;
+				const centerY = canvas.height! / 2;
 
-			objects.forEach(
-				(obj: {
-					set: (arg0: {
-						left?: number;
-						flipX?: boolean;
-						top?: number;
-						flipY?: boolean;
-					}) => void;
-					left: number;
-					width: number;
-					scaleX: number;
-					flipX: number;
-					top: number;
-					height: number;
-					scaleY: number;
-					flipY: number;
-					setCoords: () => void;
-				}) => {
-					if (direction === "horizontal") {
-						obj.set({
-							left: centerX - (obj.left - centerX) - obj.width * obj.scaleX,
-							flipX: !obj.flipX,
-						});
-					} else {
-						obj.set({
-							top: centerY - (obj.top - centerY) - obj.height * obj.scaleY,
-							flipY: !obj.flipY,
-						});
-					}
-					obj.setCoords();
-				},
-			);
+				objects.forEach(
+					(obj: {
+						set: (arg0: {
+							left?: number;
+							flipX?: boolean;
+							top?: number;
+							flipY?: boolean;
+						}) => void;
+						left: number;
+						width: number;
+						scaleX: number;
+						flipX: number;
+						top: number;
+						height: number;
+						scaleY: number;
+						flipY: number;
+						setCoords: () => void;
+					}) => {
+						if (direction === "horizontal") {
+							obj.set({
+								left: centerX - (obj.left - centerX) - obj.width * obj.scaleX,
+								flipX: !obj.flipX,
+							});
+						} else {
+							obj.set({
+								top: centerY - (obj.top - centerY) - obj.height * obj.scaleY,
+								flipY: !obj.flipY,
+							});
+						}
+						obj.setCoords();
+					},
+				);
 
-			canvas.renderAll();
-			toast.success(`Canvas flipped ${direction}`);
+				canvas.renderAll();
+				toast.success(`Canvas flipped ${direction}`, {
+					duration: 3000,
+					icon: <Check className="w-4 h-4" />,
+				});
+			} catch (error) {
+				toast.error(`Failed to flip canvas ${direction}`, {
+					duration: 3000,
+				});
+			}
 		}
 	};
 
@@ -1109,370 +1444,469 @@ export const TopMenuBar: React.FC = () => {
 			if (!isNaN(width) && !isNaN(height) && width > 0 && height > 0) {
 				const canvas = getCanvas();
 				if (canvas) {
-					canvas.setDimensions({ width, height });
-					canvas.renderAll();
+					try {
+						canvas.setDimensions({ width, height });
+						canvas.renderAll();
+						setCanvasSize({ width, height, backgroundColor: "#2d3748" });
+						toast.success(`Canvas resized to ${width}x${height}`, {
+							duration: 3000,
+							icon: <Check className="w-4 h-4" />,
+						});
+					} catch (error) {
+						toast.error("Failed to resize canvas", {
+							duration: 3000,
+						});
+					}
+				} else {
+					setCanvasSize({ width, height, backgroundColor: "#2d3748" });
+					toast.success(`Canvas resized to ${width}x${height}`, {
+						duration: 3000,
+						icon: <Check className="w-4 h-4" />,
+					});
 				}
-				setCanvasSize({ width, height, backgroundColor: "#2d3748" });
-				toast.success(`Canvas resized to ${width}x${height}`);
 			}
 		}
 	};
 
 	const handleCrop = () => {
 		setActiveTool("select");
-		toast.info("Select the area you want to keep, then press Enter to crop");
+		toast.info("Select the area you want to keep, then press Enter to crop", {
+			duration: 5000,
+		});
 	};
 
 	// Filter functions that actually apply effects
 	const handleApplyFilter = (filter: string) => {
 		const canvas = getCanvas();
 		if (!canvas) {
-			toast.error("No canvas available");
+			toast.error("No canvas available", {
+				duration: 3000,
+			});
 			return;
 		}
 
-		const activeObject = canvas.getActiveObject();
+		try {
+			const activeObject = canvas.getActiveObject();
 
-		switch (filter) {
-			case "Invert":
-				if (activeObject) {
-					// Invert colors by applying opposite fill
-					const currentFill = activeObject.fill;
-					if (typeof currentFill === "string" && currentFill.startsWith("#")) {
-						const inverted =
-							"#" +
-							(0xffffff ^ parseInt(currentFill.slice(1), 16))
-								.toString(16)
-								.padStart(6, "0");
-						activeObject.set("fill", inverted);
-					}
-					canvas.renderAll();
-					toast.success("Colors inverted");
-				}
-				break;
-
-			case "Desaturate":
-				if (activeObject) {
-					activeObject.set("fill", "#808080");
-					canvas.renderAll();
-					toast.success("Desaturated");
-				}
-				break;
-
-			case "Brightness/Contrast":
-				const brightnessValue = prompt(
-					"Enter brightness adjustment (-100 to 100):",
-					"0",
-				);
-				if (brightnessValue) {
-					const value = parseInt(brightnessValue);
-					if (!isNaN(value)) {
-						// Adjust all object opacities as a brightness simulation
-						canvas
-							.getObjects()
-							.forEach(
-								(obj: {
-									opacity: number;
-									set: (arg0: string, arg1: number) => void;
-								}) => {
-									const currentOpacity = obj.opacity || 1;
-									const newOpacity = Math.max(
-										0.1,
-										Math.min(1, currentOpacity + value / 200),
-									);
-									obj.set("opacity", newOpacity);
-								},
-							);
+			switch (filter) {
+				case "Invert":
+					if (activeObject) {
+						// Invert colors by applying opposite fill
+						const currentFill = activeObject.fill;
+						if (typeof currentFill === "string" && currentFill.startsWith("#")) {
+							const inverted =
+								"#" +
+								(0xffffff ^ parseInt(currentFill.slice(1), 16))
+									.toString(16)
+									.padStart(6, "0");
+							activeObject.set("fill", inverted);
+						}
 						canvas.renderAll();
-						toast.success("Brightness adjusted");
-					}
-				}
-				break;
-
-			case "Gaussian Blur":
-			case "Motion Blur":
-			case "Radial Blur":
-			case "Surface Blur":
-				if (activeObject) {
-					// Simulate blur by reducing opacity and scaling slightly
-					activeObject.set({
-						opacity: Math.max(0.5, (activeObject.opacity || 1) - 0.2),
-						shadow: {
-							color: "rgba(0,0,0,0.3)",
-							blur: 10,
-							offsetX: 0,
-							offsetY: 0,
-						},
-					});
-					canvas.renderAll();
-					toast.success(`${filter} applied`);
-				} else {
-					toast.info("Select an object to apply blur");
-				}
-				break;
-
-			case "Sharpen":
-			case "Unsharp Mask":
-			case "Smart Sharpen":
-				if (activeObject) {
-					// Simulate sharpen by increasing contrast
-					activeObject.set({
-						opacity: 1,
-						strokeWidth: (activeObject.strokeWidth || 0) + 1,
-						stroke: activeObject.stroke || "#000000",
-					});
-					canvas.renderAll();
-					toast.success(`${filter} applied`);
-				} else {
-					toast.info("Select an object to sharpen");
-				}
-				break;
-
-			case "Add Noise":
-				// Add random small shapes as noise
-				for (let i = 0; i < 50; i++) {
-					import("fabric").then(({ Circle }) => {
-						const noise = new Circle({
-							left: Math.random() * canvas.width!,
-							top: Math.random() * canvas.height!,
-							radius: 1,
-							fill: Math.random() > 0.5 ? "#ffffff" : "#000000",
-							opacity: 0.3,
-							selectable: false,
-							evented: false,
+						toast.success("Colors inverted", {
+							duration: 3000,
+							icon: <Check className="w-4 h-4" />,
 						});
-						canvas.add(noise);
-					});
-				}
-				canvas.renderAll();
-				toast.success("Noise added");
-				break;
+					}
+					break;
 
-			case "Oil Paint":
-				if (activeObject) {
-					activeObject.set({
-						strokeWidth: 3,
-						stroke: activeObject.fill || "#000000",
-					});
+				case "Desaturate":
+					if (activeObject) {
+						activeObject.set("fill", "#808080");
+						canvas.renderAll();
+						toast.success("Desaturated", {
+							duration: 3000,
+							icon: <Check className="w-4 h-4" />,
+						});
+					}
+					break;
+
+				case "Brightness/Contrast":
+					const brightnessValue = prompt(
+						"Enter brightness adjustment (-100 to 100):",
+						"0",
+					);
+					if (brightnessValue) {
+						const value = parseInt(brightnessValue);
+						if (!isNaN(value)) {
+							// Adjust all object opacities as a brightness simulation
+							canvas
+								.getObjects()
+								.forEach(
+									(obj: {
+										opacity: number;
+										set: (arg0: string, arg1: number) => void;
+									}) => {
+										const currentOpacity = obj.opacity || 1;
+										const newOpacity = Math.max(
+											0.1,
+											Math.min(1, currentOpacity + value / 200),
+										);
+										obj.set("opacity", newOpacity);
+									},
+								);
+							canvas.renderAll();
+							toast.success("Brightness adjusted", {
+								duration: 3000,
+								icon: <Check className="w-4 h-4" />,
+							});
+						}
+					}
+					break;
+
+				case "Gaussian Blur":
+				case "Motion Blur":
+				case "Radial Blur":
+				case "Surface Blur":
+					if (activeObject) {
+						// Simulate blur by reducing opacity and scaling slightly
+						activeObject.set({
+							opacity: Math.max(0.5, (activeObject.opacity || 1) - 0.2),
+							shadow: {
+								color: "rgba(0,0,0,0.3)",
+								blur: 10,
+								offsetX: 0,
+								offsetY: 0,
+							},
+						});
+						canvas.renderAll();
+						toast.success(`${filter} applied`, {
+							duration: 3000,
+							icon: <Check className="w-4 h-4" />,
+						});
+					} else {
+						toast.info("Select an object to apply blur", {
+							duration: 3000,
+						});
+					}
+					break;
+
+				case "Sharpen":
+				case "Unsharp Mask":
+				case "Smart Sharpen":
+					if (activeObject) {
+						// Simulate sharpen by increasing contrast
+						activeObject.set({
+							opacity: 1,
+							strokeWidth: (activeObject.strokeWidth || 0) + 1,
+							stroke: activeObject.stroke || "#000000",
+						});
+						canvas.renderAll();
+						toast.success(`${filter} applied`, {
+							duration: 3000,
+							icon: <Check className="w-4 h-4" />,
+						});
+					} else {
+						toast.info("Select an object to sharpen", {
+							duration: 3000,
+						});
+					}
+					break;
+
+				case "Add Noise":
+					// Add random small shapes as noise
+					for (let i = 0; i < 50; i++) {
+						import("fabric").then(({ Circle }) => {
+							const noise = new Circle({
+								left: Math.random() * canvas.width!,
+								top: Math.random() * canvas.height!,
+								radius: 1,
+								fill: Math.random() > 0.5 ? "#ffffff" : "#000000",
+								opacity: 0.3,
+								selectable: false,
+								evented: false,
+							});
+							canvas.add(noise);
+						});
+					}
 					canvas.renderAll();
-					toast.success("Oil paint effect applied");
-				}
-				break;
-
-			case "Emboss":
-				if (activeObject) {
-					activeObject.set({
-						shadow: {
-							color: "rgba(255,255,255,0.5)",
-							blur: 2,
-							offsetX: -2,
-							offsetY: -2,
-						},
+					toast.success("Noise added", {
+						duration: 3000,
+						icon: <Check className="w-4 h-4" />,
 					});
-					canvas.renderAll();
-					toast.success("Emboss effect applied");
-				}
-				break;
+					break;
 
-			case "Find Edges":
-				if (activeObject) {
-					activeObject.set({
-						fill: "transparent",
-						stroke: "#000000",
-						strokeWidth: 2,
-					});
-					canvas.renderAll();
-					toast.success("Edges found");
-				}
-				break;
+				case "Oil Paint":
+					if (activeObject) {
+						activeObject.set({
+							strokeWidth: 3,
+							stroke: activeObject.fill || "#000000",
+						});
+						canvas.renderAll();
+						toast.success("Oil paint effect applied", {
+							duration: 3000,
+							icon: <Check className="w-4 h-4" />,
+						});
+					}
+					break;
 
-			case "Solarize":
-				if (activeObject && typeof activeObject.fill === "string") {
-					const color = activeObject.fill;
-					// Shift hue
-					activeObject.set("fill", color === "#ffffff" ? "#ff0000" : "#00ff00");
-					canvas.renderAll();
-					toast.success("Solarize effect applied");
-				}
-				break;
+				case "Emboss":
+					if (activeObject) {
+						activeObject.set({
+							shadow: {
+								color: "rgba(255,255,255,0.5)",
+								blur: 2,
+								offsetX: -2,
+								offsetY: -2,
+							},
+						});
+						canvas.renderAll();
+						toast.success("Emboss effect applied", {
+							duration: 3000,
+							icon: <Check className="w-4 h-4" />,
+						});
+					}
+					break;
 
-			case "AI Enhance":
-				canvas
-					.getObjects()
-					.forEach(
-						(obj: {
-							set: (arg0: {
-								opacity: number;
+				case "Find Edges":
+					if (activeObject) {
+						activeObject.set({
+							fill: "transparent",
+							stroke: "#000000",
+							strokeWidth: 2,
+						});
+						canvas.renderAll();
+						toast.success("Edges found", {
+							duration: 3000,
+							icon: <Check className="w-4 h-4" />,
+						});
+					}
+					break;
+
+				case "Solarize":
+					if (activeObject && typeof activeObject.fill === "string") {
+						const color = activeObject.fill;
+						// Shift hue
+						activeObject.set("fill", color === "#ffffff" ? "#ff0000" : "#00ff00");
+						canvas.renderAll();
+						toast.success("Solarize effect applied", {
+							duration: 3000,
+							icon: <Check className="w-4 h-4" />,
+						});
+					}
+					break;
+
+				case "AI Enhance":
+					canvas
+						.getObjects()
+						.forEach(
+							(obj: {
+								set: (arg0: {
+									opacity: number;
+									scaleX: number;
+									scaleY: number;
+								}) => void;
 								scaleX: number;
 								scaleY: number;
-							}) => void;
-							scaleX: number;
-							scaleY: number;
-							setCoords: () => void;
-						}) => {
-							obj.set({
-								opacity: 1,
-								scaleX: (obj.scaleX || 1) * 1.05,
-								scaleY: (obj.scaleY || 1) * 1.05,
-							});
-							obj.setCoords();
-						},
-					);
-				canvas.renderAll();
-				toast.success("AI Enhancement applied");
-				break;
+								setCoords: () => void;
+							}) => {
+								obj.set({
+									opacity: 1,
+									scaleX: (obj.scaleX || 1) * 1.05,
+									scaleY: (obj.scaleY || 1) * 1.05,
+								});
+								obj.setCoords();
+							},
+						);
+					canvas.renderAll();
+					toast.success("AI Enhancement applied", {
+						duration: 3000,
+						icon: <Check className="w-4 h-4" />,
+					});
+					break;
 
-			case "Remove Background":
-				canvas.backgroundColor = "transparent";
-				canvas.renderAll();
-				toast.success("Background removed");
-				break;
+				case "Remove Background":
+					canvas.backgroundColor = "transparent";
+					canvas.renderAll();
+					toast.success("Background removed", {
+						duration: 3000,
+						icon: <Check className="w-4 h-4" />,
+					});
+					break;
 
-			case "Upscale 2x":
-				const currentWidth = canvas.width!;
-				const currentHeight = canvas.height!;
-				canvas.setDimensions({
-					width: currentWidth * 2,
-					height: currentHeight * 2,
-				});
-				canvas
-					.getObjects()
-					.forEach(
-						(obj: {
-							set: (arg0: {
+				case "Upscale 2x":
+					const currentWidth = canvas.width!;
+					const currentHeight = canvas.height!;
+					canvas.setDimensions({
+						width: currentWidth * 2,
+						height: currentHeight * 2,
+					});
+					canvas
+						.getObjects()
+						.forEach(
+							(obj: {
+								set: (arg0: {
+									left: number;
+									top: number;
+									scaleX: number;
+									scaleY: number;
+								}) => void;
 								left: number;
 								top: number;
 								scaleX: number;
 								scaleY: number;
-							}) => void;
-							left: number;
-							top: number;
-							scaleX: number;
-							scaleY: number;
-							setCoords: () => void;
-						}) => {
-							obj.set({
-								left: obj.left * 2,
-								top: obj.top * 2,
-								scaleX: (obj.scaleX || 1) * 2,
-								scaleY: (obj.scaleY || 1) * 2,
-							});
-							obj.setCoords();
-						},
-					);
-				canvas.renderAll();
-				toast.success("Image upscaled 2x");
-				break;
-
-			case "Hue/Saturation":
-				if (activeObject) {
-					// Simulate hue shift by adjusting fill color
-					const currentFill = activeObject.fill;
-					if (typeof currentFill === "string" && currentFill.startsWith("#")) {
-						const hue = prompt("Enter hue shift (-180 to 180):", "0");
-						if (hue) {
-							const shift = parseInt(hue);
-							if (!isNaN(shift)) {
-								// Simple hue shift simulation
-								activeObject.set({
-									opacity: Math.min(
-										1,
-										(activeObject.opacity || 1) + shift / 360,
-									),
+								setCoords: () => void;
+							}) => {
+								obj.set({
+									left: obj.left * 2,
+									top: obj.top * 2,
+									scaleX: (obj.scaleX || 1) * 2,
+									scaleY: (obj.scaleY || 1) * 2,
 								});
-								canvas.renderAll();
-								toast.success("Hue/Saturation adjusted");
+								obj.setCoords();
+							},
+						);
+					canvas.renderAll();
+					toast.success("Image upscaled 2x", {
+						duration: 3000,
+						icon: <Check className="w-4 h-4" />,
+					});
+					break;
+
+				case "Hue/Saturation":
+					if (activeObject) {
+						// Simulate hue shift by adjusting fill color
+						const currentFill = activeObject.fill;
+						if (typeof currentFill === "string" && currentFill.startsWith("#")) {
+							const hue = prompt("Enter hue shift (-180 to 180):", "0");
+							if (hue) {
+								const shift = parseInt(hue);
+								if (!isNaN(shift)) {
+									// Simple hue shift simulation
+									activeObject.set({
+										opacity: Math.min(
+											1,
+											(activeObject.opacity || 1) + shift / 360,
+										),
+									});
+									canvas.renderAll();
+									toast.success("Hue/Saturation adjusted", {
+										duration: 3000,
+										icon: <Check className="w-4 h-4" />,
+									});
+								}
 							}
 						}
+					} else {
+						toast.info("Select an object to adjust", {
+							duration: 3000,
+						});
 					}
-				} else {
-					toast.info("Select an object to adjust");
-				}
-				break;
+					break;
 
-			case "Color Balance":
-				if (activeObject) {
-					// Simulate color balance by adjusting opacity
-					activeObject.set({
-						opacity: Math.min(1, (activeObject.opacity || 1) * 1.1),
-					});
+				case "Color Balance":
+					if (activeObject) {
+						// Simulate color balance by adjusting opacity
+						activeObject.set({
+							opacity: Math.min(1, (activeObject.opacity || 1) * 1.1),
+						});
+						canvas.renderAll();
+						toast.success("Color balance adjusted", {
+							duration: 3000,
+							icon: <Check className="w-4 h-4" />,
+						});
+					} else {
+						toast.info("Select an object to adjust", {
+							duration: 3000,
+						});
+					}
+					break;
+
+				case "Levels":
+				case "Curves":
+					if (activeObject) {
+						// Simulate levels/curves by adjusting contrast
+						activeObject.set({
+							opacity: Math.min(1, (activeObject.opacity || 1) * 1.05),
+							strokeWidth: (activeObject.strokeWidth || 0) + 0.5,
+						});
+						canvas.renderAll();
+						toast.success(`${filter} adjusted`, {
+							duration: 3000,
+							icon: <Check className="w-4 h-4" />,
+						});
+					} else {
+						toast.info("Select an object to adjust", {
+							duration: 3000,
+						});
+					}
+					break;
+
+				case "Auto Tone":
+				case "Auto Contrast":
+					canvas
+						.getObjects()
+						.forEach(
+							(obj: {
+								opacity: number;
+								set: (arg0: string, arg1: number) => void;
+							}) => {
+								const currentOpacity = obj.opacity || 1;
+								obj.set(
+									"opacity",
+									Math.min(1, Math.max(0.1, currentOpacity * 1.1)),
+								);
+							},
+						);
 					canvas.renderAll();
-					toast.success("Color balance adjusted");
-				} else {
-					toast.info("Select an object to adjust");
-				}
-				break;
-
-			case "Levels":
-			case "Curves":
-				if (activeObject) {
-					// Simulate levels/curves by adjusting contrast
-					activeObject.set({
-						opacity: Math.min(1, (activeObject.opacity || 1) * 1.05),
-						strokeWidth: (activeObject.strokeWidth || 0) + 0.5,
+					toast.success(`${filter} applied`, {
+						duration: 3000,
+						icon: <Check className="w-4 h-4" />,
 					});
-					canvas.renderAll();
-					toast.success(`${filter} adjusted`);
-				} else {
-					toast.info("Select an object to adjust");
-				}
-				break;
+					break;
 
-			case "Auto Tone":
-			case "Auto Contrast":
-				canvas
-					.getObjects()
-					.forEach(
-						(obj: {
-							opacity: number;
-							set: (arg0: string, arg1: number) => void;
-						}) => {
-							const currentOpacity = obj.opacity || 1;
-							obj.set(
-								"opacity",
-								Math.min(1, Math.max(0.1, currentOpacity * 1.1)),
-							);
-						},
-					);
-				canvas.renderAll();
-				toast.success(`${filter} applied`);
-				break;
+				case "Liquify":
+				case "Twirl":
+				case "Spherize":
+				case "Wave":
+					if (activeObject) {
+						// Simulate distortion effects
+						activeObject.set({
+							scaleX: (activeObject.scaleX || 1) * 1.05,
+							scaleY: (activeObject.scaleY || 1) * 0.95,
+							skewX: (activeObject.skewX || 0) + 2,
+						});
+						activeObject.setCoords();
+						canvas.renderAll();
+						toast.success(`${filter} effect applied`, {
+							duration: 3000,
+							icon: <Check className="w-4 h-4" />,
+						});
+					} else {
+						toast.info("Select an object to apply distortion", {
+							duration: 3000,
+						});
+					}
+					break;
 
-			case "Liquify":
-			case "Twirl":
-			case "Spherize":
-			case "Wave":
-				if (activeObject) {
-					// Simulate distortion effects
-					activeObject.set({
-						scaleX: (activeObject.scaleX || 1) * 1.05,
-						scaleY: (activeObject.scaleY || 1) * 0.95,
-						skewX: (activeObject.skewX || 0) + 2,
+				case "Reduce Noise":
+				case "Median":
+					if (activeObject) {
+						// Simulate noise reduction by smoothing
+						activeObject.set({
+							opacity: Math.min(1, (activeObject.opacity || 1) * 1.05),
+						});
+						canvas.renderAll();
+						toast.success(`${filter} applied`, {
+							duration: 3000,
+							icon: <Check className="w-4 h-4" />,
+						});
+					} else {
+						toast.info("Select an object to reduce noise", {
+							duration: 3000,
+						});
+					}
+					break;
+
+				default:
+					toast.info(`${filter} effect applied`, {
+						duration: 3000,
+						icon: <Check className="w-4 h-4" />,
 					});
-					activeObject.setCoords();
-					canvas.renderAll();
-					toast.success(`${filter} effect applied`);
-				} else {
-					toast.info("Select an object to apply distortion");
-				}
-				break;
-
-			case "Reduce Noise":
-			case "Median":
-				if (activeObject) {
-					// Simulate noise reduction by smoothing
-					activeObject.set({
-						opacity: Math.min(1, (activeObject.opacity || 1) * 1.05),
-					});
-					canvas.renderAll();
-					toast.success(`${filter} applied`);
-				} else {
-					toast.info("Select an object to reduce noise");
-				}
-				break;
-
-			default:
-				toast.info(`${filter} effect applied`);
+			}
+		} catch (error) {
+			toast.error(`Failed to apply ${filter} filter`, {
+				duration: 3000,
+			});
 		}
 	};
 
@@ -1480,12 +1914,23 @@ export const TopMenuBar: React.FC = () => {
 	const handleMergeLayers = () => {
 		const canvas = getCanvas();
 		if (canvas) {
-			// Group all objects
-			const objects = canvas.getObjects();
-			if (objects.length > 1) {
-				toast.success("Layers merged");
-			} else {
-				toast.info("Nothing to merge");
+			try {
+				// Group all objects
+				const objects = canvas.getObjects();
+				if (objects.length > 1) {
+					toast.success("Layers merged", {
+						duration: 3000,
+						icon: <Check className="w-4 h-4" />,
+					});
+				} else {
+					toast.info("Nothing to merge", {
+						duration: 3000,
+					});
+				}
+			} catch (error) {
+				toast.error("Failed to merge layers", {
+					duration: 3000,
+				});
 			}
 		}
 	};
@@ -1493,40 +1938,58 @@ export const TopMenuBar: React.FC = () => {
 	const handleFlattenImage = () => {
 		const canvas = getCanvas();
 		if (canvas) {
-			// Convert entire canvas to image
-			const dataURL = canvas.toDataURL({ format: "png", quality: 1 });
-			canvas.clear();
+			try {
+				// Convert entire canvas to image
+				const dataURL = canvas.toDataURL({ format: "png", quality: 1 });
+				canvas.clear();
 
-			const img = new window.Image();
-			img.onload = () => {
-				import("fabric").then(({ FabricImage }) => {
-					FabricImage.fromURL(dataURL).then((fabricImg) => {
-						fabricImg.set({ left: 0, top: 0 });
-						canvas.add(fabricImg);
-						canvas.backgroundColor = "#2d3748";
-						canvas.renderAll();
-						toast.success("Image flattened");
+				const img = new window.Image();
+				img.onload = () => {
+					import("fabric").then(({ FabricImage }) => {
+						FabricImage.fromURL(dataURL).then((fabricImg) => {
+							fabricImg.set({ left: 0, top: 0 });
+							canvas.add(fabricImg);
+							canvas.backgroundColor = "#2d3748";
+							canvas.renderAll();
+							toast.success("Image flattened", {
+								duration: 3000,
+								icon: <Check className="w-4 h-4" />,
+							});
+						});
 					});
+				};
+				img.src = dataURL;
+			} catch (error) {
+				toast.error("Failed to flatten image", {
+					duration: 3000,
 				});
-			};
-			img.src = dataURL;
+			}
 		}
 	};
 
 	const handleLockLayer = () => {
 		const canvas = getCanvas();
 		if (canvas) {
-			const activeObject = canvas.getActiveObject();
-			if (activeObject) {
-				activeObject.set({
-					lockMovementX: true,
-					lockMovementY: true,
-					lockRotation: true,
-					lockScalingX: true,
-					lockScalingY: true,
+			try {
+				const activeObject = canvas.getActiveObject();
+				if (activeObject) {
+					activeObject.set({
+						lockMovementX: true,
+						lockMovementY: true,
+						lockRotation: true,
+						lockScalingX: true,
+						lockScalingY: true,
+					});
+					canvas.renderAll();
+					toast.success("Layer locked", {
+						duration: 3000,
+						icon: <Check className="w-4 h-4" />,
+					});
+				}
+			} catch (error) {
+				toast.error("Failed to lock layer", {
+					duration: 3000,
 				});
-				canvas.renderAll();
-				toast.success("Layer locked");
 			}
 		}
 	};
@@ -1621,23 +2084,37 @@ export const TopMenuBar: React.FC = () => {
 		if (entry) {
 			const canvas = getCanvas();
 			if (canvas) {
-				if (isFabric()) {
-					canvas.loadFromJSON(JSON.parse(entry.canvasData)).then(() => {
-						canvas.renderAll();
-						toast.success("Undone");
+				try {
+					if (isFabric()) {
+						canvas.loadFromJSON(JSON.parse(entry.canvasData)).then(() => {
+							canvas.renderAll();
+							toast.success("Undone", {
+								duration: 3000,
+								icon: <Check className="w-4 h-4" />,
+							});
+						});
+					} else if (isKonva()) {
+						// For Konva, dispatch event to restore state
+						window.dispatchEvent(
+							new CustomEvent("artstudio:restore-history", {
+								detail: { canvasData: entry.canvasData },
+							}),
+						);
+						toast.success("Undone", {
+							duration: 3000,
+							icon: <Check className="w-4 h-4" />,
+						});
+					}
+				} catch (error) {
+					toast.error("Failed to undo", {
+						duration: 3000,
 					});
-				} else if (isKonva()) {
-					// For Konva, dispatch event to restore state
-					window.dispatchEvent(
-						new CustomEvent("artstudio:restore-history", {
-							detail: { canvasData: entry.canvasData },
-						}),
-					);
-					toast.success("Undone");
 				}
 			}
 		} else {
-			toast.info("Nothing to undo");
+			toast.info("Nothing to undo", {
+				duration: 3000,
+			});
 		}
 	};
 
@@ -1646,23 +2123,37 @@ export const TopMenuBar: React.FC = () => {
 		if (entry) {
 			const canvas = getCanvas();
 			if (canvas) {
-				if (isFabric()) {
-					canvas.loadFromJSON(JSON.parse(entry.canvasData)).then(() => {
-						canvas.renderAll();
-						toast.success("Redone");
+				try {
+					if (isFabric()) {
+						canvas.loadFromJSON(JSON.parse(entry.canvasData)).then(() => {
+							canvas.renderAll();
+							toast.success("Redone", {
+								duration: 3000,
+								icon: <Check className="w-4 h-4" />,
+							});
+						});
+					} else if (isKonva()) {
+						// For Konva, dispatch event to restore state
+						window.dispatchEvent(
+							new CustomEvent("artstudio:restore-history", {
+								detail: { canvasData: entry.canvasData },
+							}),
+						);
+						toast.success("Redone", {
+							duration: 3000,
+							icon: <Check className="w-4 h-4" />,
+						});
+					}
+				} catch (error) {
+					toast.error("Failed to redo", {
+						duration: 3000,
 					});
-				} else if (isKonva()) {
-					// For Konva, dispatch event to restore state
-					window.dispatchEvent(
-						new CustomEvent("artstudio:restore-history", {
-							detail: { canvasData: entry.canvasData },
-						}),
-					);
-					toast.success("Redone");
 				}
 			}
 		} else {
-			toast.info("Nothing to redo");
+			toast.info("Nothing to redo", {
+				duration: 3000,
+			});
 		}
 	};
 
@@ -1759,7 +2250,9 @@ export const TopMenuBar: React.FC = () => {
 				{
 					label: "Content-Aware Fill",
 					icon: Wand2,
-					action: () => toast.info("Content-aware fill applied"),
+					action: () => toast.info("Content-aware fill applied", {
+						duration: 3000,
+					}),
 				},
 			],
 		},
@@ -1767,18 +2260,34 @@ export const TopMenuBar: React.FC = () => {
 
 	const handleFitToScreen = () => {
 		zoomToFit({ maxZoom: 100 });
+		toast.success("Fit to screen", {
+			duration: 3000,
+			icon: <Check className="w-4 h-4" />,
+		});
 	};
 
 	const handleZoomIn = () => {
 		zoomIn(25);
+		toast.success("Zoomed in", {
+			duration: 3000,
+			icon: <Check className="w-4 h-4" />,
+		});
 	};
 
 	const handleZoomOut = () => {
 		zoomOut(25);
+		toast.success("Zoomed out", {
+			duration: 3000,
+			icon: <Check className="w-4 h-4" />,
+		});
 	};
 
 	const handleActualSize = () => {
 		zoomToActualSize();
+		toast.success("Actual size", {
+			duration: 3000,
+			icon: <Check className="w-4 h-4" />,
+		});
 	};
 
 	const viewMenu: MenuItemConfig[] = [
@@ -1808,7 +2317,10 @@ export const TopMenuBar: React.FC = () => {
 			shortcut: "⌘'",
 			action: () => {
 				setShowGrid(!showGrid);
-				toast.success(showGrid ? "Grid hidden" : "Grid shown");
+				toast.success(showGrid ? "Grid hidden" : "Grid shown", {
+					duration: 3000,
+					icon: <Check className="w-4 h-4" />,
+				});
 			},
 			checked: showGrid,
 		},
@@ -1818,7 +2330,10 @@ export const TopMenuBar: React.FC = () => {
 			shortcut: "⌘R",
 			action: () => {
 				setShowRulers(!showRulers);
-				toast.success(showRulers ? "Rulers hidden" : "Rulers shown");
+				toast.success(showRulers ? "Rulers hidden" : "Rulers shown", {
+					duration: 3000,
+					icon: <Check className="w-4 h-4" />,
+				});
 			},
 			checked: showRulers,
 		},
@@ -1828,7 +2343,10 @@ export const TopMenuBar: React.FC = () => {
 			shortcut: "⌘;",
 			action: () => {
 				setShowGuides(!showGuides);
-				toast.success(showGuides ? "Guides hidden" : "Guides shown");
+				toast.success(showGuides ? "Guides hidden" : "Guides shown", {
+					duration: 3000,
+					icon: <Check className="w-4 h-4" />,
+				});
 			},
 			checked: showGuides,
 		},
@@ -1838,7 +2356,10 @@ export const TopMenuBar: React.FC = () => {
 			icon: showLeftPanel ? Check : PanelLeft,
 			action: () => {
 				setShowLeftPanel(!showLeftPanel);
-				toast.success(showLeftPanel ? "Left panel hidden" : "Left panel shown");
+				toast.success(showLeftPanel ? "Left panel hidden" : "Left panel shown", {
+					duration: 3000,
+					icon: <Check className="w-4 h-4" />,
+				});
 			},
 			checked: showLeftPanel,
 		},
@@ -1849,6 +2370,10 @@ export const TopMenuBar: React.FC = () => {
 				setShowRightPanel(!showRightPanel);
 				toast.success(
 					showRightPanel ? "Right panel hidden" : "Right panel shown",
+					{
+						duration: 3000,
+						icon: <Check className="w-4 h-4" />,
+					},
 				);
 			},
 			checked: showRightPanel,
@@ -1863,7 +2388,10 @@ export const TopMenuBar: React.FC = () => {
 					icon: renderingEngine === "fabric" ? Check : undefined,
 					action: () => {
 						setRenderingEngine("fabric");
-						toast.success("Switched to Fabric.js engine");
+						toast.success("Switched to Fabric.js engine", {
+							duration: 3000,
+							icon: <Check className="w-4 h-4" />,
+						});
 					},
 				},
 				{
@@ -1871,7 +2399,10 @@ export const TopMenuBar: React.FC = () => {
 					icon: renderingEngine === "konva" ? Check : undefined,
 					action: () => {
 						setRenderingEngine("konva");
-						toast.success("Switched to Konva.js engine");
+						toast.success("Switched to Konva.js engine", {
+							duration: 3000,
+							icon: <Check className="w-4 h-4" />,
+						});
 					},
 				},
 			],
@@ -2098,6 +2629,10 @@ export const TopMenuBar: React.FC = () => {
 				setShowBrushesPanel(!showBrushesPanel);
 				toast.success(
 					showBrushesPanel ? "Brushes panel hidden" : "Brushes panel shown",
+					{
+						duration: 3000,
+						icon: <Check className="w-4 h-4" />,
+					},
 				);
 			},
 			checked: showBrushesPanel,
@@ -2109,6 +2644,10 @@ export const TopMenuBar: React.FC = () => {
 				setShowColorsPanel(!showColorsPanel);
 				toast.success(
 					showColorsPanel ? "Colors panel hidden" : "Colors panel shown",
+					{
+						duration: 3000,
+						icon: <Check className="w-4 h-4" />,
+					},
 				);
 			},
 			checked: showColorsPanel,
@@ -2120,6 +2659,10 @@ export const TopMenuBar: React.FC = () => {
 				setShowLayersPanel(!showLayersPanel);
 				toast.success(
 					showLayersPanel ? "Layers panel hidden" : "Layers panel shown",
+					{
+						duration: 3000,
+						icon: <Check className="w-4 h-4" />,
+					},
 				);
 			},
 			checked: showLayersPanel,
@@ -2130,7 +2673,10 @@ export const TopMenuBar: React.FC = () => {
 			icon: showNavigator ? Check : ZoomIn,
 			action: () => {
 				setShowNavigator(!showNavigator);
-				toast.success(showNavigator ? "Navigator hidden" : "Navigator shown");
+				toast.success(showNavigator ? "Navigator hidden" : "Navigator shown", {
+					duration: 3000,
+					icon: <Check className="w-4 h-4" />,
+				});
 			},
 			checked: showNavigator,
 		},
@@ -2139,7 +2685,10 @@ export const TopMenuBar: React.FC = () => {
 			icon: showInfoPanel ? Check : Info,
 			action: () => {
 				setShowInfoPanel(!showInfoPanel);
-				toast.success(showInfoPanel ? "Info panel hidden" : "Info panel shown");
+				toast.success(showInfoPanel ? "Info panel hidden" : "Info panel shown", {
+					duration: 3000,
+					icon: <Check className="w-4 h-4" />,
+				});
 			},
 			checked: showInfoPanel,
 		},
