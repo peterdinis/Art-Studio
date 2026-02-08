@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { useArtStudioStore } from "@/stores/artStudioStore";
 import {
 	Eye,
@@ -15,6 +15,7 @@ import {
 	Copy,
 	ArrowUp,
 	ArrowDown,
+	Pen,
 } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import {
@@ -49,37 +50,86 @@ export const LayersPanel: React.FC = () => {
 
 	const [editingId, setEditingId] = useState<string | null>(null);
 	const [editName, setEditName] = useState("");
+	const editInputRef = useRef<HTMLInputElement>(null);
 
+	// Automatický focus na input po spustení editácie
+	useEffect(() => {
+		if (editingId && editInputRef.current) {
+			editInputRef.current.focus();
+			editInputRef.current.select();
+		}
+	}, [editingId]);
+
+	// Spustenie premenovania
 	const handleStartRename = (id: string, currentName: string) => {
 		setEditingId(id);
 		setEditName(currentName);
 	};
 
+	// Dokončenie premenovania
 	const handleFinishRename = () => {
 		if (editingId && editName.trim()) {
-			renameLayer(editingId, editName.trim());
+			const trimmedName = editName.trim();
+			
+			// Skontrolovať, či meno nie je prázdne
+			if (trimmedName.length === 0) {
+				toast.error("Layer name cannot be empty");
+				return;
+			}
+			
+			// Skontrolovať, či meno už neexistuje (iba ak sa zmenilo)
+			const currentLayer = layers.find(l => l.id === editingId);
+			if (currentLayer && currentLayer.name !== trimmedName) {
+				const nameExists = layers.some(
+					(layer) => layer.id !== editingId && layer.name === trimmedName
+				);
+				
+				if (nameExists) {
+					toast.error(`A layer named "${trimmedName}" already exists`);
+					return;
+				}
+			}
+			
+			renameLayer(editingId, trimmedName);
+			toast.success(`Layer renamed to "${trimmedName}"`);
+		} else if (editName.trim() === "") {
+			toast.error("Layer name cannot be empty");
+			return;
 		}
+		
 		setEditingId(null);
 		setEditName("");
+	};
+
+	// Premenovanie pomocou Enter alebo Escape
+	const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+		if (e.key === "Enter") {
+			handleFinishRename();
+		} else if (e.key === "Escape") {
+			setEditingId(null);
+			setEditName("");
+		}
 	};
 
 	const handleDeleteLayer = (id: string, e?: React.MouseEvent) => {
 		e?.stopPropagation();
 
-		// Prevent deleting the last layer
+		// Zabrániť odstráneniu poslednej vrstvy
 		if (layers.length === 1) {
 			toast.error("Cannot delete the last layer");
 			return;
 		}
 
-		// Confirm deletion
+		const layerToDelete = layers.find((l) => l.id === id);
+		
+		// Potvrdenie odstránenia
 		if (
 			window.confirm(
-				`Are you sure you want to delete "${layers.find((l) => l.id === id)?.name || "this layer"}"? All objects on this layer will be removed.`,
+				`Are you sure you want to delete "${layerToDelete?.name || "this layer"}"? All objects on this layer will be removed.`,
 			)
 		) {
 			removeLayer(id);
-			toast.success("Layer deleted");
+			toast.success(`Layer "${layerToDelete?.name}" deleted`);
 		}
 	};
 
@@ -92,7 +142,6 @@ export const LayersPanel: React.FC = () => {
 			)
 		) {
 			try {
-				// Len čistí vrstvy v stave, nie celú session
 				clearLayers();
 				toast.success("All layers cleared");
 			} catch (error) {
@@ -103,8 +152,11 @@ export const LayersPanel: React.FC = () => {
 	};
 
 	const handleDuplicateLayer = (id: string) => {
-		duplicateLayer(id);
-		toast.success("Layer duplicated");
+		const layerToDuplicate = layers.find(l => l.id === id);
+		if (layerToDuplicate) {
+			duplicateLayer(id);
+			toast.success(`Layer "${layerToDuplicate.name}" duplicated`);
+		}
 	};
 
 	const handleMoveUp = (index: number) => {
@@ -117,6 +169,32 @@ export const LayersPanel: React.FC = () => {
 		if (index < layers.length - 1) {
 			reorderLayers(index, index + 1);
 		}
+	};
+
+	// Vytvorenie novej vrstvy (BEZ PARAMETRA, ak addLayer neakceptuje parameter)
+	const handleAddLayer = () => {
+		// Najprv pridáme vrstvu (bez mena)
+		addLayer();
+		
+		// Potom získame novú vrstvu a premenujeme ju
+		setTimeout(() => {
+			const newLayer = layers.find(l => l.id === activeLayerId);
+			if (newLayer) {
+				const baseName = "New Layer";
+				let name = baseName;
+				let counter = 1;
+				
+				// Nájdenie prvého dostupného mena
+				while (layers.some(layer => layer.name === name)) {
+					name = `${baseName} ${counter}`;
+					counter++;
+				}
+				
+				// Premenovanie novej vrstvy
+				renameLayer(newLayer.id, name);
+				toast.success(`Layer "${name}" created`);
+			}
+		}, 100);
 	};
 
 	const activeLayer = layers.find((l) => l.id === activeLayerId);
@@ -135,7 +213,7 @@ export const LayersPanel: React.FC = () => {
 				<div className="flex items-center gap-1">
 					<Tooltip>
 						<TooltipTrigger asChild>
-							<button onClick={addLayer} className="tool-button w-7 h-7">
+							<button onClick={handleAddLayer} className="tool-button w-7 h-7">
 								<Plus className="w-4 h-4" />
 							</button>
 						</TooltipTrigger>
@@ -199,7 +277,7 @@ export const LayersPanel: React.FC = () => {
 						<p className="text-sm mb-1">No layers yet</p>
 						<p className="text-xs mb-4">Click the + button to create a layer</p>
 						<button
-							onClick={addLayer}
+							onClick={handleAddLayer}
 							className="text-xs px-3 py-1.5 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
 						>
 							Create First Layer
@@ -262,32 +340,42 @@ export const LayersPanel: React.FC = () => {
 								</TooltipContent>
 							</Tooltip>
 
-							{/* Layer Name */}
-							<div className="flex-1 min-w-0">
+							{/* Layer Name with Edit */}
+							<div className="flex-1 min-w-0 relative">
 								{editingId === layer.id ? (
 									<input
+										ref={editInputRef}
 										type="text"
 										value={editName}
 										onChange={(e) => setEditName(e.target.value)}
 										onBlur={handleFinishRename}
-										onKeyDown={(e) => {
-											if (e.key === "Enter") handleFinishRename();
-											if (e.key === "Escape") setEditingId(null);
-										}}
+										onKeyDown={handleKeyDown}
 										onClick={(e) => e.stopPropagation()}
-										className="w-full bg-background px-1 rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+										className="w-full bg-background px-1 rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary border border-border"
 										autoFocus
 									/>
 								) : (
-									<span
-										onDoubleClick={(e) => {
-											e.stopPropagation();
-											handleStartRename(layer.id, layer.name);
-										}}
-										className={`text-sm truncate block cursor-text ${!layer.visible ? "text-muted-foreground/50 italic" : ""}`}
-									>
-										{layer.name}
-									</span>
+									<div className="flex items-center gap-2">
+										<span
+											onDoubleClick={(e) => {
+												e.stopPropagation();
+												handleStartRename(layer.id, layer.name);
+											}}
+											className={`text-sm truncate cursor-text ${!layer.visible ? "text-muted-foreground/50 italic" : ""}`}
+										>
+											{layer.name}
+										</span>
+										<button
+											onClick={(e) => {
+												e.stopPropagation();
+												handleStartRename(layer.id, layer.name);
+											}}
+											className="text-muted-foreground hover:text-foreground transition-colors opacity-0 group-hover:opacity-100"
+											aria-label="Rename layer"
+										>
+											<Pen className="w-3 h-3" />
+										</button>
+									</div>
 								)}
 							</div>
 
@@ -337,6 +425,7 @@ export const LayersPanel: React.FC = () => {
 									<DropdownMenuItem
 										onClick={() => handleStartRename(layer.id, layer.name)}
 									>
+										<Pen className="w-4 h-4 mr-2" />
 										Rename Layer
 									</DropdownMenuItem>
 									<DropdownMenuSeparator />
