@@ -5,7 +5,6 @@ import {
 	File as FileIcon,
 	FolderOpen,
 	Save,
-	Download,
 	Settings,
 	Palette,
 	Grid3X3,
@@ -1556,7 +1555,7 @@ export const TopMenuBar: React.FC = () => {
 		{ separator: true, label: "" },
 		{
 			label: "Export",
-			icon: Download,
+			icon: FileImage,
 			submenu: [
 				{ label: "PNG", icon: FileImage, action: () => handleExport("PNG") },
 				{ label: "JPEG", icon: FileImage, action: () => handleExport("JPEG") },
@@ -1859,6 +1858,14 @@ export const TopMenuBar: React.FC = () => {
 			label: "Rendering Engine",
 			icon: Settings,
 			submenu: [
+				{
+					label: "Fabric.js (Vector/Object)",
+					icon: renderingEngine === "fabric" ? Check : undefined,
+					action: () => {
+						setRenderingEngine("fabric");
+						toast.success("Switched to Fabric.js engine");
+					},
+				},
 				{
 					label: "Konva.js (Canvas/Pixel)",
 					icon: renderingEngine === "konva" ? Check : undefined,
@@ -2398,18 +2405,6 @@ export const TopMenuBar: React.FC = () => {
 						</button>
 					</TooltipTrigger>
 					<TooltipContent>Save</TooltipContent>
-				</Tooltip>
-
-				<Tooltip>
-					<TooltipTrigger asChild>
-						<button
-							onClick={() => handleExport("PNG")}
-							className="tool-button w-8 h-8"
-						>
-							<Download className="w-4 h-4" />
-						</button>
-					</TooltipTrigger>
-					<TooltipContent>Export</TooltipContent>
 				</Tooltip>
 
 				<div className="w-px h-5 bg-border mx-1" />
