@@ -654,14 +654,8 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			}
 		};
 
-		window.addEventListener(
-			"artstudio:undo",
-			handleUndoEvent as EventListener,
-		);
-		window.addEventListener(
-			"artstudio:redo",
-			handleRedoEvent as EventListener,
-		);
+		window.addEventListener("artstudio:undo", handleUndoEvent as EventListener);
+		window.addEventListener("artstudio:redo", handleRedoEvent as EventListener);
 		window.addEventListener(
 			"artstudio:restore-history",
 			handleRestoreHistory as EventListener,
@@ -1377,7 +1371,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				});
 				setGradients(
 					(prev: any[]) =>
-						prev.filter((g: { layerId: any }) => g.layerId !== layerId) as any
+						prev.filter((g: { layerId: any }) => g.layerId !== layerId) as any,
 				);
 
 				saveCanvasState("Layer deleted");
@@ -1678,14 +1672,17 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				y: t.y - y,
 			})),
 		);
-		setGradients((prevGradients: any[]) =>
-			prevGradients.map((g: { x0: number; y0: number; x1: number; y1: number; }) => ({
-				...g,
-				x0: g.x0 - x,
-				y0: g.y0 - y,
-				x1: g.x1 - x,
-				y1: g.y1 - y,
-			})) as any,
+		setGradients(
+			(prevGradients: any[]) =>
+				prevGradients.map(
+					(g: { x0: number; y0: number; x1: number; y1: number }) => ({
+						...g,
+						x0: g.x0 - x,
+						y0: g.y0 - y,
+						x1: g.x1 - x,
+						y1: g.y1 - y,
+					}),
+				) as any,
 		);
 
 		setSelectionBounds(null);
@@ -3183,8 +3180,8 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 								1.2
 							}`,
 							letterSpacing: `${
-								textObjects.find((t) => t.id === editingTextId)?.letterSpacing ||
-								0
+								textObjects.find((t) => t.id === editingTextId)
+									?.letterSpacing || 0
 							}px`,
 						}}
 						value={textObjects.find((t) => t.id === editingTextId)?.text || ""}
