@@ -12,8 +12,14 @@ export interface ZoomOptions {
 }
 
 export const useZoom = () => {
-	const { zoom, setZoom, setPanOffset, panOffset, showLeftPanel, showRightPanel } =
-		useArtStudioStore();
+	const {
+		zoom,
+		setZoom,
+		setPanOffset,
+		panOffset,
+		showLeftPanel,
+		showRightPanel,
+	} = useArtStudioStore();
 	const zoomHistoryRef = useRef<number[]>([100]);
 
 	// Get canvas dimensions
@@ -31,7 +37,10 @@ export const useZoom = () => {
 	// Get viewport dimensions
 	const getViewportDimensions = useCallback(() => {
 		const viewportWidth =
-			window.innerWidth - (showLeftPanel ? 56 : 0) - (showRightPanel ? 320 : 0) - 100;
+			window.innerWidth -
+			(showLeftPanel ? 56 : 0) -
+			(showRightPanel ? 320 : 0) -
+			100;
 		const viewportHeight = window.innerHeight - 80 - 40; // Top bar + status bar
 		return { width: viewportWidth, height: viewportHeight };
 	}, [showLeftPanel, showRightPanel]);
@@ -129,7 +138,8 @@ export const useZoom = () => {
 		if (!canvas) return;
 
 		// Try to get selection bounds
-		let bounds: { x: number; y: number; width: number; height: number } | null = null;
+		let bounds: { x: number; y: number; width: number; height: number } | null =
+			null;
 
 		if ("getActiveObject" in canvas) {
 			// Fabric.js
@@ -196,11 +206,11 @@ export const useZoom = () => {
 					// Konva.js - zoom to point
 					const stage = canvas as any;
 					const oldScale = zoom / 100;
-					
+
 					// Get current stage position
 					const stageX = stage.x() || panOffset.x;
 					const stageY = stage.y() || panOffset.y;
-					
+
 					// Convert screen point to canvas coordinates
 					const mousePointTo = {
 						x: (point.x - stageX) / oldScale,

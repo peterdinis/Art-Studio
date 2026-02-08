@@ -86,9 +86,11 @@ export const ToolSidebar: React.FC = () => {
 						},
 					}),
 				);
+				toast.success("Undo successful");
 			}
 		} catch (error) {
 			console.error("Error during undo:", error);
+			toast.error("Failed to undo");
 		}
 	};
 
@@ -105,9 +107,11 @@ export const ToolSidebar: React.FC = () => {
 						},
 					}),
 				);
+				toast.success("Redo successful");
 			}
 		} catch (error) {
 			console.error("Error during redo:", error);
+			toast.error("Failed to redo");
 		}
 	};
 
@@ -116,7 +120,7 @@ export const ToolSidebar: React.FC = () => {
 			toast.error("Canvas not available");
 			return;
 		}
-		
+
 		try {
 			await clearCanvas({ preserveBackground });
 			setShowClearAlert(false);
@@ -360,7 +364,7 @@ export const ToolSidebar: React.FC = () => {
 					<Tooltip delayDuration={400}>
 						<TooltipTrigger asChild>
 							<AlertDialogTrigger asChild>
-								<button 
+								<button
 									className="tool-button text-red-500 hover:text-red-600 hover:bg-red-50"
 									onClick={handleClearWithConfirmation}
 								>
@@ -406,8 +410,8 @@ export const ToolSidebar: React.FC = () => {
 								Clear Canvas
 							</AlertDialogTitle>
 							<AlertDialogDescription>
-								Are you sure you want to clear the entire canvas? This action will remove
-								all drawings, shapes and images.
+								Are you sure you want to clear the entire canvas? This action
+								will remove all drawings, shapes and images.
 							</AlertDialogDescription>
 						</AlertDialogHeader>
 						<AlertDialogFooter>

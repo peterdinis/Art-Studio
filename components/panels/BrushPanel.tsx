@@ -428,7 +428,9 @@ export const BrushPanel: React.FC = () => {
 			<div className="space-y-4">
 				<div className="space-y-2">
 					<div className="flex items-center gap-1.5">
-						<Label className="text-xs text-muted-foreground">Stroke Width</Label>
+						<Label className="text-xs text-muted-foreground">
+							Stroke Width
+						</Label>
 						<Tooltip delayDuration={300}>
 							<TooltipTrigger asChild>
 								<HelpCircle className="w-3 h-3 text-muted-foreground/50 cursor-help" />
@@ -485,7 +487,9 @@ export const BrushPanel: React.FC = () => {
 
 				<div className="space-y-2">
 					<div className="flex items-center gap-1.5">
-						<Label className="text-xs text-muted-foreground">Corner Radius</Label>
+						<Label className="text-xs text-muted-foreground">
+							Corner Radius
+						</Label>
 					</div>
 					<Slider
 						value={[cornerRadius]}

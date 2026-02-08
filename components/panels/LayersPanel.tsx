@@ -65,13 +65,13 @@ export const LayersPanel: React.FC = () => {
 
 	const handleDeleteLayer = (id: string, e?: React.MouseEvent) => {
 		e?.stopPropagation();
-		
+
 		// Prevent deleting the last layer
 		if (layers.length === 1) {
 			toast.error("Cannot delete the last layer");
 			return;
 		}
-		
+
 		// Confirm deletion
 		if (
 			window.confirm(

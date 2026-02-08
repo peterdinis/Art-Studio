@@ -7,15 +7,10 @@ import { BrushPanel } from "@/components/panels/BrushPanel";
 import { ColorPanel } from "@/components/panels/ColorPanel";
 import { LayersPanel } from "@/components/panels/LayersPanel";
 import { StarPanel } from "@/components/panels/StarPanel";
-import { LineOptionsPanel } from "@/components/panels/LineOptionsPanel";
-import { PenOptionsPanel } from "@/components/panels/PenOptionsPanel";
-import { PolygonOptionsPanel } from "@/components/panels/PolygonOptionsPanel";
-import { ShapeOptionsPanel } from "@/components/panels/ShapeOptionsPanel";
 import { useArtStudioStore } from "@/stores/artStudioStore";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useEffect, useState } from "react";
 import KonvaCanvas from "../canvas/KonvaCanvas";
-import { GradientOptionsPanel } from "../panels/GradientOptionsPanel";
 
 const HomeWrapper = () => {
 	const [isSessionInitialized, setIsSessionInitialized] = useState(false);
@@ -205,7 +200,6 @@ const HomeWrapper = () => {
 								"magicwand",
 							].includes(activeTool) && <BrushPanel />}
 							{activeTool === "star" && <StarPanel />}
-
 							{/* General panels */}
 							{showColorsPanel && <ColorPanel />}
 							{showLayersPanel && <LayersPanel />}
