@@ -257,9 +257,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 
 	const eyedropperCanvas = useRef<HTMLCanvasElement | null>(null);
 	const eyedropperContext = useRef<CanvasRenderingContext2D | null>(null);
-
-	const [isLoadingSession, setIsLoadingSession] = useState(true);
-	const [showSessionNotification, setShowSessionNotification] = useState(false);
+	const [showSessionNotification, ] = useState(false);
 
 	const [activeDrawingLine, setActiveDrawingLine] =
 		useState<DrawingLine | null>(null);
@@ -279,30 +277,24 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		setPanOffset,
 		addToHistory,
 		canvasSize,
-		loadedImages,
 		setPrimaryColor,
 		setSecondaryColor,
 		layers,
 		activeLayerId,
 		gradients,
 		addGradient,
-		updateGradient,
 		setGradients,
 		healingSource,
-		setHealingSource,
-		sessionId,
-		initializeSession,
 		selectionBounds,
 		selectionPath,
 		setSelectionBounds,
 		setSelectionPath,
 		clearSelection,
 		setCanvasSize,
-		clearCanvas,
-		clearCanvasWithConfirmation,
+		history,
+		historyIndex,
 	} = useArtStudioStore();
 
-	// Use zoom hook for all zoom operations
 	const {
 		zoomTo,
 		zoomIn,
@@ -345,6 +337,8 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 					if (!stageRef.current) return;
 					try {
 						lastSaveTimeRef.current = Date.now();
+						
+						// Vytvorte kompletný stav canvasu
 						const canvasState: CanvasState = {
 							lines,
 							shapes,
@@ -354,8 +348,14 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 							healingData,
 							blurData,
 						};
+						
 						const stateString = JSON.stringify(canvasState);
-						const dataURL = stageRef.current.toDataURL({ pixelRatio: 0.2 });
+						const dataURL = stageRef.current.toDataURL({ 
+							pixelRatio: 0.2,
+							quality: 0.5 
+						});
+						
+						console.log(`Saving canvas state: ${action}, entries in store: ${history.length}, index: ${historyIndex}`);
 						addToHistory(stateString, dataURL, action);
 						pendingSaveRef.current = null;
 					} catch (err) {
@@ -389,6 +389,8 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			blurData,
 			addToHistory,
 			textObjects,
+			history.length,
+			historyIndex,
 		],
 	);
 
@@ -441,22 +443,66 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		}
 	}, [actualWidth, actualHeight]);
 
+	/* --- VYLEPŠENÁ FUNKCIA PRE OBNOVU STAVU --- */
 	const restoreCanvasState = useCallback(
 		(stateString: string) => {
 			try {
+				console.log("Restoring canvas state from history...");
 				const state: CanvasState = JSON.parse(stateString);
+				
+				// Obnovte všetky časti stavu
 				setLines(state.lines || []);
 				setShapes(state.shapes || []);
 				setImages(state.images || []);
 				setTextObjects(state.textObjects || []);
-				setGradients(state.gradients || []);
+				
+				// Obnovte gradienty
+				if (state.gradients) {
+					setGradients(state.gradients);
+				}
+				
+				// Obnovte ďalšie stavy
 				if (state.healingData) setHealingData(state.healingData);
 				if (state.blurData) setBlurData(state.blurData);
+				
+				// Resetujte aktuálne kreslenie
+				setIsDrawing(false);
+				setActiveDrawingLine(null);
+				setCurrentShape(null);
+				setCurrentPenLine(null);
+				setPenPoints([]);
+				setCurrentGradient(null);
+				setIsDrawingGradient(false);
+				setIsDrawingPolygon(false);
+				setPolygonPoints([]);
+				setIsSelecting(false);
+				setSelectionStartPoint(null);
+				setSelectedId(null);
+				
+				// Resetujte temp image
+				if (tempContext) {
+					tempContext.clearRect(0, 0, actualWidth, actualHeight);
+					setTempImage(null);
+				}
+				
+				// Aktualizujte pomocné canvasy
+				setTimeout(() => {
+					updateAuxCanvases();
+				}, 100);
+				
+				console.log("Canvas state restored successfully");
 			} catch (error) {
 				console.error("Failed to restore canvas state:", error);
+				toast.error("Failed to restore canvas state");
 			}
 		},
-		[setGradients],
+		[
+			setGradients,
+			updateAuxCanvases,
+			tempContext,
+			actualWidth,
+			actualHeight
+		],
 	);
 
 	/* --- LAYER OPACITY UTILITIES --- */
@@ -585,6 +631,43 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		},
 		[clearSelection, saveCanvasState, actualWidth, actualHeight, tempContext],
 	);
+
+	/* --- EVENT LISTENERS PRE UNDO/REDO --- */
+	useEffect(() => {
+		// Event listener pre undo
+		const handleUndoEvent = (e: CustomEvent) => {
+			console.log("Undo event received:", e.detail);
+			if (e.detail?.canvasData) {
+				restoreCanvasState(e.detail.canvasData);
+			}
+		};
+
+		// Event listener pre redo
+		const handleRedoEvent = (e: CustomEvent) => {
+			console.log("Redo event received:", e.detail);
+			if (e.detail?.canvasData) {
+				restoreCanvasState(e.detail.canvasData);
+			}
+		};
+
+		// Event listener pre restore-history (general)
+		const handleRestoreHistory = (e: CustomEvent) => {
+			console.log("Restore history event received:", e.detail);
+			if (e.detail?.canvasData) {
+				restoreCanvasState(e.detail.canvasData);
+			}
+		};
+
+		window.addEventListener('artstudio:undo', handleUndoEvent as EventListener);
+		window.addEventListener('artstudio:redo', handleRedoEvent as EventListener);
+		window.addEventListener('artstudio:restore-history', handleRestoreHistory as EventListener);
+
+		return () => {
+			window.removeEventListener('artstudio:undo', handleUndoEvent as EventListener);
+			window.removeEventListener('artstudio:redo', handleRedoEvent as EventListener);
+			window.removeEventListener('artstudio:restore-history', handleRestoreHistory as EventListener);
+		};
+	}, [restoreCanvasState]);
 
 	/* --- EVENT LISTENERS FOR TEXT --- */
 	useEffect(() => {
@@ -2463,6 +2546,17 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			}, 100);
 		}
 	};
+
+	/* --- Pridajte testovací efekt na kontrolu histórie --- */
+	useEffect(() => {
+		console.log("Canvas state updated:");
+		console.log("- Lines:", lines.length);
+		console.log("- Shapes:", shapes.length);
+		console.log("- Images:", images.length);
+		console.log("- Text objects:", textObjects.length);
+		console.log("- Gradients:", gradients.length);
+		console.log("- History in store: entries:", history.length, "index:", historyIndex);
+	}, [lines, shapes, images, textObjects, gradients, history, historyIndex]);
 
 	return (
 		<div

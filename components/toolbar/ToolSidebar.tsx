@@ -86,9 +86,11 @@ export const ToolSidebar: React.FC = () => {
 						},
 					}),
 				);
+				toast.success("Undo successful");
 			}
 		} catch (error) {
 			console.error("Error during undo:", error);
+			toast.error("Failed to undo");
 		}
 	};
 
@@ -105,9 +107,11 @@ export const ToolSidebar: React.FC = () => {
 						},
 					}),
 				);
+				toast.success("Redo successful");
 			}
 		} catch (error) {
 			console.error("Error during redo:", error);
+			toast.error("Failed to redo");
 		}
 	};
 

@@ -754,12 +754,15 @@ export const useArtStudioStore = create<ArtStudioState>()(
 				const newHistory = history.slice(0, historyIndex + 1);
 				newHistory.push(newEntry);
 
-				const trimmedHistory = newHistory.slice(-10);
+				// Zväčšiť limit histórie na 50 záznamov pre lepšie undo/redo
+				const trimmedHistory = newHistory.slice(-50);
 
 				set({
 					history: trimmedHistory,
 					historyIndex: trimmedHistory.length - 1,
 				});
+
+				console.log(`History saved: ${action}, index: ${trimmedHistory.length - 1}, entries: ${trimmedHistory.length}`);
 
 				const shouldAutoSave =
 					action &&
@@ -792,6 +795,7 @@ export const useArtStudioStore = create<ArtStudioState>()(
 					set({ historyIndex: newIndex });
 
 					const entry = history[newIndex];
+					console.log(`Undo to index ${newIndex}, entry:`, entry);
 
 					if (entry?.canvasData) {
 						window.dispatchEvent(
@@ -807,6 +811,7 @@ export const useArtStudioStore = create<ArtStudioState>()(
 
 					return entry || null;
 				}
+				console.log("Cannot undo - historyIndex:", historyIndex);
 				return null;
 			},
 
@@ -818,6 +823,8 @@ export const useArtStudioStore = create<ArtStudioState>()(
 					set({ historyIndex: newIndex });
 
 					const entry = history[newIndex];
+					console.log(`Redo to index ${newIndex}, entry:`, entry);
+					
 					if (entry?.canvasData) {
 						window.dispatchEvent(
 							new CustomEvent("artstudio:restore-history", {
@@ -831,6 +838,7 @@ export const useArtStudioStore = create<ArtStudioState>()(
 					}
 					return entry;
 				}
+				console.log("Cannot redo - historyIndex:", historyIndex, "history length:", history.length);
 				return null;
 			},
 
@@ -1392,9 +1400,13 @@ export const useArtStudioStore = create<ArtStudioState>()(
 		{
 			name: "artstudio-ui-store",
 			storage: createJSONStorage(() => localStorage),
-			version: 1,
-			// Persist only UI settings, not canvas data
+			version: 2, // Zvýšiť verziu
+			// Persist only UI settings and history
 			partialize: (state) => ({
+				// History state - PŘIDANÉ
+				history: state.history,
+				historyIndex: state.historyIndex,
+				
 				// UI Settings
 				showLeftPanel: state.showLeftPanel,
 				showRightPanel: state.showRightPanel,

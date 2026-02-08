@@ -6,7 +6,7 @@ import Link from "next/link";
 
 const NotFoundPage = () => {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-950 to-black text-white overflow-hidden">
+    <div className="min-h-screen bg-linear-to-br from-gray-900 via-gray-950 to-black text-white overflow-hidden">
       {/* Animated background elements */}
       <div className="absolute inset-0 overflow-hidden">
         {/* Floating Photoshop-like UI elements */}
@@ -61,7 +61,7 @@ const NotFoundPage = () => {
             repeat: Infinity,
             ease: "easeInOut",
           }}
-          className="absolute top-1/3 left-1/3 w-64 h-64 bg-gradient-to-r from-cyan-500/10 to-blue-500/10 rounded-full blur-3xl"
+          className="absolute top-1/3 left-1/3 w-64 h-64 bg-linear-to-r from-cyan-500/10 to-blue-500/10 rounded-full blur-3xl"
         />
 
         <motion.div
@@ -75,7 +75,7 @@ const NotFoundPage = () => {
             ease: "easeInOut",
             delay: 1,
           }}
-          className="absolute bottom-1/4 right-1/3 w-96 h-96 bg-gradient-to-r from-purple-500/10 to-pink-500/10 rounded-full blur-3xl"
+          className="absolute bottom-1/4 right-1/3 w-96 h-96 bg-linear-to-r from-purple-500/10 to-pink-500/10 rounded-full blur-3xl"
         />
       </div>
 
@@ -94,7 +94,7 @@ const NotFoundPage = () => {
             }}
             className="mb-8"
           >
-            <div className="inline-flex items-center justify-center p-6 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-2xl shadow-2xl shadow-cyan-500/25">
+            <div className="inline-flex items-center justify-center p-6 bg-linear-to-br from-cyan-500 to-blue-600 rounded-2xl shadow-2xl shadow-cyan-500/25">
               <Layers className="w-16 h-16" />
             </div>
           </motion.div>
@@ -107,7 +107,7 @@ const NotFoundPage = () => {
               transition={{ duration: 0.8, ease: "easeOut" }}
               className="text-9xl font-black tracking-tighter mb-4"
             >
-              <span className="bg-gradient-to-r from-cyan-400 via-blue-400 to-purple-400 bg-clip-text text-transparent">
+              <span className="bg-linear-to-r from-cyan-400 via-blue-400 to-purple-400 bg-clip-text text-transparent">
                 404
               </span>
             </motion.h1>
@@ -117,7 +117,7 @@ const NotFoundPage = () => {
               initial={{ width: 0 }}
               animate={{ width: "100%" }}
               transition={{ duration: 1.5, delay: 0.5, ease: "easeInOut" }}
-              className="h-1 bg-gradient-to-r from-transparent via-cyan-500 to-transparent mx-auto"
+              className="h-1 bg-linear-to-r from-transparent via-cyan-500 to-transparent mx-auto"
             />
 
             {/* Floating design elements around 404 */}
@@ -213,7 +213,7 @@ const NotFoundPage = () => {
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                className="group px-8 py-4 bg-gradient-to-r from-cyan-600 to-blue-600 rounded-lg font-semibold flex items-center gap-3 shadow-lg shadow-cyan-500/25 hover:shadow-cyan-500/40 transition-all"
+                className="group px-8 py-4 bg-linear-to-r from-cyan-600 to-blue-600 rounded-lg font-semibold flex items-center gap-3 shadow-lg shadow-cyan-500/25 hover:shadow-cyan-500/40 transition-all"
               >
                 <Home className="w-5 h-5 group-hover:rotate-12 transition-transform" />
                 Return to Home Screen
