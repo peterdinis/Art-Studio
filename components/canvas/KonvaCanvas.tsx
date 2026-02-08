@@ -257,7 +257,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 
 	const eyedropperCanvas = useRef<HTMLCanvasElement | null>(null);
 	const eyedropperContext = useRef<CanvasRenderingContext2D | null>(null);
-	const [showSessionNotification, ] = useState(false);
+	const [showSessionNotification] = useState(false);
 
 	const [activeDrawingLine, setActiveDrawingLine] =
 		useState<DrawingLine | null>(null);
@@ -337,7 +337,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 					if (!stageRef.current) return;
 					try {
 						lastSaveTimeRef.current = Date.now();
-						
+
 						// Vytvorte kompletný stav canvasu
 						const canvasState: CanvasState = {
 							lines,
@@ -348,14 +348,16 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 							healingData,
 							blurData,
 						};
-						
+
 						const stateString = JSON.stringify(canvasState);
-						const dataURL = stageRef.current.toDataURL({ 
+						const dataURL = stageRef.current.toDataURL({
 							pixelRatio: 0.2,
-							quality: 0.5 
+							quality: 0.5,
 						});
-						
-						console.log(`Saving canvas state: ${action}, entries in store: ${history.length}, index: ${historyIndex}`);
+
+						console.log(
+							`Saving canvas state: ${action}, entries in store: ${history.length}, index: ${historyIndex}`,
+						);
 						addToHistory(stateString, dataURL, action);
 						pendingSaveRef.current = null;
 					} catch (err) {
@@ -449,22 +451,22 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			try {
 				console.log("Restoring canvas state from history...");
 				const state: CanvasState = JSON.parse(stateString);
-				
+
 				// Obnovte všetky časti stavu
 				setLines(state.lines || []);
 				setShapes(state.shapes || []);
 				setImages(state.images || []);
 				setTextObjects(state.textObjects || []);
-				
+
 				// Obnovte gradienty
 				if (state.gradients) {
 					setGradients(state.gradients);
 				}
-				
+
 				// Obnovte ďalšie stavy
 				if (state.healingData) setHealingData(state.healingData);
 				if (state.blurData) setBlurData(state.blurData);
-				
+
 				// Resetujte aktuálne kreslenie
 				setIsDrawing(false);
 				setActiveDrawingLine(null);
@@ -478,31 +480,25 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				setIsSelecting(false);
 				setSelectionStartPoint(null);
 				setSelectedId(null);
-				
+
 				// Resetujte temp image
 				if (tempContext) {
 					tempContext.clearRect(0, 0, actualWidth, actualHeight);
 					setTempImage(null);
 				}
-				
+
 				// Aktualizujte pomocné canvasy
 				setTimeout(() => {
 					updateAuxCanvases();
 				}, 100);
-				
+
 				console.log("Canvas state restored successfully");
 			} catch (error) {
 				console.error("Failed to restore canvas state:", error);
 				toast.error("Failed to restore canvas state");
 			}
 		},
-		[
-			setGradients,
-			updateAuxCanvases,
-			tempContext,
-			actualWidth,
-			actualHeight
-		],
+		[setGradients, updateAuxCanvases, tempContext, actualWidth, actualHeight],
 	);
 
 	/* --- LAYER OPACITY UTILITIES --- */
@@ -658,14 +654,32 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			}
 		};
 
-		window.addEventListener('artstudio:undo', handleUndoEvent as EventListener);
-		window.addEventListener('artstudio:redo', handleRedoEvent as EventListener);
-		window.addEventListener('artstudio:restore-history', handleRestoreHistory as EventListener);
+		window.addEventListener(
+			"artstudio:undo",
+			handleUndoEvent as EventListener,
+		);
+		window.addEventListener(
+			"artstudio:redo",
+			handleRedoEvent as EventListener,
+		);
+		window.addEventListener(
+			"artstudio:restore-history",
+			handleRestoreHistory as EventListener,
+		);
 
 		return () => {
-			window.removeEventListener('artstudio:undo', handleUndoEvent as EventListener);
-			window.removeEventListener('artstudio:redo', handleRedoEvent as EventListener);
-			window.removeEventListener('artstudio:restore-history', handleRestoreHistory as EventListener);
+			window.removeEventListener(
+				"artstudio:undo",
+				handleUndoEvent as EventListener,
+			);
+			window.removeEventListener(
+				"artstudio:redo",
+				handleRedoEvent as EventListener,
+			);
+			window.removeEventListener(
+				"artstudio:restore-history",
+				handleRestoreHistory as EventListener,
+			);
 		};
 	}, [restoreCanvasState]);
 
@@ -1270,14 +1284,15 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 	const originalToolRef = useRef<Tool | null>(null);
 
 	useEffect(() => {
-		const handleClearCanvas = (e: CustomEvent) => {
+		/* --- OPAVNÉ: Opravený clear canvas event listener --- */
+		const handleClearCanvasEvent = (e: CustomEvent) => {
 			const preserveBackground = e.detail?.preserveBackground || false;
 			handleClearCanvas({ preserveBackground });
 		};
 
 		window.addEventListener(
 			"artstudio:clear-canvas",
-			handleClearCanvas as EventListener,
+			handleClearCanvasEvent as EventListener,
 		);
 
 		const handleRestoreHistory = (e: any) => {
@@ -1391,7 +1406,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		return () => {
 			window.removeEventListener(
 				"artstudio:clear-canvas",
-				handleClearCanvas as EventListener,
+				handleClearCanvasEvent as EventListener,
 			);
 			window.removeEventListener(
 				"artstudio:restore-history",
@@ -2555,7 +2570,12 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		console.log("- Images:", images.length);
 		console.log("- Text objects:", textObjects.length);
 		console.log("- Gradients:", gradients.length);
-		console.log("- History in store: entries:", history.length, "index:", historyIndex);
+		console.log(
+			"- History in store: entries:",
+			history.length,
+			"index:",
+			historyIndex,
+		);
 	}, [lines, shapes, images, textObjects, gradients, history, historyIndex]);
 
 	return (
@@ -3139,7 +3159,9 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 							fontFamily:
 								textObjects.find((t) => t.id === editingTextId)?.fontFamily ||
 								"Arial",
-							fontSize: `${textObjects.find((t) => t.id === editingTextId)?.fontSize || 16}px`,
+							fontSize: `${
+								textObjects.find((t) => t.id === editingTextId)?.fontSize || 16
+							}px`,
 							fontWeight:
 								textObjects.find((t) => t.id === editingTextId)?.fontWeight ||
 								"normal",
@@ -3153,8 +3175,14 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 							textAlign:
 								(textObjects.find((t) => t.id === editingTextId)
 									?.textAlign as any) || "left",
-							lineHeight: `${textObjects.find((t) => t.id === editingTextId)?.lineHeight || 1.2}`,
-							letterSpacing: `${textObjects.find((t) => t.id === editingTextId)?.letterSpacing || 0}px`,
+							lineHeight: `${
+								textObjects.find((t) => t.id === editingTextId)?.lineHeight ||
+								1.2
+							}`,
+							letterSpacing: `${
+								textObjects.find((t) => t.id === editingTextId)?.letterSpacing ||
+								0
+							}px`,
 						}}
 						value={textObjects.find((t) => t.id === editingTextId)?.text || ""}
 						onChange={handleTextAreaChange}

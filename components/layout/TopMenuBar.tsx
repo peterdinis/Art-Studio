@@ -1860,14 +1860,6 @@ export const TopMenuBar: React.FC = () => {
 			icon: Settings,
 			submenu: [
 				{
-					label: "Fabric.js (Vector/Object)",
-					icon: renderingEngine === "fabric" ? Check : undefined,
-					action: () => {
-						setRenderingEngine("fabric");
-						toast.success("Switched to Fabric.js engine");
-					},
-				},
-				{
 					label: "Konva.js (Canvas/Pixel)",
 					icon: renderingEngine === "konva" ? Check : undefined,
 					action: () => {
