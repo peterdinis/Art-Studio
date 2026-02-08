@@ -1375,7 +1375,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 					}
 					return filtered;
 				});
-				setGradients((prev) => prev.filter((g) => g.layerId !== layerId));
+				setGradients((prev: any[]) => prev.filter((g: { layerId: any; }) => g.layerId !== layerId));
 
 				saveCanvasState("Layer deleted");
 			}
@@ -1682,7 +1682,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				y0: g.y0 - y,
 				x1: g.x1 - x,
 				y1: g.y1 - y,
-			})),
+			})) as any,
 		);
 
 		setSelectionBounds(null);
