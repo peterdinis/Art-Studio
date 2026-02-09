@@ -6,10 +6,10 @@ Welcome to **Art-Studio**, a premium, interactive digital canvas designed for cr
 
 ## ✨ Features
 
-- **🖌️ Interactive Canvas**: High-performance drawing surface powered by `fabric.js` and `react-konva`.
+- **🖌️ Interactive Canvas**: High-performance drawing surface powered by `react-konva`.
 - **🏗️ Layer Management**: Organize your artwork with a robust layering system.
 - **🛠️ Versatile Toolbar**: Quick access to brushes, shapes, text, and selection tools.
-- **🎨 Advanced Panels**: Dedicated panels for Brush settings, Colors, History, and Layers.
+- **🎨 Advanced Panels**: Dedicated panels for Brush settings, Colors and Layers.
 - **🔄 History Support**: Full undo/redo functionality to refine your creative process.
 - **⚡ Performance First**: Blazing fast interactions using React 19 and Next.js 16.
 
