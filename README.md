@@ -19,7 +19,7 @@ Welcome to **Art-Studio**, a premium, interactive digital canvas designed for cr
 
 - **Framework**: [Next.js 16](https://nextjs.org/) (App Router)
 - **Library**: [React 19](https://react.dev/)
-- **Canvas Engines**: [Fabric.js 7](http://fabricjs.com/) & [React-Konva](https://konvajs.org/docs/react/index.html)
+- **Canvas Engines**: [React-Konva](https://konvajs.org/docs/react/index.html)
 - **Styling**: [Tailwind CSS 4](https://tailwindcss.com/)
 - **State Management**: [Zustand](https://github.com/pmndrs/zustand)
 - **Icons**: [Lucide React](https://lucide.dev/)
