@@ -6,8 +6,6 @@ const nextConfig: NextConfig = {
 	devIndicators: {
 		position: "bottom-right",
 	},
-
-	typedRoutes: true,
 	experimental: {
 		optimizeCss: true,
 		optimizePackageImports: ["lucide-react", "framer-motion", "zustand"],
