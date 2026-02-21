@@ -70,33 +70,33 @@ export const LayersPanel: React.FC = () => {
 	const handleFinishRename = () => {
 		if (editingId && editName.trim()) {
 			const trimmedName = editName.trim();
-			
+
 			// Skontrolovať, či meno nie je prázdne
 			if (trimmedName.length === 0) {
 				toast.error("Layer name cannot be empty");
 				return;
 			}
-			
+
 			// Skontrolovať, či meno už neexistuje (iba ak sa zmenilo)
-			const currentLayer = layers.find(l => l.id === editingId);
+			const currentLayer = layers.find((l) => l.id === editingId);
 			if (currentLayer && currentLayer.name !== trimmedName) {
 				const nameExists = layers.some(
-					(layer) => layer.id !== editingId && layer.name === trimmedName
+					(layer) => layer.id !== editingId && layer.name === trimmedName,
 				);
-				
+
 				if (nameExists) {
 					toast.error(`A layer named "${trimmedName}" already exists`);
 					return;
 				}
 			}
-			
+
 			renameLayer(editingId, trimmedName);
 			toast.success(`Layer renamed to "${trimmedName}"`);
 		} else if (editName.trim() === "") {
 			toast.error("Layer name cannot be empty");
 			return;
 		}
-		
+
 		setEditingId(null);
 		setEditName("");
 	};
@@ -121,7 +121,7 @@ export const LayersPanel: React.FC = () => {
 		}
 
 		const layerToDelete = layers.find((l) => l.id === id);
-		
+
 		// Potvrdenie odstránenia
 		if (
 			window.confirm(
@@ -152,7 +152,7 @@ export const LayersPanel: React.FC = () => {
 	};
 
 	const handleDuplicateLayer = (id: string) => {
-		const layerToDuplicate = layers.find(l => l.id === id);
+		const layerToDuplicate = layers.find((l) => l.id === id);
 		if (layerToDuplicate) {
 			duplicateLayer(id);
 			toast.success(`Layer "${layerToDuplicate.name}" duplicated`);
@@ -175,21 +175,21 @@ export const LayersPanel: React.FC = () => {
 	const handleAddLayer = () => {
 		// Najprv pridáme vrstvu (bez mena)
 		addLayer();
-		
+
 		// Potom získame novú vrstvu a premenujeme ju
 		setTimeout(() => {
-			const newLayer = layers.find(l => l.id === activeLayerId);
+			const newLayer = layers.find((l) => l.id === activeLayerId);
 			if (newLayer) {
 				const baseName = "New Layer";
 				let name = baseName;
 				let counter = 1;
-				
+
 				// Nájdenie prvého dostupného mena
-				while (layers.some(layer => layer.name === name)) {
+				while (layers.some((layer) => layer.name === name)) {
 					name = `${baseName} ${counter}`;
 					counter++;
 				}
-				
+
 				// Premenovanie novej vrstvy
 				renameLayer(newLayer.id, name);
 				toast.success(`Layer "${name}" created`);

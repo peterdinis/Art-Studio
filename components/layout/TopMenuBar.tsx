@@ -680,7 +680,9 @@ export const TopMenuBar: React.FC = () => {
 					fetch(dataURL)
 						.then((res) => res.blob())
 						.then((blob) => {
-							const file = new File([blob], "artwork.png", { type: "image/png" });
+							const file = new File([blob], "artwork.png", {
+								type: "image/png",
+							});
 							if (navigator.canShare({ files: [file] })) {
 								navigator
 									.share({
@@ -1493,7 +1495,10 @@ export const TopMenuBar: React.FC = () => {
 					if (activeObject) {
 						// Invert colors by applying opposite fill
 						const currentFill = activeObject.fill;
-						if (typeof currentFill === "string" && currentFill.startsWith("#")) {
+						if (
+							typeof currentFill === "string" &&
+							currentFill.startsWith("#")
+						) {
 							const inverted =
 								"#" +
 								(0xffffff ^ parseInt(currentFill.slice(1), 16))
@@ -1676,7 +1681,10 @@ export const TopMenuBar: React.FC = () => {
 					if (activeObject && typeof activeObject.fill === "string") {
 						const color = activeObject.fill;
 						// Shift hue
-						activeObject.set("fill", color === "#ffffff" ? "#ff0000" : "#00ff00");
+						activeObject.set(
+							"fill",
+							color === "#ffffff" ? "#ff0000" : "#00ff00",
+						);
 						canvas.renderAll();
 						toast.success("Solarize effect applied", {
 							duration: 3000,
@@ -1766,7 +1774,10 @@ export const TopMenuBar: React.FC = () => {
 					if (activeObject) {
 						// Simulate hue shift by adjusting fill color
 						const currentFill = activeObject.fill;
-						if (typeof currentFill === "string" && currentFill.startsWith("#")) {
+						if (
+							typeof currentFill === "string" &&
+							currentFill.startsWith("#")
+						) {
 							const hue = prompt("Enter hue shift (-180 to 180):", "0");
 							if (hue) {
 								const shift = parseInt(hue);
@@ -2250,9 +2261,10 @@ export const TopMenuBar: React.FC = () => {
 				{
 					label: "Content-Aware Fill",
 					icon: Wand2,
-					action: () => toast.info("Content-aware fill applied", {
-						duration: 3000,
-					}),
+					action: () =>
+						toast.info("Content-aware fill applied", {
+							duration: 3000,
+						}),
 				},
 			],
 		},
@@ -2356,10 +2368,13 @@ export const TopMenuBar: React.FC = () => {
 			icon: showLeftPanel ? Check : PanelLeft,
 			action: () => {
 				setShowLeftPanel(!showLeftPanel);
-				toast.success(showLeftPanel ? "Left panel hidden" : "Left panel shown", {
-					duration: 3000,
-					icon: <Check className="w-4 h-4" />,
-				});
+				toast.success(
+					showLeftPanel ? "Left panel hidden" : "Left panel shown",
+					{
+						duration: 3000,
+						icon: <Check className="w-4 h-4" />,
+					},
+				);
 			},
 			checked: showLeftPanel,
 		},
@@ -2685,10 +2700,13 @@ export const TopMenuBar: React.FC = () => {
 			icon: showInfoPanel ? Check : Info,
 			action: () => {
 				setShowInfoPanel(!showInfoPanel);
-				toast.success(showInfoPanel ? "Info panel hidden" : "Info panel shown", {
-					duration: 3000,
-					icon: <Check className="w-4 h-4" />,
-				});
+				toast.success(
+					showInfoPanel ? "Info panel hidden" : "Info panel shown",
+					{
+						duration: 3000,
+						icon: <Check className="w-4 h-4" />,
+					},
+				);
 			},
 			checked: showInfoPanel,
 		},
