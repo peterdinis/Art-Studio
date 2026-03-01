@@ -19,6 +19,15 @@ import {
 	Star as KonvaStar,
 } from "react-konva";
 import Konva from "konva";
+
+// Explicitly import shapes for Konva registration (fixes Turbopack/modular build issues)
+import "konva/lib/shapes/Rect";
+import "konva/lib/shapes/Ellipse";
+import "konva/lib/shapes/Line";
+import "konva/lib/shapes/Text";
+import "konva/lib/shapes/Star";
+import "konva/lib/shapes/Image";
+import "konva/lib/shapes/Transformer";
 import { useArtStudioStore, Tool } from "@/stores/artStudioStore";
 import { useZoom } from "@/hooks/useZoom";
 import { toast } from "sonner";

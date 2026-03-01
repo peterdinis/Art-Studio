@@ -8,7 +8,7 @@ const nextConfig: NextConfig = {
 	},
 	experimental: {
 		optimizeCss: true,
-		optimizePackageImports: ["lucide-react", "framer-motion", "zustand", "sonner"],
+		optimizePackageImports: ["lucide-react", "framer-motion", "zustand", "sonner", "fabric", "konva"],
 		browserDebugInfoInTerminal: true,
 	},
 	images: {
