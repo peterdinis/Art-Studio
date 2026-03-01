@@ -237,6 +237,8 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		setCanvasSize,
 		history,
 		historyIndex,
+		selectedId,
+		setSelectedId,
 	} = useArtStudioStore();
 
 	const {
@@ -263,7 +265,6 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 	const [shapes, setShapes] = useState<ShapeObject[]>([]);
 	const [images, setImages] = useState<ImageObject[]>([]);
 	const [textObjects, setTextObjects] = useState<TextObject[]>([]);
-	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const [isDrawing, setIsDrawing] = useState(false);
 	const [isFilling, setIsFilling] = useState(false);
 	const [isDrawingGradient, setIsDrawingGradient] = useState(false);
@@ -298,6 +299,30 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		x: number;
 		y: number;
 	} | null>(null);
+
+	// Ref for capturing the latest state safely in async saves
+	const latestStateRef = useRef<any>(null);
+	useEffect(() => {
+		latestStateRef.current = {
+			lines,
+			shapes,
+			images,
+			textObjects,
+			gradients,
+			healingSource,
+			zoom,
+			panOffset,
+		};
+	}, [
+		lines,
+		shapes,
+		images,
+		textObjects,
+		gradients,
+		healingSource,
+		zoom,
+		panOffset,
+	]);
 
 	const isPanning = useRef(false);
 	const lastPanPos = useRef({ x: 0, y: 0 });
@@ -384,17 +409,15 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				}
 
 				const saveData = () => {
-					if (!stageRef.current) return;
-					// Save canvas state
-					const canvasState: CanvasState = {
-						lines,
-						shapes,
-						images,
-						textObjects,
-						gradients,
-						healingData,
-						blurData,
-					};
+					if (!stageRef.current || !latestStateRef.current) return;
+					// Save canvas state from ref to avoid stale closure
+					const canvasState = latestStateRef.current;
+
+					const canvasJson = JSON.stringify(canvasState);
+					const thumbnail = stageRef.current.toDataURL({ pixelRatio: 0.1 });
+					addToHistory(canvasJson, thumbnail, action);
+					lastSaveTimeRef.current = Date.now();
+					pendingSaveRef.current = null;
 				};
 
 				if ("requestIdleCallback" in window) {
@@ -1312,7 +1335,6 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 	const originalToolRef = useRef<Tool | null>(null);
 
 	useEffect(() => {
-		/* --- OPAVNÉ: Opravený clear canvas event listener --- */
 		const handleClearCanvasEvent = (e: CustomEvent) => {
 			const preserveBackground = e.detail?.preserveBackground || false;
 			handleClearCanvas({ preserveBackground });
@@ -1330,83 +1352,31 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		};
 		window.addEventListener("artstudio:restore-history", handleRestoreHistory);
 
-		// Handle layer removal
 		const handleRemoveLayer = (e: CustomEvent) => {
 			const layerId = e.detail?.layerId;
 			if (layerId) {
-				// Remove all objects from this layer
-				setLines((prev) => {
-					const filtered = prev.filter((l) => l.layerId !== layerId);
-					// Clear selection if it was on this layer
-					setSelectedId((currentId) => {
-						if (
-							currentId &&
-							prev.some((l) => l.id === currentId && l.layerId === layerId)
-						) {
-							return null;
-						}
-						return currentId;
-					});
-					return filtered;
-				});
-				setShapes((prev) => {
-					const filtered = prev.filter((s) => s.layerId !== layerId);
-					// Clear selection if it was on this layer
-					setSelectedId((currentId) => {
-						if (
-							currentId &&
-							prev.some((s) => s.id === currentId && s.layerId === layerId)
-						) {
-							return null;
-						}
-						return currentId;
-					});
-					return filtered;
-				});
-				setImages((prev) => {
-					const filtered = prev.filter((img) => img.layerId !== layerId);
-					// Clear selection if it was on this layer
-					setSelectedId((currentId) => {
-						if (
-							currentId &&
-							prev.some(
-								(img) => img.id === currentId && img.layerId === layerId,
-							)
-						) {
-							return null;
-						}
-						return currentId;
-					});
-					return filtered;
-				});
-				setTextObjects((prev) => {
-					const filtered = prev.filter((text) => text.layerId !== layerId);
-					// Clear selection if it was on this layer
-					setSelectedId((currentId) => {
-						if (
-							currentId &&
-							prev.some(
-								(text) => text.id === currentId && text.layerId === layerId,
-							)
-						) {
-							return null;
-						}
-						return currentId;
-					});
-					if (
-						editingTextId &&
-						prev.some(
-							(text) => text.id === editingTextId && text.layerId === layerId,
-						)
-					) {
-						setEditingTextId(null);
+				setLines((prev) => prev.filter((l) => l.layerId !== layerId));
+				setShapes((prev) => prev.filter((s) => s.layerId !== layerId));
+				setImages((prev) => prev.filter((img) => img.layerId !== layerId));
+				setTextObjects((prev) => prev.filter((text) => text.layerId !== layerId));
+				setGradients(gradients.filter((g) => g.layerId !== layerId));
+
+				if (selectedId) {
+					const allObjects = [...lines, ...shapes, ...images, ...textObjects];
+					const selectedObject = allObjects.find((obj) => obj.id === selectedId);
+					if (selectedObject && selectedObject.layerId === layerId) {
+						setSelectedId(null);
 					}
-					return filtered;
-				});
-				const filteredGradients = gradients.filter(
-					(g) => g.layerId !== layerId,
-				);
-				setGradients(filteredGradients);
+				}
+
+				if (
+					editingTextId &&
+					textObjects.some(
+						(text) => text.id === editingTextId && text.layerId === layerId,
+					)
+				) {
+					setEditingTextId(null);
+				}
 
 				saveCanvasState("Layer deleted");
 			}
@@ -1465,6 +1435,12 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		editingTextId,
 		saveCanvasState,
 		handleClearCanvas,
+		selectedId,
+		setSelectedId,
+		lines,
+		shapes,
+		images,
+		textObjects,
 	]);
 
 	const getCanvasPosition = useCallback(
@@ -2050,6 +2026,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 
 			// Delete / Backspace
 			if (e.key === "Delete" || e.key === "Backspace") {
+				e.preventDefault();
 				handleDeleteSelected();
 				return;
 			}

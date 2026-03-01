@@ -784,7 +784,7 @@ export const useArtStudioStore = create<ArtStudioState>()(
 					setTimeout(() => {
 						get()
 							.saveSession()
-							.catch(() => {});
+							.catch(() => { });
 					}, 1000);
 				}
 			},
@@ -944,7 +944,7 @@ export const useArtStudioStore = create<ArtStudioState>()(
 				setTimeout(() => {
 					get()
 						.saveSession()
-						.catch(() => {});
+						.catch(() => { });
 				}, 500);
 			},
 
@@ -980,7 +980,7 @@ export const useArtStudioStore = create<ArtStudioState>()(
 					() =>
 						get()
 							.saveSession()
-							.catch(() => {}),
+							.catch(() => { }),
 					2000,
 				);
 			},
@@ -992,7 +992,7 @@ export const useArtStudioStore = create<ArtStudioState>()(
 					() =>
 						get()
 							.saveSession()
-							.catch(() => {}),
+							.catch(() => { }),
 					2000,
 				);
 			},
@@ -1334,7 +1334,7 @@ export const useArtStudioStore = create<ArtStudioState>()(
 					() =>
 						get()
 							.saveSession()
-							.catch(() => {}),
+							.catch(() => { }),
 					500,
 				);
 			},
@@ -1345,7 +1345,12 @@ export const useArtStudioStore = create<ArtStudioState>()(
 
 			setSelectionPath: (path) => set({ selectionPath: path }),
 
-			clearSelection: () => set({ selectionBounds: null, selectionPath: null }),
+			clearSelection: () =>
+				set({
+					selectionBounds: null,
+					selectionPath: null,
+					selectedId: null,
+				}),
 
 			// ========== UI ACTIONS ==========
 
