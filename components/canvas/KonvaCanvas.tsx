@@ -20,14 +20,25 @@ import {
 } from "react-konva";
 import Konva from "konva";
 
-// Explicitly import shapes for Konva registration (fixes Turbopack/modular build issues)
-import "konva/lib/shapes/Rect";
-import "konva/lib/shapes/Ellipse";
-import "konva/lib/shapes/Line";
-import "konva/lib/shapes/Text";
-import "konva/lib/shapes/Star";
-import "konva/lib/shapes/Image";
-import "konva/lib/shapes/Transformer";
+// Explicitly import and register shapes for Konva to fix Turbopack/modular build issues
+import { Rect as KonvaRect } from "konva/lib/shapes/Rect";
+import { Ellipse as KonvaEllipse } from "konva/lib/shapes/Ellipse";
+import { Line as KonvaLine } from "konva/lib/shapes/Line";
+import { Text as KonvaText } from "konva/lib/shapes/Text";
+import { Star as KonvaStarBase } from "konva/lib/shapes/Star";
+import { Image as KonvaImageBase } from "konva/lib/shapes/Image";
+import { Transformer as KonvaTransformer } from "konva/lib/shapes/Transformer";
+
+// Manual registration to ensure nodes are available to react-konva
+if (typeof window !== "undefined") {
+	(Konva as any).Rect = KonvaRect;
+	(Konva as any).Ellipse = KonvaEllipse;
+	(Konva as any).Line = KonvaLine;
+	(Konva as any).Text = KonvaText;
+	(Konva as any).Star = KonvaStarBase;
+	(Konva as any).Image = KonvaImageBase;
+	(Konva as any).Transformer = KonvaTransformer;
+}
 import { useArtStudioStore, Tool } from "@/stores/artStudioStore";
 import { useZoom } from "@/hooks/useZoom";
 import { toast } from "sonner";
@@ -931,12 +942,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			}
 
 			tempContext.putImageData(imgData, startX, startY);
-
-			if (tempCanvas) {
-				const img = new window.Image();
-				img.src = tempCanvas.toDataURL();
-				img.onload = () => setTempImage(img);
-			}
+			if (tempCanvas) setTempImage(tempCanvas as any);
 		},
 		[brushSettings.size, brushSettings.dodgeIntensity, tempContext, tempCanvas],
 	);
@@ -971,12 +977,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			}
 
 			tempContext.putImageData(imgData, startX, startY);
-
-			if (tempCanvas) {
-				const img = new window.Image();
-				img.src = tempCanvas.toDataURL();
-				img.onload = () => setTempImage(img);
-			}
+			if (tempCanvas) setTempImage(tempCanvas as any);
 		},
 		[brushSettings.size, brushSettings.burnIntensity, tempContext, tempCanvas],
 	);
@@ -1625,12 +1626,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			}
 
 			tempContext.putImageData(dstImgData, startX, startY);
-
-			if (tempCanvas) {
-				const img = new window.Image();
-				img.src = tempCanvas.toDataURL();
-				img.onload = () => setTempImage(img);
-			}
+			if (tempCanvas) setTempImage(tempCanvas as any);
 		},
 		[brushSettings.size, tempContext, tempCanvas],
 	);
@@ -1667,12 +1663,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			}
 
 			tempContext.putImageData(targetImgData, startX, startY);
-
-			if (tempCanvas) {
-				const img = new window.Image();
-				img.src = tempCanvas.toDataURL();
-				img.onload = () => setTempImage(img);
-			}
+			if (tempCanvas) setTempImage(tempCanvas as any);
 		},
 		[brushSettings.size, healingSource, tempContext, tempCanvas],
 	);
@@ -1735,12 +1726,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			}
 
 			tempContext.putImageData(targetData, startX, startY);
-
-			if (tempCanvas) {
-				const img = new window.Image();
-				img.src = tempCanvas.toDataURL();
-				img.onload = () => setTempImage(img);
-			}
+			if (tempCanvas) setTempImage(tempCanvas as any);
 		},
 		[brushSettings.size, brushSettings.blurIntensity, tempContext, tempCanvas],
 	);
