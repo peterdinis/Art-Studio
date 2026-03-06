@@ -1047,25 +1047,33 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 	const handleEyedropper = useCallback(
 		(x: number, y: number, isAltPressed: boolean = false) => {
 			updateAuxCanvases();
-			if (!eyedropperContext.current) return;
-
 			const ctx = eyedropperContext.current;
-			const pixel = ctx.getImageData(Math.floor(x), Math.floor(y), 1, 1).data;
-
-			// Konvertovať RGBA na hex
+			if (!ctx?.canvas) {
+				toast.error("Eyedropper not ready");
+				return;
+			}
+			const w = ctx.canvas.width;
+			const h = ctx.canvas.height;
+			const px = Math.max(0, Math.min(w - 1, Math.floor(x)));
+			const py = Math.max(0, Math.min(h - 1, Math.floor(y)));
+			let data: Uint8ClampedArray;
+			try {
+				data = ctx.getImageData(px, py, 1, 1).data;
+			} catch (err) {
+				toast.error("Could not sample color");
+				return;
+			}
 			const toHex = (value: number) => {
-				const hex = value.toString(16);
+				const hex = Math.max(0, Math.min(255, value)).toString(16);
 				return hex.length === 1 ? "0" + hex : hex;
 			};
-
-			const hexColor = `#${toHex(pixel[0])}${toHex(pixel[1])}${toHex(pixel[2])}`;
-
+			const hexColor = `#${toHex(data[0])}${toHex(data[1])}${toHex(data[2])}`;
 			if (isAltPressed) {
 				setSecondaryColor(hexColor);
-				toast.success(`Secondary color picked: ${hexColor}`);
+				toast.success(`Secondary color: ${hexColor}`);
 			} else {
 				setPrimaryColor(hexColor);
-				toast.success(`Primary color picked: ${hexColor}`);
+				toast.success(`Primary color: ${hexColor}`);
 			}
 		},
 		[setPrimaryColor, setSecondaryColor, updateAuxCanvases],
