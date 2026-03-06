@@ -151,7 +151,6 @@ export const BrushPanel: React.FC = () => {
 			fill: "Paint Bucket",
 			gradient: "Gradient",
 			eyedropper: "Eyedropper",
-			hand: "Hand Tool",
 			zoom: "Zoom Tool",
 			undoZoom: "Undo Zoom",
 			crop: "Crop Tool",
@@ -591,26 +590,6 @@ export const BrushPanel: React.FC = () => {
 	const renderNavigationOptions = () => {
 		if (activeTool === "zoom" || activeTool === "undoZoom") {
 			return <ZoomOptions />;
-		}
-
-		if (activeTool === "hand") {
-			return (
-				<div className="space-y-4">
-					<div className="bg-muted/30 p-3 rounded-md border border-border/50 text-xs space-y-2">
-						<p className="font-medium text-foreground">Usage:</p>
-						<ul className="list-disc list-inside space-y-1 text-muted-foreground">
-							<li>
-								<span className="text-foreground">Click & Drag</span> to pan the
-								canvas
-							</li>
-							<li>
-								Hold <span className="text-foreground">Spacebar</span> with any
-								tool to temporarily switch to Hand tool
-							</li>
-						</ul>
-					</div>
-				</div>
-			);
 		}
 
 		return renderGenericOptions();

@@ -236,16 +236,6 @@ export const tools: ToolConfig[] = [
 			"Add and edit text layers. Click for point text, drag for area text.",
 		category: "shape",
 	},
-
-	// Navigation Tools - CHYBALI!
-	{
-		id: "hand",
-		icon: Hand,
-		label: "Hand Tool",
-		shortcut: "H",
-		description: "Pan around the canvas by dragging.",
-		category: "navigation",
-	},
 	{
 		id: "zoom",
 		icon: ZoomIn,
