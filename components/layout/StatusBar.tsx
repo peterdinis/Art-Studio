@@ -49,8 +49,8 @@ export const StatusBar: React.FC = () => {
 			marquee: "Marquee Selection",
 			lasso: "Lasso Tool",
 			magicwand: "Magic Wand",
-			hand: "Hand Tool",
 			zoom: "Zoom Tool",
+			undoZoom: "Undo Zoom",
 		};
 		return names[activeTool] || activeTool;
 	};

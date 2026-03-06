@@ -56,8 +56,8 @@ const shortcutCategories: ShortcutCategory[] = [
 			{ keys: ["T"], description: "Text Tool" },
 			{ keys: ["A"], description: "Path Selection Tool" },
 			{ keys: ["U"], description: "Rectangle Tool" },
-			{ keys: ["H"], description: "Hand Tool" },
 			{ keys: ["Z"], description: "Zoom Tool" },
+			{ keys: ["Shift", "Z"], description: "Undo Zoom Tool" },
 		],
 	},
 	{
@@ -130,7 +130,6 @@ const shortcutCategories: ShortcutCategory[] = [
 			{ keys: ["Ctrl/⌘", "-"], description: "Zoom Out" },
 			{ keys: ["Ctrl/⌘", "0"], description: "Fit on Screen" },
 			{ keys: ["Ctrl/⌘", "1"], description: "Actual Pixels (100%)" },
-			{ keys: ["Space"], description: "Temporarily Hand Tool (hold)" },
 			{ keys: ["Tab"], description: "Toggle Panels" },
 			{ keys: ["F"], description: "Cycle Screen Modes" },
 		],

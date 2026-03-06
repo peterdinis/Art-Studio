@@ -52,28 +52,26 @@ export const useZoom = () => {
 			const newZoom = Math.max(min, Math.min(max, targetZoom));
 
 			if (centerOnPoint) {
-				// Zoom to specific point (mouse position)
-				const canvas = window.fabricCanvas || window.konvaStage;
-				if (canvas && "getPointerPosition" in canvas) {
-					const stage = canvas as any;
-					const pointer = stage.getPointerPosition();
-					if (pointer) {
-						const oldScale = zoom / 100;
-						const mousePointTo = {
-							x: (pointer.x - panOffset.x) / oldScale,
-							y: (pointer.y - panOffset.y) / oldScale,
-						};
+				// Zoom to specific point (use provided point from click/wheel)
+				const pointer = centerOnPoint;
+				const oldScale = zoom / 100;
+				const mousePointTo = {
+					x: (pointer.x - panOffset.x) / oldScale,
+					y: (pointer.y - panOffset.y) / oldScale,
+				};
 
-						const newPos = {
-							x: pointer.x - mousePointTo.x * (newZoom / 100),
-							y: pointer.y - mousePointTo.y * (newZoom / 100),
-						};
+				const newPos = {
+					x: pointer.x - mousePointTo.x * (newZoom / 100),
+					y: pointer.y - mousePointTo.y * (newZoom / 100),
+				};
 
-						setZoom(newZoom);
-						setPanOffset(newPos);
-						return;
-					}
+				setZoom(newZoom);
+				setPanOffset(newPos);
+				zoomHistoryRef.current.push(newZoom);
+				if (zoomHistoryRef.current.length > 10) {
+					zoomHistoryRef.current.shift();
 				}
+				return;
 			}
 
 			setZoom(newZoom);
@@ -236,6 +234,19 @@ export const useZoom = () => {
 		[zoom, panOffset, setZoom, setPanOffset],
 	);
 
+	// Undo zoom (restore previous zoom level from history)
+	const zoomBack = useCallback(() => {
+		const history = zoomHistoryRef.current;
+		if (history.length > 1) {
+			history.pop();
+			const previousZoom = history[history.length - 1];
+			setZoom(previousZoom);
+			toast.info(`Zoom: ${Math.round(previousZoom)}%`);
+		} else {
+			toast.info("No previous zoom level");
+		}
+	}, [setZoom]);
+
 	// Reset zoom history
 	const resetZoomHistory = useCallback(() => {
 		zoomHistoryRef.current = [zoom];
@@ -261,6 +272,7 @@ export const useZoom = () => {
 		zoomTo,
 		zoomIn,
 		zoomOut,
+		zoomBack,
 		zoomToFit,
 		zoomToActualSize,
 		zoomToSelection,

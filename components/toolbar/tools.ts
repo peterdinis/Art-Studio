@@ -14,6 +14,7 @@ import {
 	Type,
 	Hand,
 	ZoomIn,
+	ZoomOut,
 	Stamp,
 	Droplet,
 	Blend,
@@ -235,22 +236,20 @@ export const tools: ToolConfig[] = [
 			"Add and edit text layers. Click for point text, drag for area text.",
 		category: "shape",
 	},
-
-	// Navigation Tools - CHYBALI!
-	{
-		id: "hand",
-		icon: Hand,
-		label: "Hand Tool",
-		shortcut: "H",
-		description: "Pan around the canvas by dragging.",
-		category: "navigation",
-	},
 	{
 		id: "zoom",
 		icon: ZoomIn,
 		label: "Zoom Tool",
 		shortcut: "Z",
 		description: "Zoom in/out on canvas. Alt+click to zoom out.",
+		category: "navigation",
+	},
+	{
+		id: "undoZoom",
+		icon: ZoomOut,
+		label: "Undo Zoom",
+		shortcut: "Shift+Z",
+		description: "Restore previous zoom level.",
 		category: "navigation",
 	},
 ];

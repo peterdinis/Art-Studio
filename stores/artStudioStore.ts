@@ -27,6 +27,7 @@ export type Tool =
 	| "move"
 	| "hand"
 	| "zoom"
+	| "undoZoom"
 	| "crop"
 	| "dodge"
 	| "burn"
@@ -784,7 +785,7 @@ export const useArtStudioStore = create<ArtStudioState>()(
 					setTimeout(() => {
 						get()
 							.saveSession()
-							.catch(() => {});
+							.catch(() => { });
 					}, 1000);
 				}
 			},
@@ -944,7 +945,7 @@ export const useArtStudioStore = create<ArtStudioState>()(
 				setTimeout(() => {
 					get()
 						.saveSession()
-						.catch(() => {});
+						.catch(() => { });
 				}, 500);
 			},
 
@@ -980,7 +981,7 @@ export const useArtStudioStore = create<ArtStudioState>()(
 					() =>
 						get()
 							.saveSession()
-							.catch(() => {}),
+							.catch(() => { }),
 					2000,
 				);
 			},
@@ -992,7 +993,7 @@ export const useArtStudioStore = create<ArtStudioState>()(
 					() =>
 						get()
 							.saveSession()
-							.catch(() => {}),
+							.catch(() => { }),
 					2000,
 				);
 			},
@@ -1281,6 +1282,35 @@ export const useArtStudioStore = create<ArtStudioState>()(
 
 			mergeLayers: (layerIds) => {
 				const { layers } = get();
+				const validIds = layerIds.filter((id) =>
+					layers.some((l) => l.id === id),
+				);
+				if (validIds.length < 2) {
+					toast.info("Select at least 2 layers to merge");
+					return;
+				}
+				const newLayer: Layer = {
+					id: generateLayerId(),
+					name: "Merged layer",
+					visible: true,
+					opacity: 100,
+					locked: false,
+				};
+				const newLayers = layers.filter((l) => !validIds.includes(l.id));
+				const insertIndex = Math.min(
+					...validIds.map((id) => layers.findIndex((l) => l.id === id)),
+				);
+				newLayers.splice(insertIndex, 0, newLayer);
+				set({
+					layers: newLayers,
+					activeLayerId: newLayer.id,
+				});
+				window.dispatchEvent(
+					new CustomEvent("artstudio:merge-layers", {
+						detail: { layerIds: validIds, newLayerId: newLayer.id },
+					}),
+				);
+				toast.success("Layers merged");
 			},
 
 			addLoadedImage: (image) =>
@@ -1334,7 +1364,7 @@ export const useArtStudioStore = create<ArtStudioState>()(
 					() =>
 						get()
 							.saveSession()
-							.catch(() => {}),
+							.catch(() => { }),
 					500,
 				);
 			},
@@ -1345,7 +1375,12 @@ export const useArtStudioStore = create<ArtStudioState>()(
 
 			setSelectionPath: (path) => set({ selectionPath: path }),
 
-			clearSelection: () => set({ selectionBounds: null, selectionPath: null }),
+			clearSelection: () =>
+				set({
+					selectionBounds: null,
+					selectionPath: null,
+					selectedId: null,
+				}),
 
 			// ========== UI ACTIONS ==========
 

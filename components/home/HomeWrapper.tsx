@@ -195,6 +195,7 @@ const HomeWrapper = () => {
 								"eyedropper",
 								"hand",
 								"zoom",
+								"undoZoom",
 								"marquee",
 								"lasso",
 								"magicwand",

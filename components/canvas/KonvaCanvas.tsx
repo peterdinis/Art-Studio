@@ -19,6 +19,26 @@ import {
 	Star as KonvaStar,
 } from "react-konva";
 import Konva from "konva";
+
+// Explicitly import and register shapes for Konva to fix Turbopack/modular build issues
+import { Rect as KonvaRect } from "konva/lib/shapes/Rect";
+import { Ellipse as KonvaEllipse } from "konva/lib/shapes/Ellipse";
+import { Line as KonvaLine } from "konva/lib/shapes/Line";
+import { Text as KonvaText } from "konva/lib/shapes/Text";
+import { Star as KonvaStarBase } from "konva/lib/shapes/Star";
+import { Image as KonvaImageBase } from "konva/lib/shapes/Image";
+import { Transformer as KonvaTransformer } from "konva/lib/shapes/Transformer";
+
+// Manual registration to ensure nodes are available to react-konva
+if (typeof window !== "undefined") {
+	(Konva as any).Rect = KonvaRect;
+	(Konva as any).Ellipse = KonvaEllipse;
+	(Konva as any).Line = KonvaLine;
+	(Konva as any).Text = KonvaText;
+	(Konva as any).Star = KonvaStarBase;
+	(Konva as any).Image = KonvaImageBase;
+	(Konva as any).Transformer = KonvaTransformer;
+}
 import { useArtStudioStore, Tool } from "@/stores/artStudioStore";
 import { useZoom } from "@/hooks/useZoom";
 import { toast } from "sonner";
@@ -217,12 +237,15 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		setCanvasSize,
 		history,
 		historyIndex,
+		selectedId,
+		setSelectedId,
 	} = useArtStudioStore();
 
 	const {
 		zoomTo,
 		zoomIn,
 		zoomOut,
+		zoomBack,
 		zoomWithWheel,
 		zoomToFit,
 		zoomToActualSize,
@@ -239,10 +262,10 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 	});
 
 	const [lines, setLines] = useState<DrawingLine[]>([]);
+	const [activeLinePoints, setActiveLinePoints] = useState<number[]>([]);
 	const [shapes, setShapes] = useState<ShapeObject[]>([]);
 	const [images, setImages] = useState<ImageObject[]>([]);
 	const [textObjects, setTextObjects] = useState<TextObject[]>([]);
-	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const [isDrawing, setIsDrawing] = useState(false);
 	const [isFilling, setIsFilling] = useState(false);
 	const [isDrawingGradient, setIsDrawingGradient] = useState(false);
@@ -277,6 +300,30 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		x: number;
 		y: number;
 	} | null>(null);
+
+	// Ref for capturing the latest state safely in async saves
+	const latestStateRef = useRef<any>(null);
+	useEffect(() => {
+		latestStateRef.current = {
+			lines,
+			shapes,
+			images,
+			textObjects,
+			gradients,
+			healingSource,
+			zoom,
+			panOffset,
+		};
+	}, [
+		lines,
+		shapes,
+		images,
+		textObjects,
+		gradients,
+		healingSource,
+		zoom,
+		panOffset,
+	]);
 
 	const isPanning = useRef(false);
 	const lastPanPos = useRef({ x: 0, y: 0 });
@@ -343,6 +390,20 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		setStageSize({ width: actualWidth, height: actualHeight });
 	}, [actualWidth, actualHeight]);
 
+	// Expose stage on window for useZoom (wheel zoom, etc.)
+	useEffect(() => {
+		const stage = stageRef.current;
+		if (stage) {
+			(window as Window & { konvaStage?: Konva.Stage }).konvaStage = stage;
+		}
+		return () => {
+			const win = window as Window & { konvaStage?: Konva.Stage };
+			if (win.konvaStage === stage) {
+				delete win.konvaStage;
+			}
+		};
+	}, []);
+
 	/* --- CORE UTILITIES --- */
 
 	const lastSaveTimeRef = useRef<number>(0);
@@ -363,35 +424,15 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				}
 
 				const saveData = () => {
-					if (!stageRef.current) return;
-					try {
-						lastSaveTimeRef.current = Date.now();
+					if (!stageRef.current || !latestStateRef.current) return;
+					// Save canvas state from ref to avoid stale closure
+					const canvasState = latestStateRef.current;
 
-						// Vytvorte kompletný stav canvasu
-						const canvasState: CanvasState = {
-							lines,
-							shapes,
-							images,
-							textObjects,
-							gradients,
-							healingData,
-							blurData,
-						};
-
-						const stateString = JSON.stringify(canvasState);
-						const dataURL = stageRef.current.toDataURL({
-							pixelRatio: 0.2,
-							quality: 0.5,
-						});
-
-						console.log(
-							`Saving canvas state: ${action}, entries in store: ${history.length}, index: ${historyIndex}`,
-						);
-						addToHistory(stateString, dataURL, action);
-						pendingSaveRef.current = null;
-					} catch (err) {
-						console.error("Failed to save canvas state:", err);
-					}
+					const canvasJson = JSON.stringify(canvasState);
+					const thumbnail = stageRef.current.toDataURL({ pixelRatio: 0.1 });
+					addToHistory(canvasJson, thumbnail, action);
+					lastSaveTimeRef.current = Date.now();
+					pendingSaveRef.current = null;
 				};
 
 				if ("requestIdleCallback" in window) {
@@ -446,14 +487,14 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				{ ref: blurCanvas, ctx: blurContext },
 			];
 
-			// Inicializovať a aktualizovať každý canvas
+			// Ensure each aux canvas has correct size (ref may be from JSX with default 300x150)
 			auxCanvases.forEach(({ ref, ctx }) => {
 				if (!ref.current) {
 					ref.current = document.createElement("canvas");
-					ref.current.width = actualWidth;
-					ref.current.height = actualHeight;
 				}
-				if (ref.current && !ctx.current) {
+				ref.current.width = actualWidth;
+				ref.current.height = actualHeight;
+				if (!ctx.current) {
 					ctx.current = ref.current.getContext("2d", {
 						willReadFrequently: true,
 					});
@@ -467,7 +508,6 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				}
 			});
 		} catch (e) {
-			console.error("Failed to update aux canvases:", e);
 			toast.error(
 				"Could not read canvas data. Possible CORS issue with images.",
 			);
@@ -478,7 +518,6 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 	const restoreCanvasState = useCallback(
 		(stateString: string) => {
 			try {
-				console.log("Restoring canvas state from history...");
 				const state: CanvasState = JSON.parse(stateString);
 
 				// Obnovte všetky časti stavu
@@ -504,7 +543,6 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				setPenPoints([]);
 				setCurrentGradient(null);
 				setIsDrawingGradient(false);
-				setIsDrawingPolygon(false);
 				setPolygonPoints([]);
 				setIsSelecting(false);
 				setSelectionStartPoint(null);
@@ -521,9 +559,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 					updateAuxCanvases();
 				}, 100);
 
-				console.log("Canvas state restored successfully");
 			} catch (error) {
-				console.error("Failed to restore canvas state:", error);
 				toast.error("Failed to restore canvas state");
 			}
 		},
@@ -688,7 +724,6 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 	useEffect(() => {
 		// Event listener pre undo
 		const handleUndoEvent = (e: CustomEvent) => {
-			console.log("Undo event received:", e.detail);
 			if (e.detail?.canvasData) {
 				restoreCanvasState(e.detail.canvasData);
 			}
@@ -696,7 +731,6 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 
 		// Event listener pre redo
 		const handleRedoEvent = (e: CustomEvent) => {
-			console.log("Redo event received:", e.detail);
 			if (e.detail?.canvasData) {
 				restoreCanvasState(e.detail.canvasData);
 			}
@@ -704,7 +738,6 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 
 		// Event listener pre restore-history (general)
 		const handleRestoreHistory = (e: CustomEvent) => {
-			console.log("Restore history event received:", e.detail);
 			if (e.detail?.canvasData) {
 				restoreCanvasState(e.detail.canvasData);
 			}
@@ -920,25 +953,30 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 	const applyDodgeBrush = useCallback(
 		(x: number, y: number) => {
 			if (!tempContext) return;
-			const ctx = floodFillContext.current;
-			if (!ctx) return;
 			const size = Math.round(brushSettings.size);
 			const radius = size / 2;
 			const intensity = (brushSettings.dodgeIntensity || 50) / 100;
 
-			// Optimization: only get data for the brush area
-			const startX = Math.floor(x - radius);
-			const startY = Math.floor(y - radius);
-			const imgData = ctx.getImageData(startX, startY, size, size);
+			// Clamp to canvas bounds for getImageData
+			const startX = Math.max(0, Math.floor(x - radius));
+			const startY = Math.max(0, Math.floor(y - radius));
+			const endX = Math.min(actualWidth, startX + size);
+			const endY = Math.min(actualHeight, startY + size);
+			const w = endX - startX;
+			const h = endY - startY;
+			if (w <= 0 || h <= 0) return;
+
+			// Read from temp (current state including previous dodge), so effect accumulates
+			const imgData = tempContext.getImageData(startX, startY, w, h);
 			const d = imgData.data;
 
-			for (let py = 0; py < size; py++) {
-				for (const px of Array(size).keys()) {
-					const dx = px - radius;
-					const dy = py - radius;
-					if (dx * dx + dy * dy <= radius * radius) {
-						const i = (py * size + px) * 4;
-						// Dodge algorithm (simple linear)
+			for (let py = 0; py < h; py++) {
+				for (let px = 0; px < w; px++) {
+					const gx = startX + px - x;
+					const gy = startY + py - y;
+					if (gx * gx + gy * gy <= radius * radius) {
+						const i = (py * w + px) * 4;
+						// Dodge: lighten (move toward white)
 						d[i] = Math.min(255, d[i] + (255 - d[i]) * intensity);
 						d[i + 1] = Math.min(255, d[i + 1] + (255 - d[i + 1]) * intensity);
 						d[i + 2] = Math.min(255, d[i + 2] + (255 - d[i + 2]) * intensity);
@@ -947,38 +985,44 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			}
 
 			tempContext.putImageData(imgData, startX, startY);
-
-			if (tempCanvas) {
-				const img = new window.Image();
-				img.src = tempCanvas.toDataURL();
-				img.onload = () => setTempImage(img);
-			}
+			if (tempCanvas) setTempImage(tempCanvas as any);
 		},
-		[brushSettings.size, brushSettings.dodgeIntensity, tempContext, tempCanvas],
+		[
+			brushSettings.size,
+			brushSettings.dodgeIntensity,
+			tempContext,
+			tempCanvas,
+			actualWidth,
+			actualHeight,
+		],
 	);
 
 	/* --- BURN TOOL LOGIC --- */
 	const applyBurnBrush = useCallback(
 		(x: number, y: number) => {
 			if (!tempContext) return;
-			const ctx = floodFillContext.current;
-			if (!ctx) return;
 			const size = Math.round(brushSettings.size);
 			const radius = size / 2;
 			const intensity = (brushSettings.burnIntensity || 50) / 100;
 
-			const startX = Math.floor(x - radius);
-			const startY = Math.floor(y - radius);
-			const imgData = ctx.getImageData(startX, startY, size, size);
+			const startX = Math.max(0, Math.floor(x - radius));
+			const startY = Math.max(0, Math.floor(y - radius));
+			const endX = Math.min(actualWidth, startX + size);
+			const endY = Math.min(actualHeight, startY + size);
+			const w = endX - startX;
+			const h = endY - startY;
+			if (w <= 0 || h <= 0) return;
+
+			const imgData = tempContext.getImageData(startX, startY, w, h);
 			const d = imgData.data;
 
-			for (let py = 0; py < size; py++) {
-				for (const px of Array(size).keys()) {
-					const dx = px - radius;
-					const dy = py - radius;
-					if (dx * dx + dy * dy <= radius * radius) {
-						const i = (py * size + px) * 4;
-						// Burn algorithm
+			for (let py = 0; py < h; py++) {
+				for (let px = 0; px < w; px++) {
+					const gx = startX + px - x;
+					const gy = startY + py - y;
+					if (gx * gx + gy * gy <= radius * radius) {
+						const i = (py * w + px) * 4;
+						// Burn: darken (move toward black)
 						d[i] = Math.max(0, d[i] - d[i] * intensity);
 						d[i + 1] = Math.max(0, d[i + 1] - d[i + 1] * intensity);
 						d[i + 2] = Math.max(0, d[i + 2] - d[i + 2] * intensity);
@@ -987,14 +1031,16 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			}
 
 			tempContext.putImageData(imgData, startX, startY);
-
-			if (tempCanvas) {
-				const img = new window.Image();
-				img.src = tempCanvas.toDataURL();
-				img.onload = () => setTempImage(img);
-			}
+			if (tempCanvas) setTempImage(tempCanvas as any);
 		},
-		[brushSettings.size, brushSettings.burnIntensity, tempContext, tempCanvas],
+		[
+			brushSettings.size,
+			brushSettings.burnIntensity,
+			tempContext,
+			tempCanvas,
+			actualWidth,
+			actualHeight,
+		],
 	);
 
 	/* --- EYEDROPPER TOOL LOGIC --- */
@@ -1032,27 +1078,17 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			updateAuxCanvases();
 
 			if (!floodFillContext.current) {
-				console.error("Flood fill context not available");
 				toast.error("Cannot perform fill - context not ready");
 				return;
 			}
-
-			console.log(
-				`Starting flood fill at (${startX}, ${startY}) with color ${fillColor}`,
-			);
 
 			const ctx = floodFillContext.current;
 			const imageData = ctx.getImageData(0, 0, actualWidth, actualHeight);
 			const { data, width, height } = imageData;
 
-			// Konvertovať súradnice na celé čísla
-			const x = Math.floor(startX);
-			const y = Math.floor(startY);
-
-			if (x < 0 || x >= width || y < 0 || y >= height) {
-				toast.error("Fill point is outside canvas");
-				return;
-			}
+			// Clamp coordinates to canvas bounds (zoom/pan can yield out-of-bounds values)
+			const x = Math.max(0, Math.min(width - 1, Math.floor(startX)));
+			const y = Math.max(0, Math.min(height - 1, Math.floor(startY)));
 
 			const startIdx = (y * width + x) * 4;
 
@@ -1064,12 +1100,13 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				a: data[startIdx + 3],
 			};
 
-			// Parsovať fillColor do RGB
+			// Parsovať fillColor do RGB (podpora #rgb, #rrggbb)
 			let fillRGB: { r: number; g: number; b: number; a: number };
 			if (fillColor.startsWith("#")) {
-				const r = parseInt(fillColor.slice(1, 3), 16);
-				const g = parseInt(fillColor.slice(3, 5), 16);
-				const b = parseInt(fillColor.slice(5, 7), 16);
+				const hex = fillColor.slice(1).replace(/^(.)(.)(.)$/, "$1$1$2$2$3$3");
+				const r = parseInt(hex.slice(0, 2), 16) || 0;
+				const g = parseInt(hex.slice(2, 4), 16) || 0;
+				const b = parseInt(hex.slice(4, 6), 16) || 0;
 				fillRGB = { r, g, b, a: 255 };
 			} else if (fillColor.startsWith("rgb")) {
 				const match = fillColor.match(/\d+/g);
@@ -1169,7 +1206,6 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				return;
 			}
 
-			console.log(`Filling ${filledPixels.length} pixels`);
 
 			// Aplikovať farbu na vyplnené pixely
 			filledPixels.forEach(([px, py]) => {
@@ -1333,7 +1369,6 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 	const originalToolRef = useRef<Tool | null>(null);
 
 	useEffect(() => {
-		/* --- OPAVNÉ: Opravený clear canvas event listener --- */
 		const handleClearCanvasEvent = (e: CustomEvent) => {
 			const preserveBackground = e.detail?.preserveBackground || false;
 			handleClearCanvas({ preserveBackground });
@@ -1351,83 +1386,31 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		};
 		window.addEventListener("artstudio:restore-history", handleRestoreHistory);
 
-		// Handle layer removal
 		const handleRemoveLayer = (e: CustomEvent) => {
 			const layerId = e.detail?.layerId;
 			if (layerId) {
-				// Remove all objects from this layer
-				setLines((prev) => {
-					const filtered = prev.filter((l) => l.layerId !== layerId);
-					// Clear selection if it was on this layer
-					setSelectedId((currentId) => {
-						if (
-							currentId &&
-							prev.some((l) => l.id === currentId && l.layerId === layerId)
-						) {
-							return null;
-						}
-						return currentId;
-					});
-					return filtered;
-				});
-				setShapes((prev) => {
-					const filtered = prev.filter((s) => s.layerId !== layerId);
-					// Clear selection if it was on this layer
-					setSelectedId((currentId) => {
-						if (
-							currentId &&
-							prev.some((s) => s.id === currentId && s.layerId === layerId)
-						) {
-							return null;
-						}
-						return currentId;
-					});
-					return filtered;
-				});
-				setImages((prev) => {
-					const filtered = prev.filter((img) => img.layerId !== layerId);
-					// Clear selection if it was on this layer
-					setSelectedId((currentId) => {
-						if (
-							currentId &&
-							prev.some(
-								(img) => img.id === currentId && img.layerId === layerId,
-							)
-						) {
-							return null;
-						}
-						return currentId;
-					});
-					return filtered;
-				});
-				setTextObjects((prev) => {
-					const filtered = prev.filter((text) => text.layerId !== layerId);
-					// Clear selection if it was on this layer
-					setSelectedId((currentId) => {
-						if (
-							currentId &&
-							prev.some(
-								(text) => text.id === currentId && text.layerId === layerId,
-							)
-						) {
-							return null;
-						}
-						return currentId;
-					});
-					if (
-						editingTextId &&
-						prev.some(
-							(text) => text.id === editingTextId && text.layerId === layerId,
-						)
-					) {
-						setEditingTextId(null);
+				setLines((prev) => prev.filter((l) => l.layerId !== layerId));
+				setShapes((prev) => prev.filter((s) => s.layerId !== layerId));
+				setImages((prev) => prev.filter((img) => img.layerId !== layerId));
+				setTextObjects((prev) => prev.filter((text) => text.layerId !== layerId));
+				setGradients(gradients.filter((g) => g.layerId !== layerId));
+
+				if (selectedId) {
+					const allObjects = [...lines, ...shapes, ...images, ...textObjects];
+					const selectedObject = allObjects.find((obj) => obj.id === selectedId);
+					if (selectedObject && selectedObject.layerId === layerId) {
+						setSelectedId(null);
 					}
-					return filtered;
-				});
-				const filteredGradients = gradients.filter(
-					(g) => g.layerId !== layerId,
-				);
-				setGradients(filteredGradients);
+				}
+
+				if (
+					editingTextId &&
+					textObjects.some(
+						(text) => text.id === editingTextId && text.layerId === layerId,
+					)
+				) {
+					setEditingTextId(null);
+				}
 
 				saveCanvasState("Layer deleted");
 			}
@@ -1486,6 +1469,12 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		editingTextId,
 		saveCanvasState,
 		handleClearCanvas,
+		selectedId,
+		setSelectedId,
+		lines,
+		shapes,
+		images,
+		textObjects,
 	]);
 
 	const getCanvasPosition = useCallback(
@@ -1493,17 +1482,21 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			if (!stageRef.current) return null;
 			const stage = stageRef.current;
 
-			// Use getRelativePointerPosition to account for stage content scale/position
-			const pos = stage.getRelativePointerPosition();
+			// Correctly calculate relative pointer position considering zoom and pan
+			const transform = stage.getAbsoluteTransform().copy().invert();
+			const pos = stage.getPointerPosition();
 			if (!pos) return null;
 
-			// Limit position to canvas coordinates
+			const relativePos = transform.point(pos);
+
+			// Allow drawing on the entire stage without strict clamping if needed,
+			// or just ensure it covers the actual canvas area properly.
 			return {
-				x: Math.max(0, Math.min(actualWidth, pos.x)),
-				y: Math.max(0, Math.min(actualHeight, pos.y)),
+				x: relativePos.x,
+				y: relativePos.y,
 			};
 		},
-		[actualWidth, actualHeight],
+		[],
 	);
 
 	const handleMagicWand = useCallback(
@@ -1643,12 +1636,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			}
 
 			tempContext.putImageData(dstImgData, startX, startY);
-
-			if (tempCanvas) {
-				const img = new window.Image();
-				img.src = tempCanvas.toDataURL();
-				img.onload = () => setTempImage(img);
-			}
+			if (tempCanvas) setTempImage(tempCanvas as any);
 		},
 		[brushSettings.size, tempContext, tempCanvas],
 	);
@@ -1685,12 +1673,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			}
 
 			tempContext.putImageData(targetImgData, startX, startY);
-
-			if (tempCanvas) {
-				const img = new window.Image();
-				img.src = tempCanvas.toDataURL();
-				img.onload = () => setTempImage(img);
-			}
+			if (tempCanvas) setTempImage(tempCanvas as any);
 		},
 		[brushSettings.size, healingSource, tempContext, tempCanvas],
 	);
@@ -1753,12 +1736,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			}
 
 			tempContext.putImageData(targetData, startX, startY);
-
-			if (tempCanvas) {
-				const img = new window.Image();
-				img.src = tempCanvas.toDataURL();
-				img.onload = () => setTempImage(img);
-			}
+			if (tempCanvas) setTempImage(tempCanvas as any);
 		},
 		[brushSettings.size, brushSettings.blurIntensity, tempContext, tempCanvas],
 	);
@@ -1851,7 +1829,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				};
 
 				setActiveDrawingLine(newLine);
-				setLines((prev) => [...prev, newLine]);
+				setActiveLinePoints([pos.x, pos.y]);
 
 				if (tempContext) {
 					// KLÚČOVÁ OPRAVA: iba eraser má destination-out, brush a pencil majú source-over
@@ -1866,6 +1844,21 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 					tempContext.lineJoin = "round";
 					tempContext.beginPath();
 					tempContext.moveTo(pos.x, pos.y);
+				}
+			}
+
+			// Dodge/Burn: copy current layer to temp so we read/write on same buffer and accumulate
+			if (activeTool === "dodge" || activeTool === "burn") {
+				updateAuxCanvases();
+				if (tempContext && floodFillCanvas.current) {
+					tempContext.drawImage(
+						floodFillCanvas.current,
+						0,
+						0,
+						actualWidth,
+						actualHeight,
+					);
+					if (tempCanvas) setTempImage(tempCanvas as any);
 				}
 			}
 
@@ -1888,6 +1881,10 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			brushSettings.size,
 			activeLayerId,
 			tempContext,
+			actualWidth,
+			actualHeight,
+			updateAuxCanvases,
+			tempCanvas,
 			handleCloneBrush,
 			applyHealingBrush,
 			applyBlurBrush,
@@ -1918,32 +1915,16 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				tempContext.lineTo(pos.x, pos.y);
 				tempContext.stroke();
 
-				// Update line points - batch updates for performance
-				setLines((prev) =>
-					prev.map((line) =>
-						line.id === activeDrawingLine.id
-							? { ...line, points: [...line.points, pos.x, pos.y] }
-							: line,
-					),
-				);
+				// Update active line points - much faster than updating main lines array
+				setActiveLinePoints((prev) => [...prev, pos.x, pos.y]);
 
-				// Preview update - THROTTLED and SKIP for eraser to avoid obscuring the view with temp background
-				// Only update preview every few frames to avoid expensive image creation
+				// Preview update using raw canvas element for better performance
 				if (tempCanvas && activeTool !== "eraser") {
 					const now = Date.now();
-					if (now - lastMouseMoveTime.current > 50) {
-						// Update preview max 20 times per second
+					if (now - lastMouseMoveTime.current > 32) {
 						lastMouseMoveTime.current = now;
-						// Use requestAnimationFrame to avoid blocking
-						requestAnimationFrame(() => {
-							if (tempCanvas) {
-								const img = new window.Image();
-								img.src = tempCanvas.toDataURL();
-								img.onload = () => {
-									setTempImage(img);
-								};
-							}
-						});
+						// Use the canvas directly instead of toDataURL()
+						setTempImage(tempCanvas as any);
 					}
 				}
 			}
@@ -1965,7 +1946,19 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 	const stopDrawing = useCallback(() => {
 		if (isDrawing) {
 			setIsDrawing(false);
+
+			// Finalize the vector line if we were drawing one
+			if (activeDrawingLine && activeLinePoints.length > 2) {
+				const completedLine = {
+					...activeDrawingLine,
+					points: activeLinePoints,
+				};
+				setLines((prev) => [...prev, completedLine]);
+			}
+
 			setActiveDrawingLine(null);
+			setActiveLinePoints([]);
+
 			if (tempContext) {
 				tempContext.closePath();
 			}
@@ -1988,14 +1981,11 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				setImages((prev) => [...prev, newImg]);
 
 				// Reset temp canvas
-				tempContext!.clearRect(0, 0, actualWidth, actualHeight);
-				// Don't fill with background if we want transparency support in temp canvas?
-				// Keep transparent
+				if (tempContext) tempContext.clearRect(0, 0, actualWidth, actualHeight);
 				setTempImage(null);
 			} else if (tempContext) {
 				// For vector tools (brush, eraser), just clear the temp preview
 				tempContext.clearRect(0, 0, actualWidth, actualHeight);
-				// Keep transparent
 				setTempImage(null);
 			}
 
@@ -2003,14 +1993,18 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		}
 	}, [
 		isDrawing,
+		activeDrawingLine,
+		activeLinePoints,
 		tempContext,
 		saveCanvasState,
 		activeTool,
 		actualWidth,
 		actualHeight,
-		actualBackground,
 		activeLayerId,
 		tempCanvas,
+		generateId,
+		setLines,
+		setImages,
 	]);
 
 	const finishPenDrawing = useCallback(() => {
@@ -2085,6 +2079,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 
 			// Delete / Backspace
 			if (e.key === "Delete" || e.key === "Backspace") {
+				e.preventDefault();
 				handleDeleteSelected();
 				return;
 			}
@@ -2141,8 +2136,6 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 	const handleMouseDown = (e: Konva.KonvaEventObject<MouseEvent>) => {
 		const pos = getCanvasPosition(e.evt.clientX, e.evt.clientY);
 		if (!pos) return;
-
-		console.log(`Mouse down at (${pos.x}, ${pos.y}) with tool: ${activeTool}`);
 
 		// Ak je v editácii textu, nechajme textarea spracovať kliknutie
 		if (editingTextId && e.target === stageRef.current) {
@@ -2363,7 +2356,6 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		}
 
 		if (activeTool === "fill") {
-			console.log("Paint bucket clicked at:", pos.x, pos.y);
 			floodFill(pos.x, pos.y, primaryColor);
 			return;
 		}
@@ -2391,6 +2383,11 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 					}
 				}
 			}
+			return;
+		}
+
+		if (activeTool === "undoZoom") {
+			zoomBack();
 			return;
 		}
 	};
@@ -2761,6 +2758,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 	const getCursor = () => {
 		if (activeTool === "hand") return isPanning.current ? "grabbing" : "grab";
 		if (activeTool === "zoom") return "zoom-in";
+		if (activeTool === "undoZoom") return "zoom-out";
 		if (
 			[
 				"brush",
@@ -2822,21 +2820,10 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		}
 	};
 
-	/* --- Pridajte testovací efekt na kontrolu histórie --- */
+	/* --- History Monitoring Removed for Performance --- */
 	useEffect(() => {
-		console.log("Canvas state updated:");
-		console.log("- Lines:", lines.length);
-		console.log("- Shapes:", shapes.length);
-		console.log("- Images:", images.length);
-		console.log("- Text objects:", textObjects.length);
-		console.log("- Gradients:", gradients.length);
-		console.log(
-			"- History in store: entries:",
-			history.length,
-			"index:",
-			historyIndex,
-		);
-	}, [lines, shapes, images, textObjects, gradients, history, historyIndex]);
+		// Only monitor history index changes if needed
+	}, [historyIndex]);
 
 	return (
 		<div
@@ -2927,6 +2914,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 									}
 									lineCap="round"
 									lineJoin="round"
+									perfectDrawEnabled={false}
 									globalCompositeOperation={
 										line.tool === "eraser" ? "destination-out" : "source-over"
 									}
@@ -2953,6 +2941,26 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 									opacity={layerOpacities[line.layerId] || 1}
 								/>
 							))}
+
+						{/* Active Line (Live Preview) */}
+						{activeDrawingLine && activeLinePoints.length >= 2 && (
+							<Line
+								points={activeLinePoints}
+								stroke={activeDrawingLine.stroke}
+								strokeWidth={activeDrawingLine.strokeWidth}
+								tension={
+									activeDrawingLine.tool === "brush" || activeDrawingLine.tool === "eraser" ? 0.5 : 0
+								}
+								lineCap="round"
+								lineJoin="round"
+								perfectDrawEnabled={false}
+								globalCompositeOperation={
+									activeDrawingLine.tool === "eraser" ? "destination-out" : "source-over"
+								}
+								listening={false}
+								opacity={layerOpacities[activeDrawingLine.layerId] || 1}
+							/>
+						)}
 
 						{shapes
 							.filter((s) => isLayerVisible(s.layerId))
@@ -3294,7 +3302,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 								y={0}
 								width={actualWidth}
 								height={actualHeight}
-								opacity={0.7}
+								opacity={1}
 								listening={false}
 								globalCompositeOperation="source-over"
 							/>
