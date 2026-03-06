@@ -1510,24 +1510,31 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 	const handleMagicWand = useCallback(
 		(startX: number, startY: number) => {
 			updateAuxCanvases();
-			if (!floodFillContext.current) return;
-
 			const ctx = floodFillContext.current;
-			const imageData = ctx.getImageData(0, 0, actualWidth, actualHeight);
-			const data = imageData.data;
+			if (!ctx?.canvas) return;
+
 			const width = actualWidth;
 			const height = actualHeight;
+			const px = Math.max(0, Math.min(width - 1, Math.floor(startX)));
+			const py = Math.max(0, Math.min(height - 1, Math.floor(startY)));
 
-			const startIdx = (Math.floor(startY) * width + Math.floor(startX)) * 4;
+			let imageData: ImageData;
+			try {
+				imageData = ctx.getImageData(0, 0, width, height);
+			} catch {
+				toast.error("Could not read canvas for Magic Wand");
+				return;
+			}
+			const data = imageData.data;
+
+			const startIdx = (py * width + px) * 4;
 			const targetR = data[startIdx];
 			const targetG = data[startIdx + 1];
 			const targetB = data[startIdx + 2];
 			const targetA = data[startIdx + 3];
 
 			const visited = new Uint8Array(width * height);
-			const queue: [number, number][] = [
-				[Math.floor(startX), Math.floor(startY)],
-			];
+			const queue: [number, number][] = [[px, py]];
 			const boundaryPath: number[] = [];
 			// Performance: Limit max iterations to prevent freezing on large selections
 			const maxIterations = width * height;
@@ -2180,10 +2187,13 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				setSelectionBounds({ x: pos.x, y: pos.y, width: 0, height: 0 });
 			}
 			if (activeTool === "lasso") {
+				clearSelection();
 				setIsSelecting(true);
+				setSelectionStartPoint(pos);
 				setSelectionPath([pos.x, pos.y]);
 			}
 			if (activeTool === "magicwand") {
+				clearSelection();
 				handleMagicWand(pos.x, pos.y);
 			}
 			return;
@@ -2450,16 +2460,20 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				const width = Math.abs(pos.x - selectionStartPoint.x);
 				const height = Math.abs(pos.y - selectionStartPoint.y);
 				setSelectionBounds({ x, y, width, height });
-			} else if (activeTool === "lasso" && selectionPath) {
-				// Throttle lasso point addition to avoid huge arrays
-				const lastX = selectionPath[selectionPath.length - 2];
-				const lastY = selectionPath[selectionPath.length - 1];
+			} else if (activeTool === "lasso") {
+				// Use current path from store to avoid stale closure
+				const currentPath = useArtStudioStore.getState().selectionPath;
+				const path = currentPath ?? [];
+				const lastX = path[path.length - 2];
+				const lastY = path[path.length - 1];
 				if (
-					selectionPath.length === 0 ||
+					path.length === 0 ||
+					lastX === undefined ||
+					lastY === undefined ||
 					Math.abs(lastX - pos.x) > 3 ||
 					Math.abs(lastY - pos.y) > 3
 				) {
-					setSelectionPath([...selectionPath, pos.x, pos.y]);
+					setSelectionPath([...path, pos.x, pos.y]);
 				}
 			}
 		}
