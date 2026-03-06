@@ -58,6 +58,7 @@ const shortcutCategories: ShortcutCategory[] = [
 			{ keys: ["U"], description: "Rectangle Tool" },
 			{ keys: ["H"], description: "Hand Tool" },
 			{ keys: ["Z"], description: "Zoom Tool" },
+			{ keys: ["Shift", "Z"], description: "Undo Zoom Tool" },
 		],
 	},
 	{

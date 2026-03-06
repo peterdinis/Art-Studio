@@ -27,6 +27,7 @@ export type Tool =
 	| "move"
 	| "hand"
 	| "zoom"
+	| "undoZoom"
 	| "crop"
 	| "dodge"
 	| "burn"

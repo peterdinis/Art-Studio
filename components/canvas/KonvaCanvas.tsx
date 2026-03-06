@@ -245,6 +245,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		zoomTo,
 		zoomIn,
 		zoomOut,
+		zoomBack,
 		zoomWithWheel,
 		zoomToFit,
 		zoomToActualSize,
@@ -388,6 +389,20 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 	useEffect(() => {
 		setStageSize({ width: actualWidth, height: actualHeight });
 	}, [actualWidth, actualHeight]);
+
+	// Expose stage on window for useZoom (wheel zoom, etc.)
+	useEffect(() => {
+		const stage = stageRef.current;
+		if (stage) {
+			(window as Window & { konvaStage?: Konva.Stage }).konvaStage = stage;
+		}
+		return () => {
+			const win = window as Window & { konvaStage?: Konva.Stage };
+			if (win.konvaStage === stage) {
+				delete win.konvaStage;
+			}
+		};
+	}, []);
 
 	/* --- CORE UTILITIES --- */
 
@@ -2332,6 +2347,11 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			}
 			return;
 		}
+
+		if (activeTool === "undoZoom") {
+			zoomBack();
+			return;
+		}
 	};
 
 	const handleMouseMove = (e: Konva.KonvaEventObject<MouseEvent>) => {
@@ -2700,6 +2720,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 	const getCursor = () => {
 		if (activeTool === "hand") return isPanning.current ? "grabbing" : "grab";
 		if (activeTool === "zoom") return "zoom-in";
+		if (activeTool === "undoZoom") return "zoom-out";
 		if (
 			[
 				"brush",

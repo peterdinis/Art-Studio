@@ -130,6 +130,19 @@ export const useKeyboardShortcuts = () => {
 				return;
 			}
 
+			// Undo Zoom tool shortcut (Shift+Z)
+			if (
+				e.shiftKey &&
+				!e.ctrlKey &&
+				!e.metaKey &&
+				!e.altKey &&
+				e.key.toUpperCase() === "Z"
+			) {
+				e.preventDefault();
+				setActiveTool("undoZoom");
+				return;
+			}
+
 			// Tool shortcuts (single keys, no modifiers)
 			if (!e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
 				const toolMap: Record<string, Tool> = {

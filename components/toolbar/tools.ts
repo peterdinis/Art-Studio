@@ -14,6 +14,7 @@ import {
 	Type,
 	Hand,
 	ZoomIn,
+	ZoomOut,
 	Stamp,
 	Droplet,
 	Blend,
@@ -251,6 +252,14 @@ export const tools: ToolConfig[] = [
 		label: "Zoom Tool",
 		shortcut: "Z",
 		description: "Zoom in/out on canvas. Alt+click to zoom out.",
+		category: "navigation",
+	},
+	{
+		id: "undoZoom",
+		icon: ZoomOut,
+		label: "Undo Zoom",
+		shortcut: "Shift+Z",
+		description: "Restore previous zoom level.",
 		category: "navigation",
 	},
 ];

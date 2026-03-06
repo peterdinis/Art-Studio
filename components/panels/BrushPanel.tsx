@@ -153,6 +153,7 @@ export const BrushPanel: React.FC = () => {
 			eyedropper: "Eyedropper",
 			hand: "Hand Tool",
 			zoom: "Zoom Tool",
+			undoZoom: "Undo Zoom",
 			crop: "Crop Tool",
 			star: "Star Tool",
 		};
@@ -588,7 +589,7 @@ export const BrushPanel: React.FC = () => {
 	};
 
 	const renderNavigationOptions = () => {
-		if (activeTool === "zoom") {
+		if (activeTool === "zoom" || activeTool === "undoZoom") {
 			return <ZoomOptions />;
 		}
 
@@ -651,7 +652,7 @@ export const BrushPanel: React.FC = () => {
 			{activeTool === "fill" || activeTool === "eyedropper"
 				? renderUtilityOptions()
 				: null}
-			{(activeTool === "zoom" || activeTool === "hand") &&
+			{(activeTool === "zoom" || activeTool === "undoZoom" || activeTool === "hand") &&
 				renderNavigationOptions()}
 
 			{!isDrawingTool &&
@@ -661,6 +662,7 @@ export const BrushPanel: React.FC = () => {
 				activeTool !== "fill" &&
 				activeTool !== "eyedropper" &&
 				activeTool !== "zoom" &&
+				activeTool !== "undoZoom" &&
 				activeTool !== "hand" &&
 				renderGenericOptions()}
 
