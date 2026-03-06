@@ -487,14 +487,14 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				{ ref: blurCanvas, ctx: blurContext },
 			];
 
-			// Inicializovať a aktualizovať každý canvas
+			// Ensure each aux canvas has correct size (ref may be from JSX with default 300x150)
 			auxCanvases.forEach(({ ref, ctx }) => {
 				if (!ref.current) {
 					ref.current = document.createElement("canvas");
-					ref.current.width = actualWidth;
-					ref.current.height = actualHeight;
 				}
-				if (ref.current && !ctx.current) {
+				ref.current.width = actualWidth;
+				ref.current.height = actualHeight;
+				if (!ctx.current) {
 					ctx.current = ref.current.getContext("2d", {
 						willReadFrequently: true,
 					});
@@ -953,25 +953,30 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 	const applyDodgeBrush = useCallback(
 		(x: number, y: number) => {
 			if (!tempContext) return;
-			const ctx = floodFillContext.current;
-			if (!ctx) return;
 			const size = Math.round(brushSettings.size);
 			const radius = size / 2;
 			const intensity = (brushSettings.dodgeIntensity || 50) / 100;
 
-			// Optimization: only get data for the brush area
-			const startX = Math.floor(x - radius);
-			const startY = Math.floor(y - radius);
-			const imgData = ctx.getImageData(startX, startY, size, size);
+			// Clamp to canvas bounds for getImageData
+			const startX = Math.max(0, Math.floor(x - radius));
+			const startY = Math.max(0, Math.floor(y - radius));
+			const endX = Math.min(actualWidth, startX + size);
+			const endY = Math.min(actualHeight, startY + size);
+			const w = endX - startX;
+			const h = endY - startY;
+			if (w <= 0 || h <= 0) return;
+
+			// Read from temp (current state including previous dodge), so effect accumulates
+			const imgData = tempContext.getImageData(startX, startY, w, h);
 			const d = imgData.data;
 
-			for (let py = 0; py < size; py++) {
-				for (const px of Array(size).keys()) {
-					const dx = px - radius;
-					const dy = py - radius;
-					if (dx * dx + dy * dy <= radius * radius) {
-						const i = (py * size + px) * 4;
-						// Dodge algorithm (simple linear)
+			for (let py = 0; py < h; py++) {
+				for (let px = 0; px < w; px++) {
+					const gx = startX + px - x;
+					const gy = startY + py - y;
+					if (gx * gx + gy * gy <= radius * radius) {
+						const i = (py * w + px) * 4;
+						// Dodge: lighten (move toward white)
 						d[i] = Math.min(255, d[i] + (255 - d[i]) * intensity);
 						d[i + 1] = Math.min(255, d[i + 1] + (255 - d[i + 1]) * intensity);
 						d[i + 2] = Math.min(255, d[i + 2] + (255 - d[i + 2]) * intensity);
@@ -982,31 +987,42 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			tempContext.putImageData(imgData, startX, startY);
 			if (tempCanvas) setTempImage(tempCanvas as any);
 		},
-		[brushSettings.size, brushSettings.dodgeIntensity, tempContext, tempCanvas],
+		[
+			brushSettings.size,
+			brushSettings.dodgeIntensity,
+			tempContext,
+			tempCanvas,
+			actualWidth,
+			actualHeight,
+		],
 	);
 
 	/* --- BURN TOOL LOGIC --- */
 	const applyBurnBrush = useCallback(
 		(x: number, y: number) => {
 			if (!tempContext) return;
-			const ctx = floodFillContext.current;
-			if (!ctx) return;
 			const size = Math.round(brushSettings.size);
 			const radius = size / 2;
 			const intensity = (brushSettings.burnIntensity || 50) / 100;
 
-			const startX = Math.floor(x - radius);
-			const startY = Math.floor(y - radius);
-			const imgData = ctx.getImageData(startX, startY, size, size);
+			const startX = Math.max(0, Math.floor(x - radius));
+			const startY = Math.max(0, Math.floor(y - radius));
+			const endX = Math.min(actualWidth, startX + size);
+			const endY = Math.min(actualHeight, startY + size);
+			const w = endX - startX;
+			const h = endY - startY;
+			if (w <= 0 || h <= 0) return;
+
+			const imgData = tempContext.getImageData(startX, startY, w, h);
 			const d = imgData.data;
 
-			for (let py = 0; py < size; py++) {
-				for (const px of Array(size).keys()) {
-					const dx = px - radius;
-					const dy = py - radius;
-					if (dx * dx + dy * dy <= radius * radius) {
-						const i = (py * size + px) * 4;
-						// Burn algorithm
+			for (let py = 0; py < h; py++) {
+				for (let px = 0; px < w; px++) {
+					const gx = startX + px - x;
+					const gy = startY + py - y;
+					if (gx * gx + gy * gy <= radius * radius) {
+						const i = (py * w + px) * 4;
+						// Burn: darken (move toward black)
 						d[i] = Math.max(0, d[i] - d[i] * intensity);
 						d[i + 1] = Math.max(0, d[i + 1] - d[i + 1] * intensity);
 						d[i + 2] = Math.max(0, d[i + 2] - d[i + 2] * intensity);
@@ -1017,7 +1033,14 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			tempContext.putImageData(imgData, startX, startY);
 			if (tempCanvas) setTempImage(tempCanvas as any);
 		},
-		[brushSettings.size, brushSettings.burnIntensity, tempContext, tempCanvas],
+		[
+			brushSettings.size,
+			brushSettings.burnIntensity,
+			tempContext,
+			tempCanvas,
+			actualWidth,
+			actualHeight,
+		],
 	);
 
 	/* --- EYEDROPPER TOOL LOGIC --- */
@@ -1063,14 +1086,9 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			const imageData = ctx.getImageData(0, 0, actualWidth, actualHeight);
 			const { data, width, height } = imageData;
 
-			// Konvertovať súradnice na celé čísla
-			const x = Math.floor(startX);
-			const y = Math.floor(startY);
-
-			if (x < 0 || x >= width || y < 0 || y >= height) {
-				toast.error("Fill point is outside canvas");
-				return;
-			}
+			// Clamp coordinates to canvas bounds (zoom/pan can yield out-of-bounds values)
+			const x = Math.max(0, Math.min(width - 1, Math.floor(startX)));
+			const y = Math.max(0, Math.min(height - 1, Math.floor(startY)));
 
 			const startIdx = (y * width + x) * 4;
 
@@ -1082,12 +1100,13 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				a: data[startIdx + 3],
 			};
 
-			// Parsovať fillColor do RGB
+			// Parsovať fillColor do RGB (podpora #rgb, #rrggbb)
 			let fillRGB: { r: number; g: number; b: number; a: number };
 			if (fillColor.startsWith("#")) {
-				const r = parseInt(fillColor.slice(1, 3), 16);
-				const g = parseInt(fillColor.slice(3, 5), 16);
-				const b = parseInt(fillColor.slice(5, 7), 16);
+				const hex = fillColor.slice(1).replace(/^(.)(.)(.)$/, "$1$1$2$2$3$3");
+				const r = parseInt(hex.slice(0, 2), 16) || 0;
+				const g = parseInt(hex.slice(2, 4), 16) || 0;
+				const b = parseInt(hex.slice(4, 6), 16) || 0;
 				fillRGB = { r, g, b, a: 255 };
 			} else if (fillColor.startsWith("rgb")) {
 				const match = fillColor.match(/\d+/g);
@@ -1828,6 +1847,21 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				}
 			}
 
+			// Dodge/Burn: copy current layer to temp so we read/write on same buffer and accumulate
+			if (activeTool === "dodge" || activeTool === "burn") {
+				updateAuxCanvases();
+				if (tempContext && floodFillCanvas.current) {
+					tempContext.drawImage(
+						floodFillCanvas.current,
+						0,
+						0,
+						actualWidth,
+						actualHeight,
+					);
+					if (tempCanvas) setTempImage(tempCanvas as any);
+				}
+			}
+
 			// Use helper functions for complex bitmap brushes
 			if (activeTool === "clone") {
 				handleCloneBrush(pos.x, pos.y);
@@ -1847,6 +1881,10 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			brushSettings.size,
 			activeLayerId,
 			tempContext,
+			actualWidth,
+			actualHeight,
+			updateAuxCanvases,
+			tempCanvas,
 			handleCloneBrush,
 			applyHealingBrush,
 			applyBlurBrush,
