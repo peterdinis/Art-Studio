@@ -293,8 +293,9 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		height: number;
 	} | null>(null);
 
-	// Performance: Throttle mouse move events
+	// Performance: Throttle mouse move events (ref so first move after mousedown isn't skipped)
 	const lastMouseMoveTime = useRef<number>(0);
+	const isSelectingRef = useRef(false);
 	const throttleDelay = 16; // ~60fps
 	const [selectionStartPoint, setSelectionStartPoint] = useState<{
 		x: number;
@@ -1047,34 +1048,41 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 	const handleEyedropper = useCallback(
 		(x: number, y: number, isAltPressed: boolean = false) => {
 			updateAuxCanvases();
-			const ctx = eyedropperContext.current;
-			if (!ctx?.canvas) {
-				toast.error("Eyedropper not ready");
-				return;
-			}
-			const w = ctx.canvas.width;
-			const h = ctx.canvas.height;
-			const px = Math.max(0, Math.min(w - 1, Math.floor(x)));
-			const py = Math.max(0, Math.min(h - 1, Math.floor(y)));
-			let data: Uint8ClampedArray;
-			try {
-				data = ctx.getImageData(px, py, 1, 1).data;
-			} catch (err) {
-				toast.error("Could not sample color");
-				return;
-			}
-			const toHex = (value: number) => {
-				const hex = Math.max(0, Math.min(255, value)).toString(16);
-				return hex.length === 1 ? "0" + hex : hex;
-			};
-			const hexColor = `#${toHex(data[0])}${toHex(data[1])}${toHex(data[2])}`;
-			if (isAltPressed) {
-				setSecondaryColor(hexColor);
-				toast.success(`Secondary color: ${hexColor}`);
-			} else {
-				setPrimaryColor(hexColor);
-				toast.success(`Primary color: ${hexColor}`);
-			}
+			// Defer read to next frame so aux canvas has been drawn
+			requestAnimationFrame(() => {
+				const ctx = eyedropperContext.current;
+				if (!ctx?.canvas) {
+					toast.error("Eyedropper not ready");
+					return;
+				}
+				const w = ctx.canvas.width;
+				const h = ctx.canvas.height;
+				if (w <= 0 || h <= 0) {
+					toast.error("Canvas not ready");
+					return;
+				}
+				const px = Math.max(0, Math.min(w - 1, Math.floor(x)));
+				const py = Math.max(0, Math.min(h - 1, Math.floor(y)));
+				let data: Uint8ClampedArray;
+				try {
+					data = ctx.getImageData(px, py, 1, 1).data;
+				} catch {
+					toast.error("Could not sample color");
+					return;
+				}
+				const toHex = (value: number) => {
+					const hex = Math.max(0, Math.min(255, value)).toString(16);
+					return hex.length === 1 ? "0" + hex : hex;
+				};
+				const hexColor = `#${toHex(data[0])}${toHex(data[1])}${toHex(data[2])}`;
+				if (isAltPressed) {
+					setSecondaryColor(hexColor);
+					toast.success(`Secondary color: ${hexColor}`);
+				} else {
+					setPrimaryColor(hexColor);
+					toast.success(`Primary color: ${hexColor}`);
+				}
+			});
 		},
 		[setPrimaryColor, setSecondaryColor, updateAuxCanvases],
 	);
@@ -1615,9 +1623,12 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		(targetX: number, targetY: number) => {
 			if (!cloneSourcePoint.current || !shapeStartPoint.current || !tempContext)
 				return;
+			updateAuxCanvases();
 			const ctx = floodFillContext.current;
-			if (!ctx) return;
-			const size = Math.round(brushSettings.size);
+			if (!ctx?.canvas) return;
+			const w = actualWidth;
+			const h = actualHeight;
+			const size = Math.max(1, Math.round(brushSettings.size));
 			const radius = size / 2;
 			const offset = {
 				x: targetX - shapeStartPoint.current.x,
@@ -1630,14 +1641,27 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			const startY = Math.floor(targetY - radius);
 			const srcX = Math.floor(srcBaseX - radius);
 			const srcY = Math.floor(srcBaseY - radius);
+			// Clamp to canvas bounds so getImageData/putImageData don't throw
+			const clampStart = (s: number, maxVal: number) =>
+				Math.max(0, Math.min(maxVal - size, s));
+			const safeStartX = clampStart(startX, w);
+			const safeStartY = clampStart(startY, h);
+			const safeSrcX = clampStart(srcX, w);
+			const safeSrcY = clampStart(srcY, h);
 
-			const srcImgData = ctx.getImageData(srcX, srcY, size, size);
-			const dstImgData = ctx.getImageData(startX, startY, size, size);
+			let srcImgData: ImageData;
+			let dstImgData: ImageData;
+			try {
+				srcImgData = ctx.getImageData(safeSrcX, safeSrcY, size, size);
+				dstImgData = tempContext.getImageData(safeStartX, safeStartY, size, size);
+			} catch {
+				return;
+			}
 			const src = srcImgData.data;
 			const dst = dstImgData.data;
 
 			for (let py = 0; py < size; py++) {
-				for (const px of Array(size).keys()) {
+				for (let px = 0; px < size; px++) {
 					const dx = px - radius;
 					const dy = py - radius;
 					if (dx * dx + dy * dy <= radius * radius) {
@@ -1650,10 +1674,17 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				}
 			}
 
-			tempContext.putImageData(dstImgData, startX, startY);
+			tempContext.putImageData(dstImgData, safeStartX, safeStartY);
 			if (tempCanvas) setTempImage(tempCanvas as any);
 		},
-		[brushSettings.size, tempContext, tempCanvas],
+		[
+			brushSettings.size,
+			tempContext,
+			tempCanvas,
+			actualWidth,
+			actualHeight,
+			updateAuxCanvases,
+		],
 	);
 
 	const applyHealingBrush = useCallback(
@@ -1862,8 +1893,12 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				}
 			}
 
-			// Dodge/Burn: copy current layer to temp so we read/write on same buffer and accumulate
-			if (activeTool === "dodge" || activeTool === "burn") {
+			// Dodge/Burn/Clone: copy current layer to temp so we draw on top of layer content
+			if (
+				activeTool === "dodge" ||
+				activeTool === "burn" ||
+				activeTool === "clone"
+			) {
 				updateAuxCanvases();
 				if (tempContext && floodFillCanvas.current) {
 					tempContext.drawImage(
@@ -2182,12 +2217,15 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				}
 			}
 			if (activeTool === "marquee" || activeTool === "crop") {
+				clearSelection();
+				isSelectingRef.current = true;
 				setIsSelecting(true);
 				setSelectionStartPoint(pos);
 				setSelectionBounds({ x: pos.x, y: pos.y, width: 0, height: 0 });
 			}
 			if (activeTool === "lasso") {
 				clearSelection();
+				isSelectingRef.current = true;
 				setIsSelecting(true);
 				setSelectionStartPoint(pos);
 				setSelectionPath([pos.x, pos.y]);
@@ -2417,6 +2455,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			now - lastMouseMoveTime.current < throttleDelay &&
 			!isDrawing &&
 			!isSelecting &&
+			!isSelectingRef.current &&
 			!isDrawingGradient &&
 			!isDrawingPolygon &&
 			!currentPenLine &&
@@ -2588,6 +2627,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		}
 
 		if (isSelecting) {
+			isSelectingRef.current = false;
 			setIsSelecting(false);
 			if (activeTool === "marquee" && selectionBounds) {
 				const { x, y, width, height } = selectionBounds;
@@ -2794,7 +2834,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			].includes(activeTool)
 		)
 			return "crosshair";
-		if (["marquee", "lasso", "magicwand"].includes(activeTool))
+		if (["marquee", "lasso", "magicwand", "crop"].includes(activeTool))
 			return "crosshair";
 		if (activeTool === "text") return "text";
 		if (activeTool === "move") return "move";
