@@ -1442,13 +1442,18 @@ export const useArtStudioStore = create<ArtStudioState>()(
 		{
 			name: "artstudio-ui-store",
 			storage: createJSONStorage(() => localStorage),
-			version: 2, // Zvýšiť verziu
-			// Persist only UI settings and history
+			version: 3, // Bump: history no longer persisted (was exceeding quota)
+			migrate: (persisted: unknown, version: number) => {
+				// From v2 to v3: stop persisting history to avoid quota; drop it when loading old state
+				if (version < 3 && persisted && typeof persisted === "object") {
+					const p = persisted as Record<string, unknown>;
+					const { history: _h, historyIndex: _i, ...rest } = p;
+					return rest as typeof persisted;
+				}
+				return persisted;
+			},
+			// Persist only UI settings; history stays in memory (canvasData + thumbnails too large for localStorage)
 			partialize: (state) => ({
-				// History state - PŘIDANÉ
-				history: state.history,
-				historyIndex: state.historyIndex,
-
 				// UI Settings
 				showLeftPanel: state.showLeftPanel,
 				showRightPanel: state.showRightPanel,
