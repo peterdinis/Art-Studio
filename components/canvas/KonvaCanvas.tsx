@@ -760,12 +760,6 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			"artstudio:restore-history",
 			handleRestoreHistory as EventListener,
 		);
-		window.addEventListener("artstudio:add-text", handleAddTextEvent as EventListener);
-		window.addEventListener("artstudio:update-text", handleUpdateTextEvent as EventListener);
-		window.addEventListener("artstudio:delete-text", handleDeleteTextEvent as EventListener);
-		window.addEventListener("artstudio:start-text-edit", handleStartTextEditEvent as EventListener);
-		window.addEventListener("artstudio:cancel-text-edit", handleCancelTextEditEvent as EventListener);
-		window.addEventListener("artstudio:select-text", handleSelectTextEvent as EventListener);
 		window.addEventListener("artstudio:delete-selected", handleDeleteSelectedEvent as EventListener);
 
 		return () => {
@@ -781,22 +775,10 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				"artstudio:restore-history",
 				handleRestoreHistory as EventListener,
 			);
-			window.removeEventListener("artstudio:add-text", handleAddTextEvent as EventListener);
-			window.removeEventListener("artstudio:update-text", handleUpdateTextEvent as EventListener);
-			window.removeEventListener("artstudio:delete-text", handleDeleteTextEvent as EventListener);
-			window.removeEventListener("artstudio:start-text-edit", handleStartTextEditEvent as EventListener);
-			window.removeEventListener("artstudio:cancel-text-edit", handleCancelTextEditEvent as EventListener);
-			window.removeEventListener("artstudio:select-text", handleSelectTextEvent as EventListener);
 			window.removeEventListener("artstudio:delete-selected", handleDeleteSelectedEvent as EventListener);
 		};
 	}, [
 		restoreCanvasState,
-		handleAddText,
-		handleUpdateText,
-		handleDeleteText,
-		handleStartTextEdit,
-		handleCancelTextEdit,
-		handleSelectText,
 		handleDeleteSelected,
 	]);
 
@@ -840,12 +822,6 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			);
 		};
 
-		/* --- NEW: Clear canvas event listener --- */
-		const handleClearCanvasEvent = (e: CustomEvent) => {
-			const preserveBackground = e.detail?.preserveBackground || false;
-			handleClearCanvas({ preserveBackground });
-		};
-
 		window.addEventListener(
 			"artstudio:add-text",
 			handleAddTextEvent as EventListener,
@@ -873,10 +849,6 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		window.addEventListener(
 			"artstudio:request-text-objects",
 			handleRequestTextObjects,
-		);
-		window.addEventListener(
-			"artstudio:clear-canvas",
-			handleClearCanvasEvent as EventListener,
 		);
 
 		return () => {
@@ -908,10 +880,6 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				"artstudio:request-text-objects",
 				handleRequestTextObjects,
 			);
-			window.removeEventListener(
-				"artstudio:clear-canvas",
-				handleClearCanvasEvent as EventListener,
-			);
 		};
 	}, [
 		handleAddText,
@@ -921,7 +889,6 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		handleCancelTextEdit,
 		handleSelectText,
 		textObjects,
-		handleClearCanvas,
 	]);
 
 	/* --- TEXT AREA POSITION UPDATER --- */
@@ -971,14 +938,9 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 
 			tempContext.restore();
 
-			// OKAMŽITE aktualizovať temp image pre zobrazenie
-			if (tempCanvas) {
-				const img = new window.Image();
-				img.src = tempCanvas.toDataURL();
-				img.onload = () => {
-					setTempImage(img);
-				};
-			}
+			// Optimized: Use the canvas directly instead of toDataURL
+			// This avoids expensive base64 encoding and image creation on every move
+			setTempImage(tempCanvas as any);
 		},
 		[brushSettings.size, tempContext, tempCanvas],
 	);
@@ -1184,22 +1146,24 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				return;
 			}
 
-			// Nastaviť toleranciu - ensure at least some tolerance for compression artifacts
-			const tolerance =
-				brushSettings.fillTolerance > 0 ? brushSettings.fillTolerance : 32;
+			// Nastaviť toleranciu - 0 to 100 range converted to Manhattan distance (max 1020)
+			const toleranceValue = brushSettings.fillTolerance ?? 32;
+			const tolerance = (toleranceValue / 100) * 1020;
 
 			// Vytvoriť masku navštívených pixelov
 			const visited = new Uint8Array(width * height);
-			const stack: [number, number][] = [[x, y]];
-			const filledPixels: [number, number][] = [];
+			// Dynamic stack prevents overflow for large fills
+			const stack: number[] = [x, y];
 
 			// Performance: Limit max iterations to prevent freezing
 			const maxIterations = width * height;
 			let iterations = 0;
+			let filledCount = 0;
 
 			while (stack.length > 0 && iterations < maxIterations) {
 				iterations++;
-				const [currentX, currentY] = stack.pop()!;
+				const currentY = stack.pop()!;
+				const currentX = stack.pop()!;
 				const idx = currentY * width + currentX;
 
 				if (visited[idx]) continue;
@@ -1211,36 +1175,33 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				const b = data[pixelIdx + 2];
 				const a = data[pixelIdx + 3];
 
-				// Use faster Manhattan distance for performance
+				// Manhattan distance for speed
 				const colorDistance =
 					Math.abs(r - targetColor.r) +
 					Math.abs(g - targetColor.g) +
 					Math.abs(b - targetColor.b) +
 					Math.abs(a - targetColor.a);
 
-				if (colorDistance <= tolerance * 4) {
-					// Adjust threshold for Manhattan distance
-					// Pridať pixel do zoznamu vyplnených
-					filledPixels.push([currentX, currentY]);
+				if (colorDistance <= tolerance) {
+					// Apply color directly to buffer
+					data[pixelIdx] = fillRGB.r;
+					data[pixelIdx + 1] = fillRGB.g;
+					data[pixelIdx + 2] = fillRGB.b;
+					data[pixelIdx + 3] = fillRGB.a;
+					filledCount++;
 
-					// Pridať susedné pixely do zásobníka (check visited first for performance)
-					if (currentX > 0 && !visited[currentY * width + currentX - 1]) {
-						stack.push([currentX - 1, currentY]);
+					// Push neighbors
+					if (currentX > 0 && !visited[idx - 1]) {
+						stack.push(currentX - 1, currentY);
 					}
-					if (
-						currentX < width - 1 &&
-						!visited[currentY * width + currentX + 1]
-					) {
-						stack.push([currentX + 1, currentY]);
+					if (currentX < width - 1 && !visited[idx + 1]) {
+						stack.push(currentX + 1, currentY);
 					}
-					if (currentY > 0 && !visited[(currentY - 1) * width + currentX]) {
-						stack.push([currentX, currentY - 1]);
+					if (currentY > 0 && !visited[idx - width]) {
+						stack.push(currentX, currentY - 1);
 					}
-					if (
-						currentY < height - 1 &&
-						!visited[(currentY + 1) * width + currentX]
-					) {
-						stack.push([currentX, currentY + 1]);
+					if (currentY < height - 1 && !visited[idx + width]) {
+						stack.push(currentX, currentY + 1);
 					}
 				}
 			}
@@ -1250,20 +1211,10 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			}
 
 			// Ak nebol vyplnený žiadny pixel
-			if (filledPixels.length === 0) {
+			if (filledCount === 0) {
 				toast.info("No area to fill within tolerance");
 				return;
 			}
-
-
-			// Aplikovať farbu na vyplnené pixely
-			filledPixels.forEach(([px, py]) => {
-				const idx = (py * width + px) * 4;
-				data[idx] = fillRGB.r;
-				data[idx + 1] = fillRGB.g;
-				data[idx + 2] = fillRGB.b;
-				data[idx + 3] = fillRGB.a;
-			});
 
 			// Aktualizovať obrázok na canvase
 			ctx.putImageData(imageData, 0, 0);
@@ -1288,7 +1239,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			}, 100);
 
 			saveCanvasState("Flood Fill applied");
-			toast.success(`Filled ${filledPixels.length} pixels`);
+			toast.success(`Filled ${filledCount} pixels`);
 		},
 		[
 			actualWidth,
@@ -1429,8 +1380,13 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		);
 
 		const handleRestoreHistory = (e: any) => {
-			if (e.detail && typeof e.detail === "string") {
-				restoreCanvasState(e.detail);
+			const detail = e?.detail;
+			if (typeof detail === "string") {
+				restoreCanvasState(detail);
+				return;
+			}
+			if (detail?.canvasData && typeof detail.canvasData === "string") {
+				restoreCanvasState(detail.canvasData);
 			}
 		};
 		window.addEventListener("artstudio:restore-history", handleRestoreHistory);
@@ -1575,16 +1531,20 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			const targetA = data[startIdx + 3];
 
 			const visited = new Uint8Array(width * height);
-			const queue: [number, number][] = [[px, py]];
+			// Dynamic stack prevents overflow for large selections
+			const stack: number[] = [px, py];
+
 			const boundaryPath: number[] = [];
 			// Performance: Limit max iterations to prevent freezing on large selections
 			const maxIterations = width * height;
 			let iterations = 0;
 
-			while (queue.length > 0 && iterations < maxIterations) {
+			while (stack.length > 0 && iterations < maxIterations) {
 				iterations++;
-				const [x, y] = queue.shift()!;
+				const y = stack.pop()!;
+				const x = stack.pop()!;
 				const idx = y * width + x;
+
 				if (visited[idx]) continue;
 				visited[idx] = 1;
 
@@ -1594,26 +1554,32 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				const b = data[dataIdx + 2];
 				const a = data[dataIdx + 3];
 
-				// Use faster Manhattan distance for performance
+				// Manhattan distance for speed
 				const distance =
 					Math.abs(r - targetR) +
 					Math.abs(g - targetG) +
 					Math.abs(b - targetB) +
 					Math.abs(a - targetA);
 
-				if (distance <= magicWandTolerance * 4) {
-					if (x > 0 && !visited[y * width + x - 1]) queue.push([x - 1, y]);
-					if (x < width - 1 && !visited[y * width + x + 1])
-						queue.push([x + 1, y]);
-					if (y > 0 && !visited[(y - 1) * width + x]) queue.push([x, y - 1]);
-					if (y < height - 1 && !visited[(y + 1) * width + x])
-						queue.push([x, y + 1]);
+				if (distance <= magicWandTolerance * 10.2) {
+					if (x > 0 && !visited[idx - 1]) {
+						stack.push(x - 1, y);
+					}
+					if (x < width - 1 && !visited[idx + 1]) {
+						stack.push(x + 1, y);
+					}
+					if (y > 0 && !visited[idx - width]) {
+						stack.push(x, y - 1);
+					}
+					if (y < height - 1 && !visited[idx + width]) {
+						stack.push(x, y + 1);
+					}
 				}
 			}
 
 			// To find the boundary, we check if a pixel has at least one neighbor that is NOT in the selection
 			for (let y = 0; y < height; y++) {
-				for (const x of Array(width).keys()) {
+				for (let x = 0; x < width; x++) {
 					const idx = y * width + x;
 					if (visited[idx]) {
 						const isEdge =
@@ -1738,7 +1704,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			const dst = targetImgData.data;
 
 			for (let py = 0; py < size; py++) {
-				for (const px of Array(size).keys()) {
+				for (let px = 0; px < size; px++) {
 					const dx = px - radius;
 					const dy = py - radius;
 					if (dx * dx + dy * dy <= radius * radius) {
@@ -1777,7 +1743,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			const dst = targetData.data;
 
 			for (let py = 0; py < size; py++) {
-				for (const px of Array(size).keys()) {
+				for (let px = 0; px < size; px++) {
 					const dx = px - radius;
 					const dy = py - radius;
 					if (dx * dx + dy * dy <= radius * radius) {
@@ -1836,8 +1802,8 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		setShapes((prevShapes) =>
 			prevShapes.map((s) => ({
 				...s,
-				x: s.x - (s.x ? x : 0),
-				y: s.y - (s.y ? y : 0),
+				x: typeof s.x === "number" ? s.x - x : s.x,
+				y: typeof s.y === "number" ? s.y - y : s.y,
 			})),
 		);
 		setImages((prevImages) =>
@@ -1868,7 +1834,9 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		activeTool,
 		selectionBounds,
 		actualBackground,
+		gradients,
 		setCanvasSize,
+		setGradients,
 		saveCanvasState,
 	]);
 
@@ -2921,656 +2889,658 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 	}, [historyIndex]);
 
 	return (
-		<div
-			ref={containerRef}
-			className="flex-1 overflow-hidden bg-canvas relative flex items-center justify-center"
-			style={{ cursor: getCursor() }}
-		>
+		<div>
 			<div
-				className="absolute inset-0 opacity-20 pointer-events-none"
-				style={{
-					backgroundImage: `
+				ref={containerRef}
+				className="flex-1 overflow-hidden bg-canvas relative flex items-center justify-center"
+				style={{ cursor: getCursor() }}
+			>
+				<div
+					className="absolute inset-0 opacity-20 pointer-events-none"
+					style={{
+						backgroundImage: `
             linear-gradient(45deg, hsl(var(--muted)) 25%, transparent 25%),
             linear-gradient(-45deg, hsl(var(--muted)) 25%, transparent 25%),
             linear-gradient(45deg, transparent 75%, hsl(var(--muted)) 75%),
             linear-gradient(-45deg, transparent 75%, hsl(var(--muted)) 75%)
           `,
-					backgroundSize: "20px 20px",
-					backgroundPosition: "0 0, 0 10px, 10px -10px, -10px 0px",
-				}}
-			/>
+						backgroundSize: "20px 20px",
+						backgroundPosition: "0 0, 0 10px, 10px -10px, -10px 0px",
+					}}
+				/>
 
-			{showSessionNotification && (
-				<div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-green-500/10 text-green-600 text-xs px-3 py-1.5 rounded-full border border-green-500/20 pointer-events-none z-20 flex items-center gap-2">
-					<div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-					<span>Session restored • Auto-save active</span>
-				</div>
-			)}
+				{showSessionNotification && (
+					<div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-green-500/10 text-green-600 text-xs px-3 py-1.5 rounded-full border border-green-500/20 pointer-events-none z-20 flex items-center gap-2">
+						<div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+						<span>Session restored • Auto-save active</span>
+					</div>
+				)}
 
-			<div
-				className="relative shadow-2xl rounded-sm overflow-hidden"
-				style={{ backgroundColor: actualBackground }}
-				onWheel={(e) => {
-					if (e.ctrlKey || e.metaKey) {
-						e.preventDefault();
-						const stage = stageRef.current;
-						if (stage) {
-							const stageBox = stage.container().getBoundingClientRect();
-							const point = {
-								x: e.clientX - stageBox.left,
-								y: e.clientY - stageBox.top,
-							};
-							zoomWithWheel(e.deltaY, point);
-						}
-					} else {
-						// Pan with wheel
-						setPanOffset({
-							x: panOffset.x - e.deltaX / (zoom / 100),
-							y: panOffset.y - e.deltaY / (zoom / 100),
-						});
-					}
-				}}
-			>
-				<Stage
-					ref={stageRef}
-					width={stageSize.width}
-					height={stageSize.height}
-					scaleX={zoom / 100}
-					scaleY={zoom / 100}
-					x={panOffset.x}
-					y={panOffset.y}
-					onMouseDown={handleMouseDown}
-					onMouseMove={handleMouseMove}
-					onMouseUp={handleMouseUp}
-					onMouseLeave={handleMouseUp}
-					onDblClick={handleDblClick}
-				>
-					<Layer ref={layerRef}>
-						<Rect
-							name="background"
-							x={0}
-							y={0}
-							width={actualWidth}
-							height={actualHeight}
-							fill={actualBackground}
-						/>
-
-						{lines
-							.filter((l) => isLayerVisible(l.layerId))
-							.map((line) => (
-								<Line
-									key={line.id}
-									id={line.id}
-									points={line.points}
-									stroke={line.stroke}
-									strokeWidth={line.strokeWidth}
-									tension={
-										line.tool === "brush" || line.tool === "eraser" ? 0.5 : 0
-									}
-									lineCap="round"
-									lineJoin="round"
-									perfectDrawEnabled={false}
-									globalCompositeOperation={
-										line.tool === "eraser" ? "destination-out" : "source-over"
-									}
-									draggable={activeTool === "select" || activeTool === "move"}
-									onClick={(e) => {
-										if (activeTool === "select" || activeTool === "move") {
-											handleObjectClick(line.id);
-											e.cancelBubble = true;
-										}
-									}}
-									onDragEnd={(e) => {
-										const dx = e.target.x();
-										const dy = e.target.y();
-										setLines((prev) =>
-											prev.map((l) =>
-												l.id === line.id
-													? { ...l, points: l.points.map((p, i) => (i % 2 === 0 ? p + dx : p + dy)) }
-													: l,
-											),
-										);
-										e.target.position({ x: 0, y: 0 });
-										saveCanvasState("Line moved");
-									}}
-									opacity={layerOpacities[line.layerId] || 1}
+				<CanvasContextMenu>
+					<div
+						className="relative shadow-2xl rounded-sm overflow-hidden"
+						style={{ backgroundColor: actualBackground }}
+						onWheel={(e) => {
+							if (e.ctrlKey || e.metaKey) {
+								e.preventDefault();
+								const stage = stageRef.current;
+								if (stage) {
+									const stageBox = stage.container().getBoundingClientRect();
+									const point = {
+										x: e.clientX - stageBox.left,
+										y: e.clientY - stageBox.top,
+									};
+									zoomWithWheel(e.deltaY, point);
+								}
+							} else {
+								// Pan with wheel
+								setPanOffset({
+									x: panOffset.x - e.deltaX / (zoom / 100),
+									y: panOffset.y - e.deltaY / (zoom / 100),
+								});
+							}
+						}}
+					>
+						<Stage
+							ref={stageRef}
+							width={stageSize.width}
+							height={stageSize.height}
+							scaleX={zoom / 100}
+							scaleY={zoom / 100}
+							x={panOffset.x}
+							y={panOffset.y}
+							onMouseDown={handleMouseDown}
+							onMouseMove={handleMouseMove}
+							onMouseUp={handleMouseUp}
+							onMouseLeave={handleMouseUp}
+							onDblClick={handleDblClick}
+						>
+							<Layer ref={layerRef}>
+								<Rect
+									name="background"
+									x={0}
+									y={0}
+									width={actualWidth}
+									height={actualHeight}
+									fill={actualBackground}
 								/>
-							))}
 
-						{/* Active Line (Live Preview) */}
-						{activeDrawingLine && activeLinePoints.length >= 2 && (
-							<Line
-								points={activeLinePoints}
-								stroke={activeDrawingLine.stroke}
-								strokeWidth={activeDrawingLine.strokeWidth}
-								tension={
-									activeDrawingLine.tool === "brush" || activeDrawingLine.tool === "eraser" ? 0.5 : 0
-								}
-								lineCap="round"
-								lineJoin="round"
-								perfectDrawEnabled={false}
-								globalCompositeOperation={
-									activeDrawingLine.tool === "eraser" ? "destination-out" : "source-over"
-								}
-								listening={false}
-								opacity={layerOpacities[activeDrawingLine.layerId] || 1}
-							/>
-						)}
-
-						{shapes
-							.filter((s) => isLayerVisible(s.layerId))
-							.map((shape) => {
-								const commonProps = {
-									draggable: activeTool === "select" || activeTool === "move",
-									onClick: () => handleObjectClick(shape.id),
-									onTap: () => handleObjectClick(shape.id),
-									onDragEnd: (e: any) => {
-										setShapes(
-											shapes.map((s) =>
-												s.id === shape.id
-													? { ...s, x: e.target.x(), y: e.target.y() }
-													: s,
-											),
-										);
-										saveCanvasState(`${shape.type} moved`);
-									},
-									opacity: layerOpacities[shape.layerId] || 1,
-								};
-
-								switch (shape.type) {
-									case "rect":
-										return (
-											<Rect
-												key={shape.id}
-												id={shape.id}
-												x={shape.x}
-												y={shape.y}
-												width={shape.width}
-												height={shape.height}
-												fill={shape.fill}
-												stroke={shape.stroke}
-												strokeWidth={shape.strokeWidth}
-												rotation={shape.rotation}
-												scaleX={shape.scaleX}
-												scaleY={shape.scaleY}
-												{...commonProps}
-											/>
-										);
-									case "ellipse":
-										return (
-											<Ellipse
-												key={shape.id}
-												id={shape.id}
-												x={shape.x}
-												y={shape.y}
-												radiusX={shape.radiusX || 0}
-												radiusY={shape.radiusY || 0}
-												fill={shape.fill}
-												stroke={shape.stroke}
-												strokeWidth={shape.strokeWidth}
-												rotation={shape.rotation}
-												scaleX={shape.scaleX}
-												scaleY={shape.scaleY}
-												{...commonProps}
-											/>
-										);
-									case "polygon":
-										return (
-											<Line
-												key={shape.id}
-												id={shape.id}
-												points={shape.points}
-												closed
-												fill={shape.fill}
-												stroke={shape.stroke}
-												strokeWidth={shape.strokeWidth}
-												rotation={shape.rotation}
-												scaleX={shape.scaleX}
-												scaleY={shape.scaleY}
-												lineJoin="round"
-												lineCap="round"
-												{...commonProps}
-											/>
-										);
-									case "text":
-										return (
-											<Text
-												key={shape.id}
-												id={shape.id}
-												text={shape.text}
-												x={shape.x}
-												y={shape.y}
-												fontSize={shape.fontSize}
-												fill={shape.fill}
-												rotation={shape.rotation}
-												scaleX={shape.scaleX}
-												scaleY={shape.scaleY}
-												{...commonProps}
-											/>
-										);
-									case "line":
-										return (
-											<Line
-												key={shape.id}
-												id={shape.id}
-												points={shape.points}
-												stroke={shape.stroke}
-												strokeWidth={shape.strokeWidth}
-												lineCap="round"
-												lineJoin="round"
-												{...commonProps}
-											/>
-										);
-									case "star":
-										return (
-											<KonvaStar
-												key={shape.id}
-												id={shape.id}
-												x={shape.x}
-												y={shape.y}
-												numPoints={shape.numPoints || 5}
-												innerRadius={shape.innerRadius || 30}
-												outerRadius={shape.outerRadius || 60}
-												fill={shape.fill}
-												stroke={shape.stroke}
-												strokeWidth={shape.strokeWidth}
-												rotation={shape.rotation}
-												scaleX={shape.scaleX}
-												scaleY={shape.scaleY}
-												{...(commonProps as any)}
-											/>
-										);
-									default:
-										return null;
-								}
-							})}
-
-						{images
-							.filter((img) => isLayerVisible(img.layerId))
-							.map((img) => (
-								<ImageNode
-									key={img.id}
-									image={img}
-									onClick={handleObjectClick}
-									draggable={activeTool === "select" || activeTool === "move"}
-									onDragEnd={(id, x, y) => {
-										setImages(
-											images.map((i) => (i.id === id ? { ...i, x, y } : i)),
-										);
-										saveCanvasState("Image moved");
-									}}
-									opacity={layerOpacities[img.layerId] || 1}
-								/>
-							))}
-
-						{/* Text Objects */}
-						{textObjects
-							.filter((text) => isLayerVisible(text.layerId))
-							.map((text) => {
-								const layerOpacity = layerOpacities[text.layerId] || 1;
-								const textOpacity = (text.opacity || 100) / 100;
-								const combinedOpacity = layerOpacity * textOpacity;
-
-								const commonProps = {
-									id: text.id,
-									draggable:
-										(activeTool === "select" || activeTool === "move") &&
-										!text.isEditing,
-									onClick: (e: any) => {
-										if (activeTool === "select" || activeTool === "move") {
-											setSelectedId(text.id);
-											if (e.evt.detail === 2) {
-												// Double click to edit
-												handleStartTextEdit(text.id);
+								{lines
+									.filter((l) => isLayerVisible(l.layerId))
+									.map((line) => (
+										<Line
+											key={line.id}
+											id={line.id}
+											points={line.points}
+											stroke={line.stroke}
+											strokeWidth={line.strokeWidth}
+											tension={
+												line.tool === "brush" || line.tool === "eraser" ? 0.5 : 0
 											}
-										}
-									},
-									onTap: () => {
-										if (activeTool === "select" || activeTool === "move") {
-											setSelectedId(text.id);
-										}
-									},
-									onDragEnd: (e: any) => {
-										if (text.isEditing) return;
-										setTextObjects((prev) =>
-											prev.map((t) =>
-												t.id === text.id
-													? { ...t, x: e.target.x(), y: e.target.y() }
-													: t,
-											),
-										);
-										saveCanvasState("Text moved");
-									},
-									perfectDrawEnabled: false,
-									listening: !text.isEditing,
-									opacity: combinedOpacity,
-								};
-
-								// Vytvorte štýl pre text
-								const textStyle: any = {
-									fontFamily: text.fontFamily,
-									fontSize: text.fontSize,
-									fontWeight: text.fontWeight,
-									fontStyle: text.fontStyle,
-									textDecoration: text.textDecoration,
-									lineHeight: text.lineHeight,
-									letterSpacing: text.letterSpacing,
-									fill: text.color,
-									align: text.textAlign,
-									padding: text.padding || 0,
-									wrap:
-										text.wrap === "none"
-											? "none"
-											: text.wrap === "char"
-												? "char"
-												: "word",
-								};
-
-								// Pridajte tieň
-								if (text.shadowColor) {
-									textStyle.shadowColor = text.shadowColor;
-									textStyle.shadowBlur = text.shadowBlur || 5;
-									textStyle.shadowOffsetX = text.shadowOffsetX || 2;
-									textStyle.shadowOffsetY = text.shadowOffsetY || 2;
-									textStyle.shadowEnabled = true;
-									textStyle.shadowOpacity = 1;
-								}
-
-								return (
-									<React.Fragment key={text.id}>
-										{/* Pozadie textu ak existuje */}
-										{text.backgroundColor && (
-											<Rect
-												x={text.x - (text.padding || 0)}
-												y={text.y - (text.padding || 0)}
-												width={(text.width || 100) + (text.padding || 0) * 2}
-												height={(text.height || 50) + (text.padding || 0) * 2}
-												fill={`${text.backgroundColor}${Math.round(
-													(text.backgroundOpacity || 20) * 2.55,
-												)
-													.toString(16)
-													.padStart(2, "0")}`}
-												cornerRadius={4}
-												listening={false}
-												opacity={layerOpacity}
-											/>
-										)}
-
-										{/* Hlavný text */}
-										<Text
-											{...commonProps}
-											x={text.x}
-											y={text.y}
-											text={text.text}
-											{...textStyle}
+											lineCap="round"
+											lineJoin="round"
+											perfectDrawEnabled={false}
+											globalCompositeOperation={
+												line.tool === "eraser" ? "destination-out" : "source-over"
+											}
+											draggable={activeTool === "select" || activeTool === "move"}
+											onClick={(e) => {
+												if (activeTool === "select" || activeTool === "move") {
+													handleObjectClick(line.id);
+													e.cancelBubble = true;
+												}
+											}}
+											onDragEnd={(e) => {
+												const dx = e.target.x();
+												const dy = e.target.y();
+												setLines((prev) =>
+													prev.map((l) =>
+														l.id === line.id
+															? { ...l, points: l.points.map((p, i) => (i % 2 === 0 ? p + dx : p + dy)) }
+															: l,
+													),
+												);
+												e.target.position({ x: 0, y: 0 });
+												saveCanvasState("Line moved");
+											}}
+											opacity={layerOpacities[line.layerId] || 1}
 										/>
+									))}
 
-										{/* Obrys textu */}
-										{text.outlineColor && text.outlineWidth && (
-											<Text
-												x={text.x}
-												y={text.y}
-												text={text.text}
-												{...textStyle}
-												fill={text.outlineColor}
-												strokeEnabled={true}
-												stroke={text.color}
-												strokeWidth={text.outlineWidth}
-												perfectDrawEnabled={false}
-												listening={false}
-												opacity={combinedOpacity}
-											/>
-										)}
+								{/* Active Line (Live Preview) */}
+								{activeDrawingLine && activeLinePoints.length >= 2 && (
+									<Line
+										points={activeLinePoints}
+										stroke={activeDrawingLine.stroke}
+										strokeWidth={activeDrawingLine.strokeWidth}
+										tension={
+											activeDrawingLine.tool === "brush" || activeDrawingLine.tool === "eraser" ? 0.5 : 0
+										}
+										lineCap="round"
+										lineJoin="round"
+										perfectDrawEnabled={false}
+										globalCompositeOperation={
+											activeDrawingLine.tool === "eraser" ? "destination-out" : "source-over"
+										}
+										listening={false}
+										opacity={layerOpacities[activeDrawingLine.layerId] || 1}
+									/>
+								)}
 
-										{/* Editovací indikátor */}
-										{text.isEditing && (
-											<Rect
-												x={text.x - 5}
-												y={text.y - 5}
-												width={(text.width || 100) + 10}
-												height={(text.height || 50) + 10}
-												stroke="#3b82f6"
-												strokeWidth={2}
-												dash={[5, 5]}
-												listening={false}
-											/>
-										)}
-									</React.Fragment>
-								);
-							})}
+								{shapes
+									.filter((s) => isLayerVisible(s.layerId))
+									.map((shape) => {
+										const commonProps = {
+											draggable: activeTool === "select" || activeTool === "move",
+											onClick: () => handleObjectClick(shape.id),
+											onTap: () => handleObjectClick(shape.id),
+											onDragEnd: (e: any) => {
+												setShapes(
+													shapes.map((s) =>
+														s.id === shape.id
+															? { ...s, x: e.target.x(), y: e.target.y() }
+															: s,
+													),
+												);
+												saveCanvasState(`${shape.type} moved`);
+											},
+											opacity: layerOpacities[shape.layerId] || 1,
+										};
 
-						{/* Gradients - render after all objects */}
-						{gradients
-							.filter((g) => isLayerVisible(g.layerId))
-							.map((g) => {
-								// Create gradient as image to avoid white background
-								const gradientCanvas = useMemo(() => {
-									const canvas = document.createElement("canvas");
-									canvas.width = actualWidth;
-									canvas.height = actualHeight;
-									const ctx = canvas.getContext("2d");
-									if (ctx && g.colorStops && g.colorStops.length > 0) {
-										const gradient = ctx.createLinearGradient(
+										switch (shape.type) {
+											case "rect":
+												return (
+													<Rect
+														key={shape.id}
+														id={shape.id}
+														x={shape.x}
+														y={shape.y}
+														width={shape.width}
+														height={shape.height}
+														fill={shape.fill}
+														stroke={shape.stroke}
+														strokeWidth={shape.strokeWidth}
+														rotation={shape.rotation}
+														scaleX={shape.scaleX}
+														scaleY={shape.scaleY}
+														{...commonProps}
+													/>
+												);
+											case "ellipse":
+												return (
+													<Ellipse
+														key={shape.id}
+														id={shape.id}
+														x={shape.x}
+														y={shape.y}
+														radiusX={shape.radiusX || 0}
+														radiusY={shape.radiusY || 0}
+														fill={shape.fill}
+														stroke={shape.stroke}
+														strokeWidth={shape.strokeWidth}
+														rotation={shape.rotation}
+														scaleX={shape.scaleX}
+														scaleY={shape.scaleY}
+														{...commonProps}
+													/>
+												);
+											case "polygon":
+												return (
+													<Line
+														key={shape.id}
+														id={shape.id}
+														points={shape.points}
+														closed
+														fill={shape.fill}
+														stroke={shape.stroke}
+														strokeWidth={shape.strokeWidth}
+														rotation={shape.rotation}
+														scaleX={shape.scaleX}
+														scaleY={shape.scaleY}
+														lineJoin="round"
+														lineCap="round"
+														{...commonProps}
+													/>
+												);
+											case "text":
+												return (
+													<Text
+														key={shape.id}
+														id={shape.id}
+														text={shape.text}
+														x={shape.x}
+														y={shape.y}
+														fontSize={shape.fontSize}
+														fill={shape.fill}
+														rotation={shape.rotation}
+														scaleX={shape.scaleX}
+														scaleY={shape.scaleY}
+														{...commonProps}
+													/>
+												);
+											case "line":
+												return (
+													<Line
+														key={shape.id}
+														id={shape.id}
+														points={shape.points}
+														stroke={shape.stroke}
+														strokeWidth={shape.strokeWidth}
+														lineCap="round"
+														lineJoin="round"
+														{...commonProps}
+													/>
+												);
+											case "star":
+												return (
+													<KonvaStar
+														key={shape.id}
+														id={shape.id}
+														x={shape.x}
+														y={shape.y}
+														numPoints={shape.numPoints || 5}
+														innerRadius={shape.innerRadius || 30}
+														outerRadius={shape.outerRadius || 60}
+														fill={shape.fill}
+														stroke={shape.stroke}
+														strokeWidth={shape.strokeWidth}
+														rotation={shape.rotation}
+														scaleX={shape.scaleX}
+														scaleY={shape.scaleY}
+														{...(commonProps as any)}
+													/>
+												);
+											default:
+												return null;
+										}
+									})}
+
+								{images
+									.filter((img) => isLayerVisible(img.layerId))
+									.map((img) => (
+										<ImageNode
+											key={img.id}
+											image={img}
+											onClick={handleObjectClick}
+											draggable={activeTool === "select" || activeTool === "move"}
+											onDragEnd={(id, x, y) => {
+												setImages(
+													images.map((i) => (i.id === id ? { ...i, x, y } : i)),
+												);
+												saveCanvasState("Image moved");
+											}}
+											opacity={layerOpacities[img.layerId] || 1}
+										/>
+									))}
+
+								{/* Text Objects */}
+								{textObjects
+									.filter((text) => isLayerVisible(text.layerId))
+									.map((text) => {
+										const layerOpacity = layerOpacities[text.layerId] || 1;
+										const textOpacity = (text.opacity || 100) / 100;
+										const combinedOpacity = layerOpacity * textOpacity;
+
+										const commonProps = {
+											id: text.id,
+											draggable:
+												(activeTool === "select" || activeTool === "move") &&
+												!text.isEditing,
+											onClick: (e: any) => {
+												if (activeTool === "select" || activeTool === "move") {
+													setSelectedId(text.id);
+													if (e.evt.detail === 2) {
+														// Double click to edit
+														handleStartTextEdit(text.id);
+													}
+												}
+											},
+											onTap: () => {
+												if (activeTool === "select" || activeTool === "move") {
+													setSelectedId(text.id);
+												}
+											},
+											onDragEnd: (e: any) => {
+												if (text.isEditing) return;
+												setTextObjects((prev) =>
+													prev.map((t) =>
+														t.id === text.id
+															? { ...t, x: e.target.x(), y: e.target.y() }
+															: t,
+													),
+												);
+												saveCanvasState("Text moved");
+											},
+											perfectDrawEnabled: false,
+											listening: !text.isEditing,
+											opacity: combinedOpacity,
+										};
+
+										// Vytvorte štýl pre text
+										const textStyle: any = {
+											fontFamily: text.fontFamily,
+											fontSize: text.fontSize,
+											fontWeight: text.fontWeight,
+											fontStyle: text.fontStyle,
+											textDecoration: text.textDecoration,
+											lineHeight: text.lineHeight,
+											letterSpacing: text.letterSpacing,
+											fill: text.color,
+											align: text.textAlign,
+											padding: text.padding || 0,
+											wrap:
+												text.wrap === "none"
+													? "none"
+													: text.wrap === "char"
+														? "char"
+														: "word",
+										};
+
+										// Pridajte tieň
+										if (text.shadowColor) {
+											textStyle.shadowColor = text.shadowColor;
+											textStyle.shadowBlur = text.shadowBlur || 5;
+											textStyle.shadowOffsetX = text.shadowOffsetX || 2;
+											textStyle.shadowOffsetY = text.shadowOffsetY || 2;
+											textStyle.shadowEnabled = true;
+											textStyle.shadowOpacity = 1;
+										}
+
+										return (
+											<React.Fragment key={text.id}>
+												{/* Pozadie textu ak existuje */}
+												{text.backgroundColor && (
+													<Rect
+														x={text.x - (text.padding || 0)}
+														y={text.y - (text.padding || 0)}
+														width={(text.width || 100) + (text.padding || 0) * 2}
+														height={(text.height || 50) + (text.padding || 0) * 2}
+														fill={`${text.backgroundColor}${Math.round(
+															(text.backgroundOpacity || 20) * 2.55,
+														)
+															.toString(16)
+															.padStart(2, "0")}`}
+														cornerRadius={4}
+														listening={false}
+														opacity={layerOpacity}
+													/>
+												)}
+
+												{/* Hlavný text */}
+												<Text
+													{...commonProps}
+													x={text.x}
+													y={text.y}
+													text={text.text}
+													{...textStyle}
+												/>
+
+												{/* Obrys textu */}
+												{text.outlineColor && text.outlineWidth && (
+													<Text
+														x={text.x}
+														y={text.y}
+														text={text.text}
+														{...textStyle}
+														fill={text.outlineColor}
+														strokeEnabled={true}
+														stroke={text.color}
+														strokeWidth={text.outlineWidth}
+														perfectDrawEnabled={false}
+														listening={false}
+														opacity={combinedOpacity}
+													/>
+												)}
+
+												{/* Editovací indikátor */}
+												{text.isEditing && (
+													<Rect
+														x={text.x - 5}
+														y={text.y - 5}
+														width={(text.width || 100) + 10}
+														height={(text.height || 50) + 10}
+														stroke="#3b82f6"
+														strokeWidth={2}
+														dash={[5, 5]}
+														listening={false}
+													/>
+												)}
+											</React.Fragment>
+										);
+									})}
+
+								{/* Gradients - render after all objects */}
+								{gradients
+									.filter((g) => isLayerVisible(g.layerId))
+									.map((g) => {
+										// Create gradient as image to avoid white background
+										const gradientCanvas = useMemo(() => {
+											const canvas = document.createElement("canvas");
+											canvas.width = actualWidth;
+											canvas.height = actualHeight;
+											const ctx = canvas.getContext("2d");
+											if (ctx && g.colorStops && g.colorStops.length > 0) {
+												const gradient = ctx.createLinearGradient(
+													g.x0,
+													g.y0,
+													g.x1,
+													g.y1,
+												);
+												g.colorStops.forEach((stop) => {
+													gradient.addColorStop(stop.offset, stop.color);
+												});
+												ctx.fillStyle = gradient;
+												ctx.fillRect(0, 0, actualWidth, actualHeight);
+											}
+											return canvas;
+										}, [
+											g.id,
 											g.x0,
 											g.y0,
 											g.x1,
 											g.y1,
-										);
-										g.colorStops.forEach((stop) => {
-											gradient.addColorStop(stop.offset, stop.color);
-										});
-										ctx.fillStyle = gradient;
-										ctx.fillRect(0, 0, actualWidth, actualHeight);
-									}
-									return canvas;
-								}, [
-									g.id,
-									g.x0,
-									g.y0,
-									g.x1,
-									g.y1,
-									g.colorStops,
-									actualWidth,
-									actualHeight,
-								]);
+											g.colorStops,
+											actualWidth,
+											actualHeight,
+										]);
 
-								return (
+										return (
+											<KonvaImage
+												key={g.id}
+												image={gradientCanvas}
+												x={0}
+												y={0}
+												width={actualWidth}
+												height={actualHeight}
+												listening={false}
+												globalCompositeOperation="multiply"
+												opacity={layerOpacities[g.layerId] || 1}
+											/>
+										);
+									})}
+
+								{/* TEMP IMAGE PRE REAL-TIME PREVIEW - Only show during active drawing */}
+								{tempImage && (
 									<KonvaImage
-										key={g.id}
-										image={gradientCanvas}
+										image={tempImage}
 										x={0}
 										y={0}
 										width={actualWidth}
 										height={actualHeight}
+										opacity={1}
 										listening={false}
-										globalCompositeOperation="multiply"
-										opacity={layerOpacities[g.layerId] || 1}
+										globalCompositeOperation="source-over"
 									/>
-								);
-							})}
+								)}
 
-						{/* TEMP IMAGE PRE REAL-TIME PREVIEW - Only show during active drawing */}
-						{tempImage && (
-							<KonvaImage
-								image={tempImage}
-								x={0}
-								y={0}
-								width={actualWidth}
-								height={actualHeight}
-								opacity={1}
-								listening={false}
-								globalCompositeOperation="source-over"
-							/>
-						)}
+								{/* Current Shape Previews */}
+								{currentShape && currentShape.type === "rect" && (
+									<Rect
+										id="preview-rect"
+										x={currentShape.x}
+										y={currentShape.y}
+										width={currentShape.width}
+										height={currentShape.height}
+										fill={currentShape.fill}
+										stroke={currentShape.stroke}
+										strokeWidth={currentShape.strokeWidth}
+										opacity={layerOpacities[currentShape.layerId] || 1}
+									/>
+								)}
 
-						{/* Current Shape Previews */}
-						{currentShape && currentShape.type === "rect" && (
-							<Rect
-								id="preview-rect"
-								x={currentShape.x}
-								y={currentShape.y}
-								width={currentShape.width}
-								height={currentShape.height}
-								fill={currentShape.fill}
-								stroke={currentShape.stroke}
-								strokeWidth={currentShape.strokeWidth}
-								opacity={layerOpacities[currentShape.layerId] || 1}
-							/>
-						)}
+								{currentShape && currentShape.type === "ellipse" && (
+									<Ellipse
+										id="preview-ellipse"
+										x={currentShape.x}
+										y={currentShape.y}
+										radiusX={currentShape.radiusX || 0}
+										radiusY={currentShape.radiusY || 0}
+										fill={currentShape.fill}
+										stroke={currentShape.stroke}
+										strokeWidth={currentShape.strokeWidth}
+										opacity={layerOpacities[currentShape.layerId] || 1}
+									/>
+								)}
 
-						{currentShape && currentShape.type === "ellipse" && (
-							<Ellipse
-								id="preview-ellipse"
-								x={currentShape.x}
-								y={currentShape.y}
-								radiusX={currentShape.radiusX || 0}
-								radiusY={currentShape.radiusY || 0}
-								fill={currentShape.fill}
-								stroke={currentShape.stroke}
-								strokeWidth={currentShape.strokeWidth}
-								opacity={layerOpacities[currentShape.layerId] || 1}
-							/>
-						)}
+								{currentShape && currentShape.type === "polygon" && (
+									<Line
+										id="preview-polygon"
+										points={currentShape.points}
+										closed={true}
+										stroke={currentShape.stroke}
+										strokeWidth={currentShape.strokeWidth}
+										lineJoin="round"
+										lineCap="round"
+										opacity={layerOpacities[currentShape.layerId] || 1}
+									/>
+								)}
 
-						{currentShape && currentShape.type === "polygon" && (
-							<Line
-								id="preview-polygon"
-								points={currentShape.points}
-								closed={true}
-								stroke={currentShape.stroke}
-								strokeWidth={currentShape.strokeWidth}
-								lineJoin="round"
-								lineCap="round"
-								opacity={layerOpacities[currentShape.layerId] || 1}
-							/>
-						)}
+								{currentShape && currentShape.type === "line" && (
+									<Line
+										id="preview-line"
+										points={currentShape.points}
+										stroke={currentShape.stroke}
+										strokeWidth={currentShape.strokeWidth}
+										opacity={layerOpacities[currentShape.layerId] || 1}
+									/>
+								)}
 
-						{currentShape && currentShape.type === "line" && (
-							<Line
-								id="preview-line"
-								points={currentShape.points}
-								stroke={currentShape.stroke}
-								strokeWidth={currentShape.strokeWidth}
-								opacity={layerOpacities[currentShape.layerId] || 1}
-							/>
-						)}
+								{currentShape && currentShape.type === "star" && (
+									<KonvaStar
+										id="preview-star"
+										x={currentShape.x}
+										y={currentShape.y}
+										numPoints={currentShape.numPoints || 5}
+										innerRadius={currentShape.innerRadius || 30}
+										outerRadius={currentShape.outerRadius || 60}
+										fill={currentShape.fill}
+										stroke={currentShape.stroke}
+										strokeWidth={currentShape.strokeWidth}
+										rotation={currentShape.rotation}
+										opacity={layerOpacities[currentShape.layerId] || 1}
+									/>
+								)}
 
-						{currentShape && currentShape.type === "star" && (
-							<KonvaStar
-								id="preview-star"
-								x={currentShape.x}
-								y={currentShape.y}
-								numPoints={currentShape.numPoints || 5}
-								innerRadius={currentShape.innerRadius || 30}
-								outerRadius={currentShape.outerRadius || 60}
-								fill={currentShape.fill}
-								stroke={currentShape.stroke}
-								strokeWidth={currentShape.strokeWidth}
-								rotation={currentShape.rotation}
-								opacity={layerOpacities[currentShape.layerId] || 1}
-							/>
-						)}
+								{currentPenLine && (
+									<Line
+										points={currentPenLine.points}
+										stroke={currentPenLine.stroke}
+										strokeWidth={currentPenLine.strokeWidth}
+										opacity={
+											layerOpacities[
+											currentPenLine?.layerId || activeLayerId || "layer-1"
+											] || 1
+										}
+									/>
+								)}
 
-						{currentPenLine && (
-							<Line
-								points={currentPenLine.points}
-								stroke={currentPenLine.stroke}
-								strokeWidth={currentPenLine.strokeWidth}
-								opacity={
-									layerOpacities[
-									currentPenLine?.layerId || activeLayerId || "layer-1"
-									] || 1
-								}
-							/>
-						)}
+								{currentGradient && isDrawingGradient && (
+									<Rect
+										x={0}
+										y={0}
+										width={actualWidth}
+										height={actualHeight}
+										fillLinearGradientStartPoint={{
+											x: currentGradient.x0,
+											y: currentGradient.y0,
+										}}
+										fillLinearGradientEndPoint={{
+											x: currentGradient.x1,
+											y: currentGradient.y1,
+										}}
+										fillLinearGradientColorStops={(
+											currentGradient.colorStops || []
+										).flatMap((s) => [s.offset, s.color])}
+										listening={false}
+										opacity={0.6 * (layerOpacities[currentGradient.layerId] || 1)}
+									/>
+								)}
 
-						{currentGradient && isDrawingGradient && (
-							<Rect
-								x={0}
-								y={0}
-								width={actualWidth}
-								height={actualHeight}
-								fillLinearGradientStartPoint={{
-									x: currentGradient.x0,
-									y: currentGradient.y0,
+								{selectionBounds && (
+									<Rect
+										{...selectionBounds}
+										stroke="#3b82f6"
+										strokeWidth={1}
+										dash={[4, 2]}
+										fill="rgba(59, 130, 246, 0.1)"
+										listening={false}
+									/>
+								)}
+								{selectionPath && selectionPath.length >= 4 && (
+									<Line
+										points={selectionPath}
+										stroke="#3b82f6"
+										strokeWidth={1}
+										dash={[5, 5]}
+										closed
+										fill="rgba(59, 130, 246, 0.1)"
+										listening={false}
+									/>
+								)}
+
+								{selectedId && <Transformer ref={transformerRef} />}
+							</Layer>
+						</Stage>
+
+						{/* Textarea pre editáciu textu */}
+						{editingTextId && textAreaPosition && (
+							<textarea
+								autoFocus
+								className="fixed bg-white text-black border-2 border-blue-500 rounded p-2 resize-none z-50 shadow-lg"
+								style={{
+									fontFamily:
+										textObjects.find((t) => t.id === editingTextId)?.fontFamily ||
+										"Arial",
+									fontSize: `${textObjects.find((t) => t.id === editingTextId)?.fontSize || 16
+										}px`,
+									fontWeight:
+										textObjects.find((t) => t.id === editingTextId)?.fontWeight ||
+										"normal",
+									fontStyle:
+										textObjects.find((t) => t.id === editingTextId)?.fontStyle ||
+										"normal",
+									left: `${textAreaPosition.x}px`,
+									top: `${textAreaPosition.y}px`,
+									width: `${Math.max(100, textAreaPosition.width)}px`,
+									height: `${Math.max(50, textAreaPosition.height)}px`,
+									textAlign:
+										(textObjects.find((t) => t.id === editingTextId)
+											?.textAlign as any) || "left",
+									lineHeight: `${textObjects.find((t) => t.id === editingTextId)?.lineHeight ||
+										1.2
+										}`,
+									letterSpacing: `${textObjects.find((t) => t.id === editingTextId)
+										?.letterSpacing || 0
+										}px`,
 								}}
-								fillLinearGradientEndPoint={{
-									x: currentGradient.x1,
-									y: currentGradient.y1,
-								}}
-								fillLinearGradientColorStops={(
-									currentGradient.colorStops || []
-								).flatMap((s) => [s.offset, s.color])}
-								listening={false}
-								opacity={0.6 * (layerOpacities[currentGradient.layerId] || 1)}
+								value={textObjects.find((t) => t.id === editingTextId)?.text || ""}
+								onChange={handleTextAreaChange}
+								onKeyDown={handleTextAreaKeyDown}
+								onBlur={handleTextAreaBlur}
 							/>
 						)}
-
-						{selectionBounds && (
-							<Rect
-								{...selectionBounds}
-								stroke="#3b82f6"
-								strokeWidth={1}
-								dash={[4, 2]}
-								fill="rgba(59, 130, 246, 0.1)"
-								listening={false}
-							/>
-						)}
-						{selectionPath && selectionPath.length >= 4 && (
-							<Line
-								points={selectionPath}
-								stroke="#3b82f6"
-								strokeWidth={1}
-								dash={[5, 5]}
-								closed
-								fill="rgba(59, 130, 246, 0.1)"
-								listening={false}
-							/>
-						)}
-
-						{selectedId && <Transformer ref={transformerRef} />}
-					</Layer>
-				</Stage>
-
-				{/* Textarea pre editáciu textu */}
-				{editingTextId && textAreaPosition && (
-					<textarea
-						autoFocus
-						className="fixed bg-white text-black border-2 border-blue-500 rounded p-2 resize-none z-50 shadow-lg"
-						style={{
-							fontFamily:
-								textObjects.find((t) => t.id === editingTextId)?.fontFamily ||
-								"Arial",
-							fontSize: `${textObjects.find((t) => t.id === editingTextId)?.fontSize || 16
-								}px`,
-							fontWeight:
-								textObjects.find((t) => t.id === editingTextId)?.fontWeight ||
-								"normal",
-							fontStyle:
-								textObjects.find((t) => t.id === editingTextId)?.fontStyle ||
-								"normal",
-							left: `${textAreaPosition.x}px`,
-							top: `${textAreaPosition.y}px`,
-							width: `${Math.max(100, textAreaPosition.width)}px`,
-							height: `${Math.max(50, textAreaPosition.height)}px`,
-							textAlign:
-								(textObjects.find((t) => t.id === editingTextId)
-									?.textAlign as any) || "left",
-							lineHeight: `${textObjects.find((t) => t.id === editingTextId)?.lineHeight ||
-								1.2
-								}`,
-							letterSpacing: `${textObjects.find((t) => t.id === editingTextId)
-								?.letterSpacing || 0
-								}px`,
-						}}
-						value={textObjects.find((t) => t.id === editingTextId)?.text || ""}
-						onChange={handleTextAreaChange}
-						onKeyDown={handleTextAreaKeyDown}
-						onBlur={handleTextAreaBlur}
-					/>
-				)}
+					</div>
 			</CanvasContextMenu>
-			</div>
 
 			<div className="absolute bottom-4 right-4 bg-black/50 text-white text-xs px-3 py-1.5 rounded pointer-events-none z-10">
 				Zoom: {zoom}% | {actualWidth} × {actualHeight}px
@@ -3581,8 +3551,9 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			<canvas ref={eyedropperCanvas} style={{ display: "none" }} />
 			<canvas ref={healingCanvas} style={{ display: "none" }} />
 			<canvas ref={blurCanvas} style={{ display: "none" }} />
+			</div>
 		</div>
 	);
-};
+}
 
 export default KonvaCanvas;
