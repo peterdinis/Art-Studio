@@ -42,6 +42,7 @@ if (typeof window !== "undefined") {
 import { useArtStudioStore, Tool } from "@/stores/artStudioStore";
 import { useZoom } from "@/hooks/useZoom";
 import { toast } from "sonner";
+import { CanvasContextMenu } from "./CanvasContextMenu";
 
 interface KonvaCanvasProps {
 	width?: number;
@@ -744,12 +745,28 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			}
 		};
 
+		const handleSelectTextEvent = (e: CustomEvent) => {
+			const { textId } = e.detail;
+			handleSelectText(textId);
+		};
+
+		const handleDeleteSelectedEvent = () => {
+			handleDeleteSelected();
+		};
+
 		window.addEventListener("artstudio:undo", handleUndoEvent as EventListener);
 		window.addEventListener("artstudio:redo", handleRedoEvent as EventListener);
 		window.addEventListener(
 			"artstudio:restore-history",
 			handleRestoreHistory as EventListener,
 		);
+		window.addEventListener("artstudio:add-text", handleAddTextEvent as EventListener);
+		window.addEventListener("artstudio:update-text", handleUpdateTextEvent as EventListener);
+		window.addEventListener("artstudio:delete-text", handleDeleteTextEvent as EventListener);
+		window.addEventListener("artstudio:start-text-edit", handleStartTextEditEvent as EventListener);
+		window.addEventListener("artstudio:cancel-text-edit", handleCancelTextEditEvent as EventListener);
+		window.addEventListener("artstudio:select-text", handleSelectTextEvent as EventListener);
+		window.addEventListener("artstudio:delete-selected", handleDeleteSelectedEvent as EventListener);
 
 		return () => {
 			window.removeEventListener(
@@ -764,8 +781,24 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				"artstudio:restore-history",
 				handleRestoreHistory as EventListener,
 			);
+			window.removeEventListener("artstudio:add-text", handleAddTextEvent as EventListener);
+			window.removeEventListener("artstudio:update-text", handleUpdateTextEvent as EventListener);
+			window.removeEventListener("artstudio:delete-text", handleDeleteTextEvent as EventListener);
+			window.removeEventListener("artstudio:start-text-edit", handleStartTextEditEvent as EventListener);
+			window.removeEventListener("artstudio:cancel-text-edit", handleCancelTextEditEvent as EventListener);
+			window.removeEventListener("artstudio:select-text", handleSelectTextEvent as EventListener);
+			window.removeEventListener("artstudio:delete-selected", handleDeleteSelectedEvent as EventListener);
 		};
-	}, [restoreCanvasState]);
+	}, [
+		restoreCanvasState,
+		handleAddText,
+		handleUpdateText,
+		handleDeleteText,
+		handleStartTextEdit,
+		handleCancelTextEdit,
+		handleSelectText,
+		handleDeleteSelected,
+	]);
 
 	/* --- EVENT LISTENERS FOR TEXT --- */
 	useEffect(() => {
@@ -3536,6 +3569,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 						onBlur={handleTextAreaBlur}
 					/>
 				)}
+			</CanvasContextMenu>
 			</div>
 
 			<div className="absolute bottom-4 right-4 bg-black/50 text-white text-xs px-3 py-1.5 rounded pointer-events-none z-10">
