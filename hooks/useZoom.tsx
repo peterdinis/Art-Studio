@@ -48,39 +48,45 @@ export const useZoom = () => {
 	// Zoom to specific level
 	const zoomTo = useCallback(
 		(targetZoom: number, options: ZoomOptions = {}) => {
-			const { min = 10, max = 500, centerOnPoint } = options;
+			const { min = 10, max = 5000, centerOnPoint } = options;
 			const newZoom = Math.max(min, Math.min(max, targetZoom));
+			const finalScale = newZoom / 100;
 
-			if (centerOnPoint) {
-				// Zoom to specific point (use provided point from click/wheel)
+			const stage = window.konvaStage;
+			if (stage && centerOnPoint) {
+				const oldScale = stage.scaleX();
 				const pointer = centerOnPoint;
-				const oldScale = zoom / 100;
+
 				const mousePointTo = {
-					x: (pointer.x - panOffset.x) / oldScale,
-					y: (pointer.y - panOffset.y) / oldScale,
+					x: (pointer.x - stage.x()) / oldScale,
+					y: (pointer.y - stage.y()) / oldScale,
 				};
 
 				const newPos = {
-					x: pointer.x - mousePointTo.x * (newZoom / 100),
-					y: pointer.y - mousePointTo.y * (newZoom / 100),
+					x: pointer.x - mousePointTo.x * finalScale,
+					y: pointer.y - mousePointTo.y * finalScale,
 				};
 
 				setZoom(newZoom);
 				setPanOffset(newPos);
-				zoomHistoryRef.current.push(newZoom);
-				if (zoomHistoryRef.current.length > 10) {
-					zoomHistoryRef.current.shift();
+				
+				stage.scale({ x: finalScale, y: finalScale });
+				stage.position(newPos);
+				stage.batchDraw();
+			} else {
+				setZoom(newZoom);
+				if (stage) {
+					stage.scale({ x: finalScale, y: finalScale });
+					stage.batchDraw();
 				}
-				return;
 			}
 
-			setZoom(newZoom);
 			zoomHistoryRef.current.push(newZoom);
-			if (zoomHistoryRef.current.length > 10) {
+			if (zoomHistoryRef.current.length > 20) {
 				zoomHistoryRef.current.shift();
 			}
 		},
-		[zoom, panOffset, setZoom, setPanOffset],
+		[setZoom, setPanOffset],
 	);
 
 	// Zoom in
@@ -108,14 +114,30 @@ export const useZoom = () => {
 		(options: { maxZoom?: number } = {}) => {
 			const canvas = getCanvasDimensions();
 			const viewport = getViewportDimensions();
+			const stage = window.konvaStage;
 
 			const zoomX = (viewport.width / canvas.width) * 100;
 			const zoomY = (viewport.height / canvas.height) * 100;
 			const fitZoom = Math.min(zoomX, zoomY, options.maxZoom || 100);
 
 			const newZoom = Math.max(10, Math.min(100, fitZoom));
+			const finalScale = newZoom / 100;
+
+			// Center the canvas
+			const newPan = {
+				x: (viewport.width - canvas.width * finalScale) / 2,
+				y: (viewport.height - canvas.height * finalScale) / 2
+			};
+
 			setZoom(newZoom);
-			setPanOffset({ x: 0, y: 0 });
+			setPanOffset(newPan);
+			
+			if (stage) {
+				stage.scale({ x: finalScale, y: finalScale });
+				stage.position(newPan);
+				stage.batchDraw();
+			}
+			
 			zoomHistoryRef.current.push(newZoom);
 			toast.success("Canvas fitted to screen");
 		},
@@ -124,11 +146,27 @@ export const useZoom = () => {
 
 	// Zoom to actual size (100%)
 	const zoomToActualSize = useCallback(() => {
+		const viewport = getViewportDimensions();
+		const canvas = getCanvasDimensions();
+		const stage = window.konvaStage;
+
+		const newPan = {
+			x: (viewport.width - canvas.width) / 2,
+			y: (viewport.height - canvas.height) / 2
+		};
+
 		setZoom(100);
-		setPanOffset({ x: 0, y: 0 });
+		setPanOffset(newPan);
+
+		if (stage) {
+			stage.scale({ x: 1, y: 1 });
+			stage.position(newPan);
+			stage.batchDraw();
+		}
+
 		zoomHistoryRef.current.push(100);
 		toast.success("Zoom reset to 100%");
-	}, [setZoom, setPanOffset]);
+	}, [setZoom, setPanOffset, getViewportDimensions, getCanvasDimensions]);
 
 	// Zoom to selection (if available)
 	const zoomToSelection = useCallback(() => {
@@ -189,49 +227,49 @@ export const useZoom = () => {
 			point: { x: number; y: number },
 			options: ZoomOptions = {},
 		) => {
-			// Use exponential zoom for smoother experience
-			const zoomSpeed = options.step || 0.1;
-			const zoomFactor = delta > 0 ? 1 - zoomSpeed : 1 + zoomSpeed;
-			const newZoom = Math.max(
-				options.min || 10,
-				Math.min(options.max || 500, zoom * zoomFactor),
-			);
-
-			// Zoom to mouse point (center zoom on cursor position)
-			const canvas = window.fabricCanvas || window.konvaStage;
-			if (canvas) {
-				if ("getPointerPosition" in canvas) {
-					// Konva.js - zoom to point
-					const stage = canvas as any;
-					const oldScale = zoom / 100;
-
-					// Get current stage position
-					const stageX = stage.x() || panOffset.x;
-					const stageY = stage.y() || panOffset.y;
-
-					// Convert screen point to canvas coordinates
-					const mousePointTo = {
-						x: (point.x - stageX) / oldScale,
-						y: (point.y - stageY) / oldScale,
-					};
-
-					// Calculate new pan offset to keep point under cursor
-					const newPos = {
-						x: point.x - mousePointTo.x * (newZoom / 100),
-						y: point.y - mousePointTo.y * (newZoom / 100),
-					};
-
-					setZoom(newZoom);
-					setPanOffset(newPos);
-				} else {
-					// Fabric.js - simpler zoom (could be enhanced)
-					setZoom(newZoom);
-				}
-			} else {
+			const stage = window.konvaStage;
+			if (!stage) {
+				const zoomSpeed = 0.1;
+				const zoomFactor = delta > 0 ? 1 - zoomSpeed : 1 + zoomSpeed;
+				const newZoom = Math.max(options.min || 10, Math.min(options.max || 5000, zoom * zoomFactor));
 				setZoom(newZoom);
+				return;
 			}
+
+			// Exponential zooming
+			const scaleBy = 1.1;
+			const oldScale = stage.scaleX();
+			
+			const direction = delta > 0 ? -1 : 1;
+			const newScale = direction > 0 ? oldScale * scaleBy : oldScale / scaleBy;
+			
+			const minScale = (options.min || 10) / 100;
+			const maxScale = (options.max || 5000) / 100;
+			const finalScale = Math.max(minScale, Math.min(maxScale, newScale));
+			
+			const newZoom = finalScale * 100;
+
+			// Mouse point calculation
+			const pointer = point;
+			const mousePointTo = {
+				x: (pointer.x - stage.x()) / oldScale,
+				y: (pointer.y - stage.y()) / oldScale,
+			};
+
+			const newPos = {
+				x: pointer.x - mousePointTo.x * finalScale,
+				y: pointer.y - mousePointTo.y * finalScale,
+			};
+
+			setZoom(newZoom);
+			setPanOffset(newPos);
+			
+			// Direct stage update for smoothness
+			stage.scale({ x: finalScale, y: finalScale });
+			stage.position(newPos);
+			stage.batchDraw();
 		},
-		[zoom, panOffset, setZoom, setPanOffset],
+		[zoom, setZoom, setPanOffset],
 	);
 
 	// Undo zoom (restore previous zoom level from history)

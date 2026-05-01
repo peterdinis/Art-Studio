@@ -323,6 +323,9 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
   ])
 
   const isPanning = useRef(false)
+  const isScrubbyZooming = useRef(false)
+  const scrubbyZoomStartPos = useRef({ x: 0, y: 0 })
+  const scrubbyZoomStartScale = useRef(100)
   const lastPanPos = useRef({ x: 0, y: 0 })
 
   const cloneSourcePoint = useRef<{ x: number; y: number } | null>(null)
@@ -2557,17 +2560,9 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
     }
 
     if (activeTool === 'zoom') {
-      const stage = stageRef.current
-      if (stage) {
-        const pointer = stage.getPointerPosition()
-        if (pointer) {
-          if (e.evt.altKey) {
-            zoomOut(20, { centerOnPoint: pointer })
-          } else {
-            zoomIn(20, { centerOnPoint: pointer })
-          }
-        }
-      }
+      isScrubbyZooming.current = true
+      scrubbyZoomStartPos.current = { x: e.evt.clientX, y: e.evt.clientY }
+      scrubbyZoomStartScale.current = zoom
       return
     }
 
@@ -2737,6 +2732,23 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
         x1: pos.x,
         y1: pos.y
       })
+    }
+
+    if (isScrubbyZooming.current) {
+      const deltaX = e.evt.clientX - scrubbyZoomStartPos.current.x
+      const sensitivity = 0.5
+      const newZoom = Math.max(10, Math.min(5000, scrubbyZoomStartScale.current + deltaX * sensitivity))
+      
+      const stage = stageRef.current
+      if (stage) {
+        const stageBox = stage.container().getBoundingClientRect()
+        const centerPoint = {
+          x: scrubbyZoomStartPos.current.x - stageBox.left,
+          y: scrubbyZoomStartPos.current.y - stageBox.top
+        }
+        zoomTo(newZoom, { centerOnPoint: centerPoint })
+      }
+      return
     }
 
     if (isPanning.current) {
@@ -2937,6 +2949,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
     }
 
     isPanning.current = false
+    isScrubbyZooming.current = false
     setIsPanningState(false)
   }
 
