@@ -256,7 +256,7 @@ export const ToolSidebar: React.FC = () => {
 			window.removeEventListener("keydown", handleKeyDown);
 			window.removeEventListener("keyup", handleKeyUp);
 		};
-	}, [setActiveTool, activeTool, swapColors, handleClearWithConfirmation]);
+	}, [setActiveTool, activeTool, swapColors, setShowClearAlert, handleUndo, handleRedo]);
 
 	const renderToolGroup = (category: ToolConfig["category"]) => {
 		const categoryTools = tools.filter((t) => t.category === category);

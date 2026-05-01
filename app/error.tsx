@@ -1,14 +1,13 @@
 "use client";
 
-import ErrorComponent from "@/components/shared/PhotoshopError";
+import AdvancedError from "@/components/shared/AdvancedError";
 
-export default function Error() {
-	return (
-		<ErrorComponent
-			title="ArtStudio Error"
-			description="Layer composition failed. Please try again."
-			variant="photoshop"
-			autoResetDuration={3000}
-		/>
-	);
+export default function Error({
+	error,
+	reset,
+}: {
+	error: Error & { digest?: string };
+	reset: () => void;
+}) {
+	return <AdvancedError error={error} reset={reset} />;
 }
