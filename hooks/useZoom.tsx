@@ -69,7 +69,7 @@ export const useZoom = () => {
 
 				setZoom(newZoom);
 				setPanOffset(newPos);
-				
+
 				stage.scale({ x: finalScale, y: finalScale });
 				stage.position(newPos);
 				stage.batchDraw();
@@ -126,18 +126,18 @@ export const useZoom = () => {
 			// Center the canvas
 			const newPan = {
 				x: (viewport.width - canvas.width * finalScale) / 2,
-				y: (viewport.height - canvas.height * finalScale) / 2
+				y: (viewport.height - canvas.height * finalScale) / 2,
 			};
 
 			setZoom(newZoom);
 			setPanOffset(newPan);
-			
+
 			if (stage) {
 				stage.scale({ x: finalScale, y: finalScale });
 				stage.position(newPan);
 				stage.batchDraw();
 			}
-			
+
 			zoomHistoryRef.current.push(newZoom);
 			toast.success("Canvas fitted to screen");
 		},
@@ -152,7 +152,7 @@ export const useZoom = () => {
 
 		const newPan = {
 			x: (viewport.width - canvas.width) / 2,
-			y: (viewport.height - canvas.height) / 2
+			y: (viewport.height - canvas.height) / 2,
 		};
 
 		setZoom(100);
@@ -231,7 +231,10 @@ export const useZoom = () => {
 			if (!stage) {
 				const zoomSpeed = 0.1;
 				const zoomFactor = delta > 0 ? 1 - zoomSpeed : 1 + zoomSpeed;
-				const newZoom = Math.max(options.min || 10, Math.min(options.max || 5000, zoom * zoomFactor));
+				const newZoom = Math.max(
+					options.min || 10,
+					Math.min(options.max || 5000, zoom * zoomFactor),
+				);
 				setZoom(newZoom);
 				return;
 			}
@@ -239,14 +242,14 @@ export const useZoom = () => {
 			// Exponential zooming
 			const scaleBy = 1.1;
 			const oldScale = stage.scaleX();
-			
+
 			const direction = delta > 0 ? -1 : 1;
 			const newScale = direction > 0 ? oldScale * scaleBy : oldScale / scaleBy;
-			
+
 			const minScale = (options.min || 10) / 100;
 			const maxScale = (options.max || 5000) / 100;
 			const finalScale = Math.max(minScale, Math.min(maxScale, newScale));
-			
+
 			const newZoom = finalScale * 100;
 
 			// Mouse point calculation
@@ -263,7 +266,7 @@ export const useZoom = () => {
 
 			setZoom(newZoom);
 			setPanOffset(newPos);
-			
+
 			// Direct stage update for smoothness
 			stage.scale({ x: finalScale, y: finalScale });
 			stage.position(newPos);

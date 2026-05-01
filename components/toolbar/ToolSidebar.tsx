@@ -256,7 +256,14 @@ export const ToolSidebar: React.FC = () => {
 			window.removeEventListener("keydown", handleKeyDown);
 			window.removeEventListener("keyup", handleKeyUp);
 		};
-	}, [setActiveTool, activeTool, swapColors, setShowClearAlert, handleUndo, handleRedo]);
+	}, [
+		setActiveTool,
+		activeTool,
+		swapColors,
+		setShowClearAlert,
+		handleUndo,
+		handleRedo,
+	]);
 
 	const renderToolGroup = (category: ToolConfig["category"]) => {
 		const categoryTools = tools.filter((t) => t.category === category);
@@ -391,9 +398,7 @@ export const ToolSidebar: React.FC = () => {
 					<Tooltip delayDuration={400}>
 						<TooltipTrigger asChild>
 							<AlertDialogTrigger asChild>
-								<button
-									className="tool-button text-red-500 hover:text-red-600 hover:bg-red-50"
-								>
+								<button className="tool-button text-red-500 hover:text-red-600 hover:bg-red-50">
 									<Trash2 className="w-5 h-5" />
 								</button>
 							</AlertDialogTrigger>

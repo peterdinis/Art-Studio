@@ -631,7 +631,9 @@ export const BrushPanel: React.FC = () => {
 			{activeTool === "fill" || activeTool === "eyedropper"
 				? renderUtilityOptions()
 				: null}
-			{(activeTool === "zoom" || activeTool === "undoZoom" || activeTool === "hand") &&
+			{(activeTool === "zoom" ||
+				activeTool === "undoZoom" ||
+				activeTool === "hand") &&
 				renderNavigationOptions()}
 
 			{!isDrawingTool &&

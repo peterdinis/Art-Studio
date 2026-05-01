@@ -139,7 +139,9 @@ export const CanvasContextMenu: React.FC<CanvasContextMenuProps> = ({
 									) : (
 										<Eye className="mr-2 h-4 w-4" />
 									)}
-									<span>{activeLayer.visible ? "Hide Layer" : "Show Layer"}</span>
+									<span>
+										{activeLayer.visible ? "Hide Layer" : "Show Layer"}
+									</span>
 								</ContextMenuItem>
 								<ContextMenuItem
 									onClick={() => toggleLayerLock(activeLayer.id)}
@@ -149,7 +151,9 @@ export const CanvasContextMenu: React.FC<CanvasContextMenuProps> = ({
 									) : (
 										<Lock className="mr-2 h-4 w-4" />
 									)}
-									<span>{activeLayer.locked ? "Unlock Layer" : "Lock Layer"}</span>
+									<span>
+										{activeLayer.locked ? "Unlock Layer" : "Lock Layer"}
+									</span>
 								</ContextMenuItem>
 								<ContextMenuItem onClick={() => duplicateLayer(activeLayer.id)}>
 									<Copy className="mr-2 h-4 w-4" />
@@ -176,7 +180,9 @@ export const CanvasContextMenu: React.FC<CanvasContextMenuProps> = ({
 							variant="destructive"
 							onClick={() => {
 								// We need a deleteSelectedObject in the store or handle it here
-								window.dispatchEvent(new CustomEvent("artstudio:delete-selected"));
+								window.dispatchEvent(
+									new CustomEvent("artstudio:delete-selected"),
+								);
 							}}
 						>
 							<Trash2 className="mr-2 h-4 w-4" />
@@ -187,7 +193,10 @@ export const CanvasContextMenu: React.FC<CanvasContextMenuProps> = ({
 				)}
 
 				<ContextMenuSeparator />
-				<ContextMenuItem onClick={() => setSelectedId(null)} disabled={!selectedId}>
+				<ContextMenuItem
+					onClick={() => setSelectedId(null)}
+					disabled={!selectedId}
+				>
 					<span>Deselect All</span>
 				</ContextMenuItem>
 			</ContextMenuContent>

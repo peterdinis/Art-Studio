@@ -785,7 +785,7 @@ export const useArtStudioStore = create<ArtStudioState>()(
 					setTimeout(() => {
 						get()
 							.saveSession()
-							.catch(() => { });
+							.catch(() => {});
 					}, 1000);
 				}
 			},
@@ -945,7 +945,7 @@ export const useArtStudioStore = create<ArtStudioState>()(
 				setTimeout(() => {
 					get()
 						.saveSession()
-						.catch(() => { });
+						.catch(() => {});
 				}, 500);
 			},
 
@@ -981,7 +981,7 @@ export const useArtStudioStore = create<ArtStudioState>()(
 					() =>
 						get()
 							.saveSession()
-							.catch(() => { }),
+							.catch(() => {}),
 					2000,
 				);
 			},
@@ -993,7 +993,7 @@ export const useArtStudioStore = create<ArtStudioState>()(
 					() =>
 						get()
 							.saveSession()
-							.catch(() => { }),
+							.catch(() => {}),
 					2000,
 				);
 			},
@@ -1378,7 +1378,7 @@ export const useArtStudioStore = create<ArtStudioState>()(
 					() =>
 						get()
 							.saveSession()
-							.catch(() => { }),
+							.catch(() => {}),
 					500,
 				);
 			},

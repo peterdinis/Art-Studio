@@ -95,7 +95,10 @@ const HomeWrapper = () => {
 					{/* Horizontal Ruler */}
 					<div className="h-6 bg-[#3a3a3a] border-b border-border flex items-center px-12">
 						{Array.from({ length: 50 }).map((_, i) => (
-							<div key={i} className="flex-1 border-l border-border h-2 relative">
+							<div
+								key={i}
+								className="flex-1 border-l border-border h-2 relative"
+							>
 								{i % 5 === 0 && (
 									<span className="absolute -top-4 -left-2 text-[10px] text-muted-foreground">
 										{i * 100}
