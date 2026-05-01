@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { tools } from "./tools"; // Importuj svoje nástroje
-import { Redo2, Trash2, Undo2 } from "lucide-react";
+import { Redo2, Sparkles, Trash2, Undo2 } from "lucide-react";
 import { Kbd } from "../ui/kbd";
 
 export interface ToolConfig {
@@ -130,13 +130,6 @@ export const ToolSidebar: React.FC = () => {
 		}
 	};
 
-	const handleClearWithConfirmation = async () => {
-		const confirmed = await clearCanvasWithConfirmation();
-		if (confirmed) {
-			toast.success("Canvas cleared");
-		}
-	};
-
 	useEffect(() => {
 		const handleKeyDown = (e: KeyboardEvent) => {
 			if (
@@ -162,7 +155,7 @@ export const ToolSidebar: React.FC = () => {
 					case "D":
 						e.preventDefault();
 						if (e.shiftKey) {
-							handleClearWithConfirmation();
+							setShowClearAlert(true);
 						}
 						return;
 				}
@@ -177,9 +170,33 @@ export const ToolSidebar: React.FC = () => {
 				return;
 			}
 
+			if (key === "H") {
+				e.preventDefault();
+				setActiveTool("hand");
+				return;
+			}
+
+			if (key === "Z" && !e.ctrlKey && !e.metaKey) {
+				e.preventDefault();
+				setActiveTool(e.shiftKey ? "undoZoom" : "zoom");
+				return;
+			}
+
+			if (key === "G") {
+				e.preventDefault();
+				setActiveTool(e.shiftKey ? "fill" : "gradient");
+				return;
+			}
+
 			const tool = tools.find((t) => {
 				if (t.shortcut.toUpperCase() === "U" && key === "U") {
-					const shapeTools = ["rectangle", "ellipse", "polygon", "line"];
+					const shapeTools = [
+						"rectangle",
+						"ellipse",
+						"polygon",
+						"line",
+						"star",
+					];
 					if (shapeTools.includes(activeTool)) {
 						const currentIndex = shapeTools.indexOf(activeTool);
 						const nextIndex = (currentIndex + 1) % shapeTools.length;
@@ -189,6 +206,8 @@ export const ToolSidebar: React.FC = () => {
 				}
 
 				if (t.shortcut.toUpperCase() === "SHIFT+O") return false;
+				if (t.shortcut.toUpperCase() === "G" && key === "G") return false; // Handled separately
+				if (t.shortcut.toUpperCase() === "Z" && key === "Z") return false; // Handled separately
 
 				return t.shortcut.toUpperCase() === key;
 			});
@@ -237,7 +256,7 @@ export const ToolSidebar: React.FC = () => {
 			window.removeEventListener("keydown", handleKeyDown);
 			window.removeEventListener("keyup", handleKeyUp);
 		};
-	}, [setActiveTool, activeTool, swapColors, handleClearWithConfirmation]);
+	}, [setActiveTool, activeTool, swapColors, setShowClearAlert, handleUndo, handleRedo]);
 
 	const renderToolGroup = (category: ToolConfig["category"]) => {
 		const categoryTools = tools.filter((t) => t.category === category);
@@ -280,7 +299,15 @@ export const ToolSidebar: React.FC = () => {
 
 	return (
 		<div className="flex h-full">
-			<div className="w-14 h-full panel-glass flex flex-col items-center py-3 gap-1 animate-fade-in overflow-y-auto scrollbar-thin">
+			<div className="w-16 h-full bg-gradient-to-b from-card via-card to-muted/40 border-r border-border/60 flex flex-col items-center py-3 gap-1 animate-fade-in overflow-y-auto scrollbar-thin">
+				<div className="mb-2 flex flex-col items-center gap-1">
+					<div className="w-8 h-8 rounded-lg bg-primary/15 text-primary flex items-center justify-center border border-primary/20">
+						<Sparkles className="w-4 h-4" />
+					</div>
+					<span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+						Tools
+					</span>
+				</div>
 				{/* Selection Tools */}
 				<div className="flex flex-col items-center gap-1">
 					{renderToolGroup("selection")}
@@ -366,7 +393,6 @@ export const ToolSidebar: React.FC = () => {
 							<AlertDialogTrigger asChild>
 								<button
 									className="tool-button text-red-500 hover:text-red-600 hover:bg-red-50"
-									onClick={handleClearWithConfirmation}
 								>
 									<Trash2 className="w-5 h-5" />
 								</button>
