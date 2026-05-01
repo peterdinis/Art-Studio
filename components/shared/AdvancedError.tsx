@@ -16,7 +16,9 @@ import {
   Maximize,
   ShieldAlert,
   Zap,
-  Code
+  Code,
+  FileCode,
+  MapPin
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -33,11 +35,33 @@ export default function AdvancedError({ error, reset }: AdvancedErrorProps) {
   const [showStack, setShowStack] = useState(false);
   const [sysInfo, setSysInfo] = useState<any>({});
   const [isOnline, setIsOnline] = useState(true);
+  const [sourceFile, setSourceFile] = useState<{ path: string; line: string; column: string } | null>(null);
 
   useEffect(() => {
     setMounted(true);
     setIsOnline(navigator.onLine);
     
+    // Parse stack trace to find the source file
+    if (error.stack) {
+      const stackLines = error.stack.split('\n');
+      // Look for the first line that contains a file path (usually after the error message)
+      const callerLine = stackLines.find(line => line.includes('http') || line.includes('/_next/'));
+      
+      if (callerLine) {
+        const match = callerLine.match(/\((.*?):(\d+):(\d+)\)/) || callerLine.match(/at (.*?):(\d+):(\d+)/);
+        if (match) {
+          const fullPath = match[1];
+          // Clean up the path to be more readable
+          const cleanPath = fullPath.split('?')[0].split('/').pop() || 'Unknown File';
+          setSourceFile({
+            path: cleanPath,
+            line: match[2],
+            column: match[3]
+          });
+        }
+      }
+    }
+
     // Detailed system information gathering
     const memory = (performance as any).memory;
     const info = {
@@ -74,6 +98,7 @@ Incident ID: ${Math.random().toString(36).substring(2, 15).toUpperCase()}
 ERROR DETAILS
 -------------
 Message: ${error.message}
+Source: ${sourceFile ? `${sourceFile.path} (L${sourceFile.line}:C${sourceFile.column})` : 'Unknown'}
 Digest: ${error.digest || 'N/A'}
 Stack: ${error.stack || 'No stack trace'}
 
@@ -144,6 +169,27 @@ NETWORK: ${isOnline ? 'ONLINE' : 'OFFLINE'}
                   Art Studio encountered a memory corruption or rendering pipeline failure. 
                   The current application state has been frozen to prevent further data loss.
                 </p>
+
+                {/* New Source File Info Section */}
+                <AnimatePresence>
+                  {sourceFile && (
+                    <motion.div 
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      className="flex items-center gap-3 p-4 rounded-2xl bg-white/5 border border-white/5 inline-flex"
+                    >
+                      <div className="p-2 rounded-lg bg-blue-500/10 text-blue-400">
+                        <FileCode className="w-4 h-4" />
+                      </div>
+                      <div className="text-sm">
+                        <span className="text-white/40 mr-2 uppercase text-[10px] font-bold tracking-wider">Origin:</span>
+                        <span className="text-white/80 font-mono">{sourceFile.path}</span>
+                        <span className="mx-2 text-white/20">|</span>
+                        <span className="text-blue-400 font-mono text-xs">Line {sourceFile.line}:{sourceFile.column}</span>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
                 
                 <div className="relative">
                   <div className="absolute -inset-1 bg-gradient-to-r from-red-500/20 to-purple-500/20 blur opacity-50" />
@@ -235,13 +281,14 @@ NETWORK: ${isOnline ? 'ONLINE' : 'OFFLINE'}
                 { label: 'Screen Matrix', value: sysInfo.resolution, icon: Maximize, color: 'text-purple-400' },
                 { label: 'Memory Allocation', value: sysInfo.memory, icon: Activity, color: 'text-red-400' },
                 { label: 'Network Integrity', value: isOnline ? 'Stable' : 'Disconnected', icon: Wifi, color: isOnline ? 'text-green-400' : 'text-red-400' },
+                { label: 'Active Location', value: window.location.pathname, icon: MapPin, color: 'text-cyan-400' },
               ].map((item, i) => (
                 <div key={i} className="flex items-center justify-between p-4 rounded-2xl bg-white/5 border border-white/5 hover:bg-white/10 transition-colors">
                   <div className="flex items-center gap-3">
                     <item.icon className={cn("w-4 h-4", item.color)} />
                     <span className="text-[11px] font-bold text-white/40 uppercase tracking-wider">{item.label}</span>
                   </div>
-                  <span className="text-xs font-mono text-white/80">{item.value}</span>
+                  <span className="text-xs font-mono text-white/80 truncate max-w-[120px]">{item.value}</span>
                 </div>
               ))}
             </div>

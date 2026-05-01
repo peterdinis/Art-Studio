@@ -9,7 +9,7 @@ import { LayersPanel } from "@/components/panels/LayersPanel";
 import { StarPanel } from "@/components/panels/StarPanel";
 import { useArtStudioStore } from "@/stores/artStudioStore";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import KonvaCanvas from "../canvas/KonvaCanvas";
 
 const HomeWrapper = () => {
@@ -56,10 +56,6 @@ const HomeWrapper = () => {
 
 		initSession();
 	}, [initializeSession, isClient]);
-
-	// Auto-save removed (IndexedDB removed)
-
-	// Session expiry check removed (IndexedDB removed)
 
 	// Loading stav - show minimal loading on server
 	if (!isClient) {
