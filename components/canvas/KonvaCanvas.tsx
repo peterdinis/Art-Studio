@@ -202,6 +202,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 }) => {
   const containerRef = useRef<HTMLDivElement>(null)
   const stageRef = useRef<Konva.Stage>(null)
+  const tempImageRef = useRef<Konva.Image>(null)
   const layerRef = useRef<Konva.Layer>(null)
   const transformerRef = useRef<Konva.Transformer>(null)
 
@@ -278,6 +279,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
   const [penPoints, setPenPoints] = useState<number[]>([])
 
   const [isSelecting, setIsSelecting] = useState(false)
+  const [isPanningState, setIsPanningState] = useState(false)
   const [editingTextId, setEditingTextId] = useState<string | null>(null)
   const [textAreaPosition, setTextAreaPosition] = useState<{
     x: number
@@ -1565,31 +1567,86 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
         }
       }
 
-      // To find the boundary, we check if a pixel has at least one neighbor that is NOT in the selection
+      // Trace the contour of the selection mask (Moore-Neighbor Tracing or similar)
+      const contour: number[] = []
+      const directions = [
+        [0, -1],
+        [1, -1],
+        [1, 0],
+        [1, 1],
+        [0, 1],
+        [-1, 1],
+        [-1, 0],
+        [-1, -1]
+      ]
+
+      // 1. Find the first pixel of the selection
+      let startPoint: { x: number; y: number } | null = null
       for (let y = 0; y < height; y++) {
         for (let x = 0; x < width; x++) {
-          const idx = y * width + x
-          if (visited[idx]) {
-            const isEdge =
-              x === 0 ||
-              x === width - 1 ||
-              y === 0 ||
-              y === height - 1 ||
-              (x > 0 && !visited[y * width + (x - 1)]) ||
-              (x < width - 1 && !visited[y * width + (x + 1)]) ||
-              (y > 0 && !visited[(y - 1) * width + x]) ||
-              (y < height - 1 && !visited[(y + 1) * width + x])
+          if (visited[y * width + x]) {
+            startPoint = { x, y }
+            break
+          }
+        }
+        if (startPoint) break
+      }
 
-            if (isEdge && boundaryPath.length % 10 === 0) {
-              // Sample every 10th edge point to keep path small
-              boundaryPath.push(x, y)
+      if (startPoint) {
+        let currX = startPoint.x
+        let currY = startPoint.y
+        let dir = 0 // Initial direction
+
+        const maxPathPoints = 5000 // Safety limit
+        let pointsFound = 0
+
+        while (pointsFound < maxPathPoints) {
+          contour.push(currX, currY)
+          pointsFound++
+
+          let foundNext = false
+          // Check all 8 neighbors starting from the one after the previous direction
+          for (let i = 0; i < 8; i++) {
+            const checkDir = (dir + 4 + i) % 8
+            const nextX = currX + directions[checkDir][0]
+            const nextY = currY + directions[checkDir][1]
+
+            if (
+              nextX >= 0 &&
+              nextX < width &&
+              nextY >= 0 &&
+              nextY < height &&
+              visited[nextY * width + nextX]
+            ) {
+              // Ensure it's an EDGE pixel
+              const isEdge =
+                nextX === 0 ||
+                nextX === width - 1 ||
+                nextY === 0 ||
+                nextY === height - 1 ||
+                !visited[nextY * width + (nextX - 1)] ||
+                !visited[nextY * width + (nextX + 1)] ||
+                !visited[(nextY - 1) * width + nextX] ||
+                !visited[(nextY + 1) * width + nextX]
+
+              if (isEdge) {
+                currX = nextX
+                currY = nextY
+                dir = checkDir
+                foundNext = true
+                break
+              }
             }
+          }
+
+          if (!foundNext || (currX === startPoint.x && currY === startPoint.y)) {
+            break
           }
         }
       }
 
-      if (boundaryPath.length > 0) {
-        setSelectionPath(boundaryPath)
+      if (contour.length > 4) {
+        setSelectionPath(contour)
         if (iterations >= maxIterations) {
           toast.warning('Selection too large, showing partial result')
         }
@@ -1899,11 +1956,9 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
         }
       }
 
-      // Dodge/Burn/Clone: copy current layer to temp so we draw on top of layer content
+      // Dodge/Burn/Clone/Blur/Healing: copy current layer to temp so we draw on top of layer content
       if (
-        activeTool === 'dodge' ||
-        activeTool === 'burn' ||
-        activeTool === 'clone'
+        ['dodge', 'burn', 'clone', 'blur', 'healing'].includes(activeTool)
       ) {
         updateAuxCanvases()
         if (tempContext && floodFillCanvas.current) {
@@ -1981,6 +2036,9 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
             lastMouseMoveTime.current = now
             // Use the canvas directly instead of toDataURL()
             setTempImage(tempCanvas as any)
+            if (tempImageRef.current) {
+              tempImageRef.current.getLayer()?.batchDraw()
+            }
           }
         }
       }
@@ -2429,6 +2487,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 
     if (activeTool === 'hand') {
       isPanning.current = true
+      setIsPanningState(true)
       lastPanPos.current = { x: e.evt.clientX, y: e.evt.clientY }
       return
     }
@@ -2465,7 +2524,8 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
       !isDrawingGradient &&
       !isDrawingPolygon &&
       !currentPenLine &&
-      !currentShape
+      !currentShape &&
+      !isPanning.current
     ) {
       return
     }
@@ -2813,6 +2873,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
     }
 
     isPanning.current = false
+    setIsPanningState(false)
   }
 
   const handleDblClick = () => {
@@ -2846,7 +2907,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
   }
 
   const getCursor = () => {
-    if (activeTool === 'hand') return isPanning.current ? 'grabbing' : 'grab'
+    if (activeTool === 'hand') return isPanningState ? 'grabbing' : 'grab'
     if (activeTool === 'zoom') return 'zoom-in'
     if (activeTool === 'undoZoom') return 'zoom-out'
     if (
@@ -3412,6 +3473,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
                 {/* TEMP IMAGE PRE REAL-TIME PREVIEW - Only show during active drawing */}
                 {tempImage && (
                   <KonvaImage
+                    ref={tempImageRef}
                     image={tempImage}
                     x={0}
                     y={0}

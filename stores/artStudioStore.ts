@@ -1170,6 +1170,20 @@ export const useArtStudioStore = create<ArtStudioState>()(
 							burnIntensity: 50,
 						};
 						break;
+					case "pen":
+						newSettings = {
+							strokeWidth: 2,
+						};
+						break;
+					case "hand":
+					case "zoom":
+					case "undoZoom":
+					case "move":
+					case "select":
+						// No specific brush settings needed for these navigation/selection tools
+						break;
+					default:
+						break;
 				}
 
 				if (Object.keys(newSettings).length > 0) {
