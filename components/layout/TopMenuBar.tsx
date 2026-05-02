@@ -57,6 +57,7 @@ import {
 	LayoutTemplate,
 	Ruler,
 	Check,
+	Download,
 } from "lucide-react";
 import {
 	DropdownMenu,
@@ -78,6 +79,8 @@ import { useArtStudioStore, Tool } from "@/stores/artStudioStore";
 import { toast } from "sonner";
 import { TemplatesDialog } from "../templates/TemplatesDialog";
 import { KeyboardShortcutsDialog } from "../dialogs/KeyboardSettingsDialog";
+import { ExportDialog } from "../dialogs/ExportDialog";
+import { CanvasSizeDialog } from "../dialogs/CanvasSizeDialog";
 import { useZoom } from "@/hooks/useZoom";
 
 interface MenuItemConfig {
@@ -104,6 +107,8 @@ declare global {
 export const TopMenuBar: React.FC = () => {
 	const [showTemplates, setShowTemplates] = useState(false);
 	const [showShortcuts, setShowShortcuts] = useState(false);
+	const [showExport, setShowExport] = useState(false);
+	const [showCanvasSize, setShowCanvasSize] = useState(false);
 
 	// Use the store at component level
 	const store = useArtStudioStore();
@@ -239,6 +244,50 @@ export const TopMenuBar: React.FC = () => {
 				} else {
 					reader.readAsDataURL(file);
 				}
+			}
+		};
+		input.click();
+	};
+
+	const handleImportImage = () => {
+		const input = document.createElement("input");
+		input.type = "file";
+		input.accept = "image/*";
+		input.onchange = (e) => {
+			const file = (e.target as HTMLInputElement).files?.[0];
+			if (file) {
+				const reader = new FileReader();
+				reader.onload = (event) => {
+					const result = event.target?.result as string;
+					if (result) {
+						if (isKonva()) {
+							window.dispatchEvent(
+								new CustomEvent("artstudio:import-image", {
+									detail: { src: result, name: file.name },
+								}),
+							);
+						} else if (isFabric()) {
+							const canvas = getCanvas();
+							const img = new window.Image();
+							img.onload = () => {
+								import("fabric").then(({ FabricImage }) => {
+									FabricImage.fromURL(img.src).then((fabricImg) => {
+										fabricImg.set({
+											left: 100,
+											top: 100,
+											scaleX: 0.5,
+											scaleY: 0.5,
+										});
+										canvas.add(fabricImg);
+										canvas.renderAll();
+									});
+								});
+							};
+							img.src = result;
+						}
+					}
+				};
+				reader.readAsDataURL(file);
 			}
 		};
 		input.click();
@@ -1436,38 +1485,7 @@ export const TopMenuBar: React.FC = () => {
 	};
 
 	const handleResizeCanvas = () => {
-		const widthStr = prompt("Enter new width:", "1920");
-		const heightStr = prompt("Enter new height:", "1080");
-
-		if (widthStr && heightStr) {
-			const width = parseInt(widthStr);
-			const height = parseInt(heightStr);
-
-			if (!isNaN(width) && !isNaN(height) && width > 0 && height > 0) {
-				const canvas = getCanvas();
-				if (canvas) {
-					try {
-						canvas.setDimensions({ width, height });
-						canvas.renderAll();
-						setCanvasSize({ width, height, backgroundColor: "#2d3748" });
-						toast.success(`Canvas resized to ${width}x${height}`, {
-							duration: 3000,
-							icon: <Check className="w-4 h-4" />,
-						});
-					} catch (error) {
-						toast.error("Failed to resize canvas", {
-							duration: 3000,
-						});
-					}
-				} else {
-					setCanvasSize({ width, height, backgroundColor: "#2d3748" });
-					toast.success(`Canvas resized to ${width}x${height}`, {
-						duration: 3000,
-						icon: <Check className="w-4 h-4" />,
-					});
-				}
-			}
-		}
+		setShowCanvasSize(true);
 	};
 
 	const handleCrop = () => {
@@ -2023,12 +2041,22 @@ export const TopMenuBar: React.FC = () => {
 			shortcut: "⌘O",
 			action: handleOpenFile,
 		},
+		{
+			label: "Import Image...",
+			icon: Image,
+			action: handleImportImage,
+		},
 		{ separator: true, label: "" },
 		{ label: "Save", icon: Save, shortcut: "⌘S", action: handleSave },
 		{ label: "Save As...", icon: Save, shortcut: "⇧⌘S", action: handleSaveAs },
 		{ separator: true, label: "" },
 		{
-			label: "Export",
+			label: "Export…",
+			icon: FileImage,
+			action: () => setShowExport(true),
+		},
+		{
+			label: "Export (advanced)",
 			icon: FileImage,
 			submenu: [
 				{ label: "PNG", icon: FileImage, action: () => handleExport("PNG") },
@@ -2979,6 +3007,34 @@ export const TopMenuBar: React.FC = () => {
 				<Tooltip>
 					<TooltipTrigger asChild>
 						<button
+							onClick={() => setShowCanvasSize(true)}
+							className="tool-button w-8 h-8"
+							title="Canvas Size"
+						>
+							<LayoutTemplate className="w-4 h-4" />
+						</button>
+					</TooltipTrigger>
+					<TooltipContent>Canvas Size</TooltipContent>
+				</Tooltip>
+
+				<Tooltip>
+					<TooltipTrigger asChild>
+						<button
+							onClick={() => setShowExport(true)}
+							className="tool-button w-8 h-8"
+							title="Export Canvas (⇧⌘E)"
+						>
+							<Download className="w-4 h-4" />
+						</button>
+					</TooltipTrigger>
+					<TooltipContent>Export Canvas</TooltipContent>
+				</Tooltip>
+
+				<div className="w-px h-5 bg-border mx-1" />
+
+				<Tooltip>
+					<TooltipTrigger asChild>
+						<button
 							onClick={() => setShowGrid(!showGrid)}
 							className={`tool-button w-8 h-8 ${showGrid ? "bg-primary/20" : ""}`}
 						>
@@ -3008,6 +3064,15 @@ export const TopMenuBar: React.FC = () => {
 			<KeyboardShortcutsDialog
 				open={showShortcuts}
 				onOpenChange={setShowShortcuts}
+			/>
+
+			{/* Export Dialog */}
+			<ExportDialog open={showExport} onOpenChange={setShowExport} />
+
+			{/* Canvas Size Dialog */}
+			<CanvasSizeDialog
+				open={showCanvasSize}
+				onOpenChange={setShowCanvasSize}
 			/>
 		</div>
 	);

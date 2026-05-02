@@ -43,6 +43,8 @@ import { useArtStudioStore, Tool } from "@/stores/artStudioStore";
 import { useZoom } from "@/hooks/useZoom";
 import { toast } from "sonner";
 import { CanvasContextMenu } from "./CanvasContextMenu";
+import { GridOverlay } from "./GridOverlay";
+import { RulerOverlay } from "./RulerOverlay";
 
 interface KonvaCanvasProps {
 	width?: number;
@@ -57,6 +59,8 @@ interface DrawingLine {
 	strokeWidth: number;
 	tool: "brush" | "pencil" | "eraser" | "healing" | "blur" | "pen";
 	layerId: string;
+	opacity?: number;
+	hardness?: number;
 }
 
 interface ShapeObject {
@@ -242,6 +246,9 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		historyIndex,
 		selectedId,
 		setSelectedId,
+		showGrid,
+		showRulers,
+		setCursorPosition,
 	} = useArtStudioStore();
 
 	const {
@@ -1322,6 +1329,49 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		}
 	}, [selectedId]);
 
+	// Effect to update selected object color when primaryColor or secondaryColor changes
+	const prevColors = useRef({
+		primary: primaryColor,
+		secondary: secondaryColor,
+	});
+	useEffect(() => {
+		if (
+			selectedId &&
+			(prevColors.current.primary !== primaryColor ||
+				prevColors.current.secondary !== secondaryColor)
+		) {
+			setShapes((prev) =>
+				prev.map((s) => {
+					if (s.id === selectedId) {
+						return {
+							...s,
+							stroke: primaryColor,
+							fill: s.fill === "transparent" ? "transparent" : secondaryColor,
+						};
+					}
+					return s;
+				}),
+			);
+			setLines((prev) =>
+				prev.map((l) => {
+					if (l.id === selectedId) {
+						return { ...l, stroke: primaryColor };
+					}
+					return l;
+				}),
+			);
+			setTextObjects((prev) =>
+				prev.map((t) => {
+					if (t.id === selectedId) {
+						return { ...t, color: primaryColor };
+					}
+					return t;
+				}),
+			);
+		}
+		prevColors.current = { primary: primaryColor, secondary: secondaryColor };
+	}, [primaryColor, secondaryColor, selectedId]);
+
 	/* --- INITIALIZE TEMP CANVAS --- */
 	useEffect(() => {
 		const tempCanvasEl = document.createElement("canvas");
@@ -1447,6 +1497,27 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			handleRemoveLayer as EventListener,
 		);
 
+		const handleImportImageEvent = (e: any) => {
+			const { src, name } = e.detail;
+			const img = new window.Image();
+			img.onload = () => {
+				const newImage = {
+					id: generateId("img"),
+					src,
+					x: 100,
+					y: 100,
+					width: img.width,
+					height: img.height,
+					layerId: activeLayerId || "layer-1",
+				};
+				setImages((prev) => [...prev, newImage]);
+				saveCanvasState("Image imported");
+				toast.success(`Image "${name}" imported`);
+			};
+			img.src = src;
+		};
+		window.addEventListener("artstudio:import-image", handleImportImageEvent);
+
 		const handleTempToolChange = (e: any) => {
 			if (e.detail && e.detail.tool) {
 				if (!originalToolRef.current) {
@@ -1486,24 +1557,24 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				"artstudio:temp-tool-reset",
 				handleTempToolReset,
 			);
+			window.removeEventListener(
+				"artstudio:import-image",
+				handleImportImageEvent,
+			);
 		};
 	}, [
 		setGradients,
 		clearSelection,
-		restoreCanvasState,
-		setActiveTool,
+		activeLayerId,
 		activeTool,
-		editingTextId,
-		saveCanvasState,
 		handleClearCanvas,
-		selectedId,
+		restoreCanvasState,
+		saveCanvasState,
 		setSelectedId,
-		lines,
-		shapes,
-		images,
-		textObjects,
+		setEditingTextId,
+		setActiveTool,
+		generateId,
 	]);
-
 	const getCanvasPosition = useCallback((clientX: number, clientY: number) => {
 		if (!stageRef.current) return null;
 		const stage = stageRef.current;
@@ -2026,25 +2097,12 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 					strokeWidth: brushSettings.size, // Eraser uses brush size too
 					tool: activeTool as any,
 					layerId: activeLayerId || "layer-1",
+					opacity: brushSettings.opacity / 100,
+					hardness: brushSettings.hardness / 100,
 				};
 
 				setActiveDrawingLine(newLine);
 				setActiveLinePoints([pos.x, pos.y]);
-
-				if (tempContext) {
-					// KLÚČOVÁ OPRAVA: iba eraser má destination-out, brush a pencil majú source-over
-					if (activeTool === "eraser") {
-						tempContext.globalCompositeOperation = "destination-out";
-					} else {
-						tempContext.globalCompositeOperation = "source-over";
-					}
-					tempContext.strokeStyle = newLine.stroke;
-					tempContext.lineWidth = newLine.strokeWidth;
-					tempContext.lineCap = "round";
-					tempContext.lineJoin = "round";
-					tempContext.beginPath();
-					tempContext.moveTo(pos.x, pos.y);
-				}
 			}
 
 			// Dodge/Burn/Clone/Blur/Healing: copy current layer to temp so we draw on top of layer content
@@ -2111,25 +2169,9 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				applyBurnBrush(pos.x, pos.y);
 			}
 			// Handle vector tools (brush, pencil, eraser)
-			else if (tempContext && activeDrawingLine) {
-				tempContext.lineTo(pos.x, pos.y);
-				tempContext.stroke();
-
+			else if (activeDrawingLine) {
 				// Update active line points - much faster than updating main lines array
 				setActiveLinePoints((prev) => [...prev, pos.x, pos.y]);
-
-				// Preview update using raw canvas element for better performance
-				if (tempCanvas && activeTool !== "eraser") {
-					const now = Date.now();
-					if (now - lastMouseMoveTime.current > 32) {
-						lastMouseMoveTime.current = now;
-						// Use the canvas directly instead of toDataURL()
-						setTempImage(tempCanvas as any);
-						if (tempImageRef.current) {
-							tempImageRef.current.getLayer()?.batchDraw();
-						}
-					}
-				}
 			}
 		},
 		[
@@ -2455,6 +2497,8 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 						strokeWidth: brushSettings.strokeWidth || 2,
 						tool: "pen",
 						layerId: activeLayerId || "layer-1",
+						opacity: brushSettings.opacity / 100,
+						hardness: brushSettings.hardness / 100,
 					};
 					setCurrentPenLine(newLine);
 					setPenPoints([pos.x, pos.y]);
@@ -2635,6 +2679,8 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 
 		const pos = getCanvasPosition(e.evt.clientX, e.evt.clientY);
 		if (!pos) return;
+
+		setCursorPosition({ x: Math.round(pos.x), y: Math.round(pos.y) });
 
 		// Paint bucket preview
 		if (activeTool === "fill" && !isDrawing && tempContext) {
@@ -3099,12 +3145,81 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		// Only monitor history index changes if needed
 	}, [historyIndex]);
 
+	// --- Canvas resize event listener ---
+	useEffect(() => {
+		const handler = (e: Event) => {
+			const detail = (e as CustomEvent).detail as {
+				width: number;
+				height: number;
+				backgroundColor: string;
+			};
+			if (detail) {
+				setCanvasSize(detail);
+			}
+		};
+		window.addEventListener("artstudio:resize-canvas", handler);
+		return () => window.removeEventListener("artstudio:resize-canvas", handler);
+	}, [setCanvasSize]);
+
+	// --- Drag-and-drop image import ---
+	const handleDragOver = useCallback((e: React.DragEvent) => {
+		e.preventDefault();
+		e.dataTransfer.dropEffect = "copy";
+	}, []);
+
+	const handleDrop = useCallback(
+		(e: React.DragEvent) => {
+			e.preventDefault();
+			const files = Array.from(e.dataTransfer.files).filter((f) =>
+				f.type.startsWith("image/"),
+			);
+			if (!files.length) return;
+
+			files.forEach((file) => {
+				const reader = new FileReader();
+				reader.onload = (ev) => {
+					const src = ev.target?.result as string;
+					if (!src) return;
+
+					const img = new window.Image();
+					img.onload = () => {
+						const canvasRect = containerRef.current?.getBoundingClientRect();
+						const dropX = canvasRect
+							? (e.clientX - canvasRect.left - panOffset.x) / (zoom / 100)
+							: 100;
+						const dropY = canvasRect
+							? (e.clientY - canvasRect.top - panOffset.y) / (zoom / 100)
+							: 100;
+
+						const newImage = {
+							id: generateId("img"),
+							src,
+							x: Math.max(0, dropX - img.width / 2),
+							y: Math.max(0, dropY - img.height / 2),
+							width: img.width,
+							height: img.height,
+							layerId: activeLayerId || "layer-1",
+						};
+						setImages((prev) => [...prev, newImage]);
+						saveCanvasState("Image dropped");
+						toast.success(`Image "${file.name}" added to canvas`);
+					};
+					img.src = src;
+				};
+				reader.readAsDataURL(file);
+			});
+		},
+		[activeLayerId, generateId, panOffset, zoom, saveCanvasState],
+	);
+
 	return (
 		<div>
 			<div
 				ref={containerRef}
 				className="flex-1 overflow-hidden bg-canvas relative flex items-center justify-center"
 				style={{ cursor: getCursor() }}
+				onDragOver={handleDragOver}
+				onDrop={handleDrop}
 			>
 				<div
 					className="absolute inset-0 opacity-20 pointer-events-none"
@@ -3178,56 +3293,70 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 
 								{lines
 									.filter((l) => isLayerVisible(l.layerId))
-									.map((line) => (
-										<Line
-											key={line.id}
-											id={line.id}
-											points={line.points}
-											stroke={line.stroke}
-											strokeWidth={line.strokeWidth}
-											tension={
-												line.tool === "brush" || line.tool === "eraser"
-													? 0.5
-													: 0
-											}
-											lineCap="round"
-											lineJoin="round"
-											perfectDrawEnabled={false}
-											globalCompositeOperation={
-												line.tool === "eraser"
-													? "destination-out"
-													: "source-over"
-											}
-											draggable={
-												activeTool === "select" || activeTool === "move"
-											}
-											onClick={(e) => {
-												if (activeTool === "select" || activeTool === "move") {
-													handleObjectClick(line.id);
-													e.cancelBubble = true;
+									.map((line) => {
+										const blurAmount =
+											line.hardness !== undefined
+												? (1 - line.hardness) * line.strokeWidth
+												: 0;
+										return (
+											<Line
+												key={line.id}
+												id={line.id}
+												points={line.points}
+												stroke={line.stroke}
+												strokeWidth={line.strokeWidth}
+												tension={
+													line.tool === "brush" || line.tool === "eraser"
+														? 0.5
+														: 0
 												}
-											}}
-											onDragEnd={(e) => {
-												const dx = e.target.x();
-												const dy = e.target.y();
-												setLines((prev) =>
-													prev.map((l) =>
-														l.id === line.id
-															? {
-																	...l,
-																	points: l.points.map((p, i) =>
-																		i % 2 === 0 ? p + dx : p + dy,
-																	),
-																}
-															: l,
-													),
-												);
-												e.target.position({ x: 0, y: 0 });
-												saveCanvasState("Line moved");
-											}}
-											opacity={layerOpacities[line.layerId] || 1}
-										/>
-									))}
+												lineCap="round"
+												lineJoin="round"
+												perfectDrawEnabled={false}
+												globalCompositeOperation={
+													line.tool === "eraser"
+														? "destination-out"
+														: "source-over"
+												}
+												draggable={
+													activeTool === "select" || activeTool === "move"
+												}
+												onClick={(e) => {
+													if (
+														activeTool === "select" ||
+														activeTool === "move"
+													) {
+														handleObjectClick(line.id);
+														e.cancelBubble = true;
+													}
+												}}
+												onDragEnd={(e) => {
+													const dx = e.target.x();
+													const dy = e.target.y();
+													setLines((prev) =>
+														prev.map((l) =>
+															l.id === line.id
+																? {
+																		...l,
+																		points: l.points.map((p, i) =>
+																			i % 2 === 0 ? p + dx : p + dy,
+																		),
+																	}
+																: l,
+														),
+													);
+													e.target.position({ x: 0, y: 0 });
+													saveCanvasState("Line moved");
+												}}
+												opacity={
+													(layerOpacities[line.layerId] || 1) *
+													(line.opacity ?? 1)
+												}
+												shadowBlur={blurAmount}
+												shadowColor={blurAmount > 0 ? line.stroke : undefined}
+											/>
+										);
+									})}
 
 								{/* Active Line (Live Preview) */}
 								{activeDrawingLine && activeLinePoints.length >= 2 && (
@@ -3250,7 +3379,22 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 												: "source-over"
 										}
 										listening={false}
-										opacity={layerOpacities[activeDrawingLine.layerId] || 1}
+										opacity={
+											(layerOpacities[activeDrawingLine.layerId] || 1) *
+											(activeDrawingLine.opacity ?? 1)
+										}
+										shadowBlur={
+											activeDrawingLine.hardness !== undefined
+												? (1 - activeDrawingLine.hardness) *
+													activeDrawingLine.strokeWidth
+												: 0
+										}
+										shadowColor={
+											activeDrawingLine.hardness !== undefined &&
+											activeDrawingLine.hardness < 1
+												? activeDrawingLine.stroke
+												: undefined
+										}
 									/>
 								)}
 
@@ -3784,6 +3928,29 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 						)}
 					</div>
 				</CanvasContextMenu>
+
+				{/* Grid Overlay */}
+				{showGrid && (
+					<div
+						className="absolute pointer-events-none z-20"
+						style={{
+							transform: `scale(${zoom / 100}) translate(${panOffset.x / (zoom / 100)}px, ${panOffset.y / (zoom / 100)}px)`,
+							transformOrigin: "0 0",
+						}}
+					>
+						<GridOverlay width={actualWidth} height={actualHeight} />
+					</div>
+				)}
+
+				{/* Ruler Overlay */}
+				{showRulers && (
+					<RulerOverlay
+						width={stageSize.width}
+						height={stageSize.height}
+						zoom={zoom}
+						panOffset={panOffset}
+					/>
+				)}
 
 				<div className="absolute bottom-4 right-4 bg-black/50 text-white text-xs px-3 py-1.5 rounded pointer-events-none z-10">
 					Zoom: {zoom}% | {actualWidth} × {actualHeight}px

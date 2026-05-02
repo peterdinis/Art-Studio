@@ -305,16 +305,26 @@ export const StarPanel = () => {
 						<div className="space-y-2">
 							<Label className="text-xs">Stroke Color</Label>
 							<div className="flex items-center gap-2">
-								<div
-									className="w-8 h-8 rounded border"
-									style={{ backgroundColor: starSettings.strokeColor }}
-								/>
+								<div className="relative">
+									<div
+										className="w-8 h-8 rounded border cursor-pointer"
+										style={{ backgroundColor: starSettings.strokeColor }}
+									/>
+									<input
+										type="color"
+										value={starSettings.strokeColor}
+										onChange={(e) =>
+											updateStarSetting("strokeColor", e.target.value)
+										}
+										className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+									/>
+								</div>
 								<Input
 									value={starSettings.strokeColor}
 									onChange={(e) =>
 										updateStarSetting("strokeColor", e.target.value)
 									}
-									className="h-8 text-xs"
+									className="h-8 text-xs font-mono"
 									placeholder="#000000"
 								/>
 							</div>
@@ -325,16 +335,26 @@ export const StarPanel = () => {
 							<div className="space-y-2">
 								<Label className="text-xs">Fill Color</Label>
 								<div className="flex items-center gap-2">
-									<div
-										className="w-8 h-8 rounded border"
-										style={{ backgroundColor: starSettings.fillColor }}
-									/>
+									<div className="relative">
+										<div
+											className="w-8 h-8 rounded border cursor-pointer"
+											style={{ backgroundColor: starSettings.fillColor }}
+										/>
+										<input
+											type="color"
+											value={starSettings.fillColor}
+											onChange={(e) =>
+												updateStarSetting("fillColor", e.target.value)
+											}
+											className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+										/>
+									</div>
 									<Input
 										value={starSettings.fillColor}
 										onChange={(e) =>
 											updateStarSetting("fillColor", e.target.value)
 										}
-										className="h-8 text-xs"
+										className="h-8 text-xs font-mono"
 										placeholder="#ffffff"
 									/>
 								</div>
