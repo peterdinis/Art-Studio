@@ -30,7 +30,12 @@ type ExportFormat = "png" | "jpeg" | "webp";
 
 const FORMAT_CONFIG: Record<
 	ExportFormat,
-	{ label: string; mimeType: string; icon: React.ReactNode; supportsAlpha: boolean }
+	{
+		label: string;
+		mimeType: string;
+		icon: React.ReactNode;
+		supportsAlpha: boolean;
+	}
 > = {
 	png: {
 		label: "PNG",
@@ -178,7 +183,9 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
 									}`}
 								>
 									{FORMAT_CONFIG[fmt].icon}
-									<span className="font-medium">{FORMAT_CONFIG[fmt].label}</span>
+									<span className="font-medium">
+										{FORMAT_CONFIG[fmt].label}
+									</span>
 									<span className="text-[10px] opacity-70">
 										{FORMAT_CONFIG[fmt].supportsAlpha ? "Alpha" : "No alpha"}
 									</span>
@@ -241,7 +248,10 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
 									}`}
 								/>
 							</button>
-							<Label className="text-sm cursor-pointer" onClick={() => setTransparentBg(!transparentBg)}>
+							<Label
+								className="text-sm cursor-pointer"
+								onClick={() => setTransparentBg(!transparentBg)}
+							>
 								Transparent background
 							</Label>
 						</div>
@@ -250,13 +260,20 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
 					{/* Info */}
 					<div className="text-xs text-muted-foreground bg-muted/30 rounded-md p-3 border border-border/50">
 						{format === "jpeg" && (
-							<span>JPEG does not support transparency — background will be filled white.</span>
+							<span>
+								JPEG does not support transparency — background will be filled
+								white.
+							</span>
 						)}
 						{format === "png" && (
-							<span>PNG supports lossless compression and full transparency.</span>
+							<span>
+								PNG supports lossless compression and full transparency.
+							</span>
 						)}
 						{format === "webp" && (
-							<span>WebP provides excellent quality at smaller file sizes.</span>
+							<span>
+								WebP provides excellent quality at smaller file sizes.
+							</span>
 						)}
 					</div>
 				</div>
@@ -265,7 +282,11 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
 					<Button variant="outline" onClick={() => onOpenChange(false)}>
 						Cancel
 					</Button>
-					<Button onClick={handleExport} disabled={isExporting} className="gap-2">
+					<Button
+						onClick={handleExport}
+						disabled={isExporting}
+						className="gap-2"
+					>
 						<Download className="w-4 h-4" />
 						{isExporting ? "Exporting…" : "Export"}
 					</Button>

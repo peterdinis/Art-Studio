@@ -313,7 +313,9 @@ export const StarPanel = () => {
 									<input
 										type="color"
 										value={starSettings.strokeColor}
-										onChange={(e) => updateStarSetting("strokeColor", e.target.value)}
+										onChange={(e) =>
+											updateStarSetting("strokeColor", e.target.value)
+										}
 										className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
 									/>
 								</div>
@@ -341,7 +343,9 @@ export const StarPanel = () => {
 										<input
 											type="color"
 											value={starSettings.fillColor}
-											onChange={(e) => updateStarSetting("fillColor", e.target.value)}
+											onChange={(e) =>
+												updateStarSetting("fillColor", e.target.value)
+											}
 											className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
 										/>
 									</div>

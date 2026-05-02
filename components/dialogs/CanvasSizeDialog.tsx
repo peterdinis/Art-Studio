@@ -32,18 +32,58 @@ const PRESETS: Preset[] = [
 	{ label: "HD (1280×720)", width: 1280, height: 720, category: "Web" },
 	{ label: "Full HD (1920×1080)", width: 1920, height: 1080, category: "Web" },
 	{ label: "4K UHD (3840×2160)", width: 3840, height: 2160, category: "Web" },
-	{ label: "Square (1080×1080)", width: 1080, height: 1080, category: "Social" },
+	{
+		label: "Square (1080×1080)",
+		width: 1080,
+		height: 1080,
+		category: "Social",
+	},
 	// Social
-	{ label: "Instagram Post (1080×1350)", width: 1080, height: 1350, category: "Social" },
-	{ label: "Instagram Story (1080×1920)", width: 1080, height: 1920, category: "Social" },
-	{ label: "Twitter Header (1500×500)", width: 1500, height: 500, category: "Social" },
-	{ label: "Facebook Cover (820×312)", width: 820, height: 312, category: "Social" },
+	{
+		label: "Instagram Post (1080×1350)",
+		width: 1080,
+		height: 1350,
+		category: "Social",
+	},
+	{
+		label: "Instagram Story (1080×1920)",
+		width: 1080,
+		height: 1920,
+		category: "Social",
+	},
+	{
+		label: "Twitter Header (1500×500)",
+		width: 1500,
+		height: 500,
+		category: "Social",
+	},
+	{
+		label: "Facebook Cover (820×312)",
+		width: 820,
+		height: 312,
+		category: "Social",
+	},
 	// Print
-	{ label: "A4 Portrait (2480×3508)", width: 2480, height: 3508, category: "Print" },
-	{ label: "A4 Landscape (3508×2480)", width: 3508, height: 2480, category: "Print" },
+	{
+		label: "A4 Portrait (2480×3508)",
+		width: 2480,
+		height: 3508,
+		category: "Print",
+	},
+	{
+		label: "A4 Landscape (3508×2480)",
+		width: 3508,
+		height: 2480,
+		category: "Print",
+	},
 	{ label: "Letter (2550×3300)", width: 2550, height: 3300, category: "Print" },
 	// Design
-	{ label: "Thumbnail (1280×720)", width: 1280, height: 720, category: "Design" },
+	{
+		label: "Thumbnail (1280×720)",
+		width: 1280,
+		height: 720,
+		category: "Design",
+	},
 	{ label: "Banner (728×90)", width: 728, height: 90, category: "Design" },
 	{ label: "Icon (512×512)", width: 512, height: 512, category: "Design" },
 ];
@@ -65,7 +105,9 @@ export const CanvasSizeDialog: React.FC<CanvasSizeDialogProps> = ({
 
 	const [width, setWidth] = useState(canvasSize?.width ?? 1920);
 	const [height, setHeight] = useState(canvasSize?.height ?? 1080);
-	const [bgColor, setBgColor] = useState(canvasSize?.backgroundColor ?? "#2d3748");
+	const [bgColor, setBgColor] = useState(
+		canvasSize?.backgroundColor ?? "#2d3748",
+	);
 	const [activeCategory, setActiveCategory] = useState<string>("Web");
 
 	const handlePreset = (preset: Preset) => {
@@ -106,22 +148,30 @@ export const CanvasSizeDialog: React.FC<CanvasSizeDialogProps> = ({
 					{/* Custom dimensions */}
 					<div className="grid grid-cols-2 gap-4">
 						<div className="space-y-1.5">
-							<Label className="text-xs text-muted-foreground">Width (px)</Label>
+							<Label className="text-xs text-muted-foreground">
+								Width (px)
+							</Label>
 							<Input
 								type="number"
 								value={width}
-								onChange={(e) => setWidth(Math.max(1, parseInt(e.target.value) || 1))}
+								onChange={(e) =>
+									setWidth(Math.max(1, parseInt(e.target.value) || 1))
+								}
 								min={10}
 								max={16000}
 								className="font-mono"
 							/>
 						</div>
 						<div className="space-y-1.5">
-							<Label className="text-xs text-muted-foreground">Height (px)</Label>
+							<Label className="text-xs text-muted-foreground">
+								Height (px)
+							</Label>
 							<Input
 								type="number"
 								value={height}
-								onChange={(e) => setHeight(Math.max(1, parseInt(e.target.value) || 1))}
+								onChange={(e) =>
+									setHeight(Math.max(1, parseInt(e.target.value) || 1))
+								}
 								min={10}
 								max={16000}
 								className="font-mono"
@@ -131,7 +181,9 @@ export const CanvasSizeDialog: React.FC<CanvasSizeDialogProps> = ({
 
 					{/* Background color */}
 					<div className="space-y-1.5">
-						<Label className="text-xs text-muted-foreground">Background Color</Label>
+						<Label className="text-xs text-muted-foreground">
+							Background Color
+						</Label>
 						<div className="flex items-center gap-3">
 							<div className="relative">
 								<div
@@ -184,7 +236,8 @@ export const CanvasSizeDialog: React.FC<CanvasSizeDialogProps> = ({
 
 						<div className="grid grid-cols-2 gap-1.5 max-h-40 overflow-y-auto">
 							{filteredPresets.map((preset) => {
-								const isActive = preset.width === width && preset.height === height;
+								const isActive =
+									preset.width === width && preset.height === height;
 								return (
 									<button
 										key={preset.label}
@@ -195,7 +248,9 @@ export const CanvasSizeDialog: React.FC<CanvasSizeDialogProps> = ({
 												: "border-border bg-muted/20 hover:border-primary/40 hover:bg-muted/50"
 										}`}
 									>
-										<div className="font-medium truncate">{preset.label.split("(")[0].trim()}</div>
+										<div className="font-medium truncate">
+											{preset.label.split("(")[0].trim()}
+										</div>
 										<div className="text-[10px] font-mono text-muted-foreground">
 											{preset.width} × {preset.height}
 										</div>
@@ -208,13 +263,17 @@ export const CanvasSizeDialog: React.FC<CanvasSizeDialogProps> = ({
 					{/* Preview dimensions */}
 					<div className="text-xs text-muted-foreground bg-muted/30 rounded-md p-3 border border-border/50 flex items-center justify-between">
 						<span>
-							Canvas: <span className="font-mono text-foreground">{width} × {height} px</span>
+							Canvas:{" "}
+							<span className="font-mono text-foreground">
+								{width} × {height} px
+							</span>
 						</span>
 						<span>
 							Ratio:{" "}
 							<span className="font-mono text-foreground">
 								{(() => {
-									const gcd = (a: number, b: number): number => (b === 0 ? a : gcd(b, a % b));
+									const gcd = (a: number, b: number): number =>
+										b === 0 ? a : gcd(b, a % b);
 									const g = gcd(width, height);
 									return `${width / g}:${height / g}`;
 								})()}

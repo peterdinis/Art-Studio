@@ -1330,7 +1330,10 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 	}, [selectedId]);
 
 	// Effect to update selected object color when primaryColor or secondaryColor changes
-	const prevColors = useRef({ primary: primaryColor, secondary: secondaryColor });
+	const prevColors = useRef({
+		primary: primaryColor,
+		secondary: secondaryColor,
+	});
 	useEffect(() => {
 		if (
 			selectedId &&
@@ -1493,7 +1496,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			"artstudio:remove-layer",
 			handleRemoveLayer as EventListener,
 		);
- 
+
 		const handleImportImageEvent = (e: any) => {
 			const { src, name } = e.detail;
 			const img = new window.Image();
@@ -3145,7 +3148,11 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 	// --- Canvas resize event listener ---
 	useEffect(() => {
 		const handler = (e: Event) => {
-			const detail = (e as CustomEvent).detail as { width: number; height: number; backgroundColor: string };
+			const detail = (e as CustomEvent).detail as {
+				width: number;
+				height: number;
+				backgroundColor: string;
+			};
 			if (detail) {
 				setCanvasSize(detail);
 			}
@@ -3177,8 +3184,12 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 					const img = new window.Image();
 					img.onload = () => {
 						const canvasRect = containerRef.current?.getBoundingClientRect();
-						const dropX = canvasRect ? (e.clientX - canvasRect.left - panOffset.x) / (zoom / 100) : 100;
-						const dropY = canvasRect ? (e.clientY - canvasRect.top - panOffset.y) / (zoom / 100) : 100;
+						const dropX = canvasRect
+							? (e.clientX - canvasRect.left - panOffset.x) / (zoom / 100)
+							: 100;
+						const dropY = canvasRect
+							? (e.clientY - canvasRect.top - panOffset.y) / (zoom / 100)
+							: 100;
 
 						const newImage = {
 							id: generateId("img"),
@@ -3283,59 +3294,69 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 								{lines
 									.filter((l) => isLayerVisible(l.layerId))
 									.map((line) => {
-										const blurAmount = line.hardness !== undefined ? (1 - line.hardness) * line.strokeWidth : 0;
+										const blurAmount =
+											line.hardness !== undefined
+												? (1 - line.hardness) * line.strokeWidth
+												: 0;
 										return (
-										<Line
-											key={line.id}
-											id={line.id}
-											points={line.points}
-											stroke={line.stroke}
-											strokeWidth={line.strokeWidth}
-											tension={
-												line.tool === "brush" || line.tool === "eraser"
-													? 0.5
-													: 0
-											}
-											lineCap="round"
-											lineJoin="round"
-											perfectDrawEnabled={false}
-											globalCompositeOperation={
-												line.tool === "eraser"
-													? "destination-out"
-													: "source-over"
-											}
-											draggable={
-												activeTool === "select" || activeTool === "move"
-											}
-											onClick={(e) => {
-												if (activeTool === "select" || activeTool === "move") {
-													handleObjectClick(line.id);
-													e.cancelBubble = true;
+											<Line
+												key={line.id}
+												id={line.id}
+												points={line.points}
+												stroke={line.stroke}
+												strokeWidth={line.strokeWidth}
+												tension={
+													line.tool === "brush" || line.tool === "eraser"
+														? 0.5
+														: 0
 												}
-											}}
-											onDragEnd={(e) => {
-												const dx = e.target.x();
-												const dy = e.target.y();
-												setLines((prev) =>
-													prev.map((l) =>
-														l.id === line.id
-															? {
-																	...l,
-																	points: l.points.map((p, i) =>
-																		i % 2 === 0 ? p + dx : p + dy,
-																	),
-																}
-															: l,
-													),
-												);
-												e.target.position({ x: 0, y: 0 });
-												saveCanvasState("Line moved");
-											}}
-											opacity={(layerOpacities[line.layerId] || 1) * (line.opacity ?? 1)}
-											shadowBlur={blurAmount}
-											shadowColor={blurAmount > 0 ? line.stroke : undefined}
-										/>
-									)})}
+												lineCap="round"
+												lineJoin="round"
+												perfectDrawEnabled={false}
+												globalCompositeOperation={
+													line.tool === "eraser"
+														? "destination-out"
+														: "source-over"
+												}
+												draggable={
+													activeTool === "select" || activeTool === "move"
+												}
+												onClick={(e) => {
+													if (
+														activeTool === "select" ||
+														activeTool === "move"
+													) {
+														handleObjectClick(line.id);
+														e.cancelBubble = true;
+													}
+												}}
+												onDragEnd={(e) => {
+													const dx = e.target.x();
+													const dy = e.target.y();
+													setLines((prev) =>
+														prev.map((l) =>
+															l.id === line.id
+																? {
+																		...l,
+																		points: l.points.map((p, i) =>
+																			i % 2 === 0 ? p + dx : p + dy,
+																		),
+																	}
+																: l,
+														),
+													);
+													e.target.position({ x: 0, y: 0 });
+													saveCanvasState("Line moved");
+												}}
+												opacity={
+													(layerOpacities[line.layerId] || 1) *
+													(line.opacity ?? 1)
+												}
+												shadowBlur={blurAmount}
+												shadowColor={blurAmount > 0 ? line.stroke : undefined}
+											/>
+										);
+									})}
 
 								{/* Active Line (Live Preview) */}
 								{activeDrawingLine && activeLinePoints.length >= 2 && (
@@ -3358,9 +3379,22 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 												: "source-over"
 										}
 										listening={false}
-										opacity={(layerOpacities[activeDrawingLine.layerId] || 1) * (activeDrawingLine.opacity ?? 1)}
-										shadowBlur={activeDrawingLine.hardness !== undefined ? (1 - activeDrawingLine.hardness) * activeDrawingLine.strokeWidth : 0}
-										shadowColor={activeDrawingLine.hardness !== undefined && activeDrawingLine.hardness < 1 ? activeDrawingLine.stroke : undefined}
+										opacity={
+											(layerOpacities[activeDrawingLine.layerId] || 1) *
+											(activeDrawingLine.opacity ?? 1)
+										}
+										shadowBlur={
+											activeDrawingLine.hardness !== undefined
+												? (1 - activeDrawingLine.hardness) *
+													activeDrawingLine.strokeWidth
+												: 0
+										}
+										shadowColor={
+											activeDrawingLine.hardness !== undefined &&
+											activeDrawingLine.hardness < 1
+												? activeDrawingLine.stroke
+												: undefined
+										}
 									/>
 								)}
 

@@ -84,10 +84,16 @@ export const StatusBar: React.FC = () => {
 				{isDrawingTool && (
 					<div className="flex items-center gap-4 border-l border-border/50 pl-4">
 						<span className="hover:text-foreground transition-colors">
-							Size: <span className="text-foreground/70 font-mono">{brushSettings.size}px</span>
+							Size:{" "}
+							<span className="text-foreground/70 font-mono">
+								{brushSettings.size}px
+							</span>
 						</span>
 						<span className="hover:text-foreground transition-colors">
-							Opacity: <span className="text-foreground/70 font-mono">{brushSettings.opacity}%</span>
+							Opacity:{" "}
+							<span className="text-foreground/70 font-mono">
+								{brushSettings.opacity}%
+							</span>
 						</span>
 					</div>
 				)}
@@ -95,8 +101,14 @@ export const StatusBar: React.FC = () => {
 				<div className="flex items-center gap-4 border-l border-border/50 pl-4 min-w-[100px]">
 					{cursorPosition ? (
 						<div className="flex gap-2 font-mono">
-							<span>X: <span className="text-foreground/70">{cursorPosition.x}</span></span>
-							<span>Y: <span className="text-foreground/70">{cursorPosition.y}</span></span>
+							<span>
+								X:{" "}
+								<span className="text-foreground/70">{cursorPosition.x}</span>
+							</span>
+							<span>
+								Y:{" "}
+								<span className="text-foreground/70">{cursorPosition.y}</span>
+							</span>
 						</div>
 					) : (
 						<span className="opacity-40">Ready</span>

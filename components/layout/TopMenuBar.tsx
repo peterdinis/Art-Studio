@@ -3070,7 +3070,10 @@ export const TopMenuBar: React.FC = () => {
 			<ExportDialog open={showExport} onOpenChange={setShowExport} />
 
 			{/* Canvas Size Dialog */}
-			<CanvasSizeDialog open={showCanvasSize} onOpenChange={setShowCanvasSize} />
+			<CanvasSizeDialog
+				open={showCanvasSize}
+				onOpenChange={setShowCanvasSize}
+			/>
 		</div>
 	);
 };

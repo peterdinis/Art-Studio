@@ -15,7 +15,7 @@ const nextConfig: NextConfig = {
 			"sonner",
 			"fabric",
 			"konva",
-			"jspdf"
+			"jspdf",
 		],
 	},
 	images: {
