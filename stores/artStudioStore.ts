@@ -262,6 +262,7 @@ interface ArtStudioState {
 	showGrid: boolean;
 	showRulers: boolean;
 	showGuides: boolean;
+	cursorPosition: { x: number; y: number } | null;
 
 	// Preview
 	fillPreview: { x: number; y: number; color: string } | null;
@@ -366,6 +367,7 @@ interface ArtStudioState {
 		preview: { x: number; y: number; color: string } | null,
 	) => void;
 	setHealingSource: (source: { x: number; y: number } | null) => void;
+	setCursorPosition: (pos: { x: number; y: number } | null) => void;
 }
 
 const generateLayerId = () =>
@@ -593,6 +595,7 @@ export const useArtStudioStore = create<ArtStudioState>()(
 			showGrid: false,
 			showRulers: false,
 			showGuides: false,
+			cursorPosition: null,
 			fillPreview: null,
 			healingSource: null,
 			selectedId: null,
@@ -1452,6 +1455,7 @@ export const useArtStudioStore = create<ArtStudioState>()(
 			setFillPreview: (preview) => set({ fillPreview: preview }),
 
 			setHealingSource: (source) => set({ healingSource: source }),
+			setCursorPosition: (pos) => set({ cursorPosition: pos }),
 		}),
 		{
 			name: "artstudio-ui-store",

@@ -248,6 +248,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		setSelectedId,
 		showGrid,
 		showRulers,
+		setCursorPosition,
 	} = useArtStudioStore();
 
 	const {
@@ -1492,6 +1493,27 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			"artstudio:remove-layer",
 			handleRemoveLayer as EventListener,
 		);
+ 
+		const handleImportImageEvent = (e: any) => {
+			const { src, name } = e.detail;
+			const img = new window.Image();
+			img.onload = () => {
+				const newImage = {
+					id: generateId("img"),
+					src,
+					x: 100,
+					y: 100,
+					width: img.width,
+					height: img.height,
+					layerId: activeLayerId || "layer-1",
+				};
+				setImages((prev) => [...prev, newImage]);
+				saveCanvasState("Image imported");
+				toast.success(`Image "${name}" imported`);
+			};
+			img.src = src;
+		};
+		window.addEventListener("artstudio:import-image", handleImportImageEvent);
 
 		const handleTempToolChange = (e: any) => {
 			if (e.detail && e.detail.tool) {
@@ -1532,24 +1554,24 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				"artstudio:temp-tool-reset",
 				handleTempToolReset,
 			);
+			window.removeEventListener(
+				"artstudio:import-image",
+				handleImportImageEvent,
+			);
 		};
 	}, [
 		setGradients,
 		clearSelection,
-		restoreCanvasState,
-		setActiveTool,
+		activeLayerId,
 		activeTool,
-		editingTextId,
-		saveCanvasState,
 		handleClearCanvas,
-		selectedId,
+		restoreCanvasState,
+		saveCanvasState,
 		setSelectedId,
-		lines,
-		shapes,
-		images,
-		textObjects,
+		setEditingTextId,
+		setActiveTool,
+		generateId,
 	]);
-
 	const getCanvasPosition = useCallback((clientX: number, clientY: number) => {
 		if (!stageRef.current) return null;
 		const stage = stageRef.current;
@@ -2654,6 +2676,8 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 
 		const pos = getCanvasPosition(e.evt.clientX, e.evt.clientY);
 		if (!pos) return;
+
+		setCursorPosition({ x: Math.round(pos.x), y: Math.round(pos.y) });
 
 		// Paint bucket preview
 		if (activeTool === "fill" && !isDrawing && tempContext) {
