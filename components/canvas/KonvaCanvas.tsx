@@ -1324,6 +1324,46 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		}
 	}, [selectedId]);
 
+	// Effect to update selected object color when primaryColor or secondaryColor changes
+	const prevColors = useRef({ primary: primaryColor, secondary: secondaryColor });
+	useEffect(() => {
+		if (
+			selectedId &&
+			(prevColors.current.primary !== primaryColor ||
+				prevColors.current.secondary !== secondaryColor)
+		) {
+			setShapes((prev) =>
+				prev.map((s) => {
+					if (s.id === selectedId) {
+						return {
+							...s,
+							stroke: primaryColor,
+							fill: s.fill === "transparent" ? "transparent" : secondaryColor,
+						};
+					}
+					return s;
+				}),
+			);
+			setLines((prev) =>
+				prev.map((l) => {
+					if (l.id === selectedId) {
+						return { ...l, stroke: primaryColor };
+					}
+					return l;
+				}),
+			);
+			setTextObjects((prev) =>
+				prev.map((t) => {
+					if (t.id === selectedId) {
+						return { ...t, color: primaryColor };
+					}
+					return t;
+				}),
+			);
+		}
+		prevColors.current = { primary: primaryColor, secondary: secondaryColor };
+	}, [primaryColor, secondaryColor, selectedId]);
+
 	/* --- INITIALIZE TEMP CANVAS --- */
 	useEffect(() => {
 		const tempCanvasEl = document.createElement("canvas");
