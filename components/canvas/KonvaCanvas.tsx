@@ -57,6 +57,8 @@ interface DrawingLine {
 	strokeWidth: number;
 	tool: "brush" | "pencil" | "eraser" | "healing" | "blur" | "pen";
 	layerId: string;
+	opacity?: number;
+	hardness?: number;
 }
 
 interface ShapeObject {
@@ -2026,6 +2028,8 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 					strokeWidth: brushSettings.size, // Eraser uses brush size too
 					tool: activeTool as any,
 					layerId: activeLayerId || "layer-1",
+					opacity: brushSettings.opacity / 100,
+					hardness: brushSettings.hardness / 100,
 				};
 
 				setActiveDrawingLine(newLine);
@@ -2038,6 +2042,17 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 					} else {
 						tempContext.globalCompositeOperation = "source-over";
 					}
+					
+					tempContext.globalAlpha = brushSettings.opacity / 100;
+					const blurAmount = (1 - brushSettings.hardness / 100) * brushSettings.size;
+					if (blurAmount > 0) {
+						tempContext.shadowBlur = blurAmount;
+						tempContext.shadowColor = newLine.stroke;
+					} else {
+						tempContext.shadowBlur = 0;
+						tempContext.shadowColor = "transparent";
+					}
+
 					tempContext.strokeStyle = newLine.stroke;
 					tempContext.lineWidth = newLine.strokeWidth;
 					tempContext.lineCap = "round";
@@ -2455,6 +2470,8 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 						strokeWidth: brushSettings.strokeWidth || 2,
 						tool: "pen",
 						layerId: activeLayerId || "layer-1",
+						opacity: brushSettings.opacity / 100,
+						hardness: brushSettings.hardness / 100,
 					};
 					setCurrentPenLine(newLine);
 					setPenPoints([pos.x, pos.y]);
@@ -3178,7 +3195,9 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 
 								{lines
 									.filter((l) => isLayerVisible(l.layerId))
-									.map((line) => (
+									.map((line) => {
+										const blurAmount = line.hardness !== undefined ? (1 - line.hardness) * line.strokeWidth : 0;
+										return (
 										<Line
 											key={line.id}
 											id={line.id}
@@ -3225,9 +3244,11 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 												e.target.position({ x: 0, y: 0 });
 												saveCanvasState("Line moved");
 											}}
-											opacity={layerOpacities[line.layerId] || 1}
+											opacity={(layerOpacities[line.layerId] || 1) * (line.opacity ?? 1)}
+											shadowBlur={blurAmount}
+											shadowColor={blurAmount > 0 ? line.stroke : undefined}
 										/>
-									))}
+									)})}
 
 								{/* Active Line (Live Preview) */}
 								{activeDrawingLine && activeLinePoints.length >= 2 && (
@@ -3250,7 +3271,9 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 												: "source-over"
 										}
 										listening={false}
-										opacity={layerOpacities[activeDrawingLine.layerId] || 1}
+										opacity={(layerOpacities[activeDrawingLine.layerId] || 1) * (activeDrawingLine.opacity ?? 1)}
+										shadowBlur={activeDrawingLine.hardness !== undefined ? (1 - activeDrawingLine.hardness) * activeDrawingLine.strokeWidth : 0}
+										shadowColor={activeDrawingLine.hardness !== undefined && activeDrawingLine.hardness < 1 ? activeDrawingLine.stroke : undefined}
 									/>
 								)}
 
