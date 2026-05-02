@@ -2034,32 +2034,6 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 
 				setActiveDrawingLine(newLine);
 				setActiveLinePoints([pos.x, pos.y]);
-
-				if (tempContext) {
-					// KLÚČOVÁ OPRAVA: iba eraser má destination-out, brush a pencil majú source-over
-					if (activeTool === "eraser") {
-						tempContext.globalCompositeOperation = "destination-out";
-					} else {
-						tempContext.globalCompositeOperation = "source-over";
-					}
-					
-					tempContext.globalAlpha = brushSettings.opacity / 100;
-					const blurAmount = (1 - brushSettings.hardness / 100) * brushSettings.size;
-					if (blurAmount > 0) {
-						tempContext.shadowBlur = blurAmount;
-						tempContext.shadowColor = newLine.stroke;
-					} else {
-						tempContext.shadowBlur = 0;
-						tempContext.shadowColor = "transparent";
-					}
-
-					tempContext.strokeStyle = newLine.stroke;
-					tempContext.lineWidth = newLine.strokeWidth;
-					tempContext.lineCap = "round";
-					tempContext.lineJoin = "round";
-					tempContext.beginPath();
-					tempContext.moveTo(pos.x, pos.y);
-				}
 			}
 
 			// Dodge/Burn/Clone/Blur/Healing: copy current layer to temp so we draw on top of layer content
@@ -2126,25 +2100,9 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				applyBurnBrush(pos.x, pos.y);
 			}
 			// Handle vector tools (brush, pencil, eraser)
-			else if (tempContext && activeDrawingLine) {
-				tempContext.lineTo(pos.x, pos.y);
-				tempContext.stroke();
-
+			else if (activeDrawingLine) {
 				// Update active line points - much faster than updating main lines array
 				setActiveLinePoints((prev) => [...prev, pos.x, pos.y]);
-
-				// Preview update using raw canvas element for better performance
-				if (tempCanvas && activeTool !== "eraser") {
-					const now = Date.now();
-					if (now - lastMouseMoveTime.current > 32) {
-						lastMouseMoveTime.current = now;
-						// Use the canvas directly instead of toDataURL()
-						setTempImage(tempCanvas as any);
-						if (tempImageRef.current) {
-							tempImageRef.current.getLayer()?.batchDraw();
-						}
-					}
-				}
 			}
 		},
 		[
