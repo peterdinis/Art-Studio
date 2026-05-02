@@ -43,6 +43,8 @@ import { useArtStudioStore, Tool } from "@/stores/artStudioStore";
 import { useZoom } from "@/hooks/useZoom";
 import { toast } from "sonner";
 import { CanvasContextMenu } from "./CanvasContextMenu";
+import { GridOverlay } from "./GridOverlay";
+import { RulerOverlay } from "./RulerOverlay";
 
 interface KonvaCanvasProps {
 	width?: number;
@@ -244,6 +246,8 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		historyIndex,
 		selectedId,
 		setSelectedId,
+		showGrid,
+		showRulers,
 	} = useArtStudioStore();
 
 	const {
@@ -3114,12 +3118,73 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		// Only monitor history index changes if needed
 	}, [historyIndex]);
 
+	// --- Canvas resize event listener ---
+	useEffect(() => {
+		const handler = (e: Event) => {
+			const detail = (e as CustomEvent).detail as { width: number; height: number; backgroundColor: string };
+			if (detail) {
+				setCanvasSize(detail);
+			}
+		};
+		window.addEventListener("artstudio:resize-canvas", handler);
+		return () => window.removeEventListener("artstudio:resize-canvas", handler);
+	}, [setCanvasSize]);
+
+	// --- Drag-and-drop image import ---
+	const handleDragOver = useCallback((e: React.DragEvent) => {
+		e.preventDefault();
+		e.dataTransfer.dropEffect = "copy";
+	}, []);
+
+	const handleDrop = useCallback(
+		(e: React.DragEvent) => {
+			e.preventDefault();
+			const files = Array.from(e.dataTransfer.files).filter((f) =>
+				f.type.startsWith("image/"),
+			);
+			if (!files.length) return;
+
+			files.forEach((file) => {
+				const reader = new FileReader();
+				reader.onload = (ev) => {
+					const src = ev.target?.result as string;
+					if (!src) return;
+
+					const img = new window.Image();
+					img.onload = () => {
+						const canvasRect = containerRef.current?.getBoundingClientRect();
+						const dropX = canvasRect ? (e.clientX - canvasRect.left - panOffset.x) / (zoom / 100) : 100;
+						const dropY = canvasRect ? (e.clientY - canvasRect.top - panOffset.y) / (zoom / 100) : 100;
+
+						const newImage = {
+							id: generateId("img"),
+							src,
+							x: Math.max(0, dropX - img.width / 2),
+							y: Math.max(0, dropY - img.height / 2),
+							width: img.width,
+							height: img.height,
+							layerId: activeLayerId || "layer-1",
+						};
+						setImages((prev) => [...prev, newImage]);
+						saveCanvasState("Image dropped");
+						toast.success(`Image "${file.name}" added to canvas`);
+					};
+					img.src = src;
+				};
+				reader.readAsDataURL(file);
+			});
+		},
+		[activeLayerId, generateId, panOffset, zoom, saveCanvasState],
+	);
+
 	return (
 		<div>
 			<div
 				ref={containerRef}
 				className="flex-1 overflow-hidden bg-canvas relative flex items-center justify-center"
 				style={{ cursor: getCursor() }}
+				onDragOver={handleDragOver}
+				onDrop={handleDrop}
 			>
 				<div
 					className="absolute inset-0 opacity-20 pointer-events-none"
@@ -3805,6 +3870,29 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 						)}
 					</div>
 				</CanvasContextMenu>
+
+				{/* Grid Overlay */}
+				{showGrid && (
+					<div
+						className="absolute pointer-events-none z-20"
+						style={{
+							transform: `scale(${zoom / 100}) translate(${panOffset.x / (zoom / 100)}px, ${panOffset.y / (zoom / 100)}px)`,
+							transformOrigin: "0 0",
+						}}
+					>
+						<GridOverlay width={actualWidth} height={actualHeight} />
+					</div>
+				)}
+
+				{/* Ruler Overlay */}
+				{showRulers && (
+					<RulerOverlay
+						width={stageSize.width}
+						height={stageSize.height}
+						zoom={zoom}
+						panOffset={panOffset}
+					/>
+				)}
 
 				<div className="absolute bottom-4 right-4 bg-black/50 text-white text-xs px-3 py-1.5 rounded pointer-events-none z-10">
 					Zoom: {zoom}% | {actualWidth} × {actualHeight}px
