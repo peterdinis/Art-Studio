@@ -1011,44 +1011,12 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		};
 	}, [applyKonvaRasterEffect, applyKonvaUpscale]);
 
-	/* --- EVENT LISTENERS PRE UNDO/REDO --- */
+	/* --- DELETE SELECTION (undo/redo/restore use artstudio:restore-history below) --- */
 	useEffect(() => {
-		// Event listener pre undo
-		const handleUndoEvent = (e: CustomEvent) => {
-			if (e.detail?.canvasData) {
-				restoreCanvasState(e.detail.canvasData);
-			}
-		};
-
-		// Event listener pre redo
-		const handleRedoEvent = (e: CustomEvent) => {
-			if (e.detail?.canvasData) {
-				restoreCanvasState(e.detail.canvasData);
-			}
-		};
-
-		// Event listener pre restore-history (general)
-		const handleRestoreHistory = (e: CustomEvent) => {
-			if (e.detail?.canvasData) {
-				restoreCanvasState(e.detail.canvasData);
-			}
-		};
-
-		const handleSelectTextEvent = (e: CustomEvent) => {
-			const { textId } = e.detail;
-			handleSelectText(textId);
-		};
-
 		const handleDeleteSelectedEvent = () => {
 			handleDeleteSelected();
 		};
 
-		window.addEventListener("artstudio:undo", handleUndoEvent as EventListener);
-		window.addEventListener("artstudio:redo", handleRedoEvent as EventListener);
-		window.addEventListener(
-			"artstudio:restore-history",
-			handleRestoreHistory as EventListener,
-		);
 		window.addEventListener(
 			"artstudio:delete-selected",
 			handleDeleteSelectedEvent as EventListener,
@@ -1056,23 +1024,11 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 
 		return () => {
 			window.removeEventListener(
-				"artstudio:undo",
-				handleUndoEvent as EventListener,
-			);
-			window.removeEventListener(
-				"artstudio:redo",
-				handleRedoEvent as EventListener,
-			);
-			window.removeEventListener(
-				"artstudio:restore-history",
-				handleRestoreHistory as EventListener,
-			);
-			window.removeEventListener(
 				"artstudio:delete-selected",
 				handleDeleteSelectedEvent as EventListener,
 			);
 		};
-	}, [restoreCanvasState, handleDeleteSelected]);
+	}, [handleDeleteSelected]);
 
 	/* --- EVENT LISTENERS FOR TEXT --- */
 	useEffect(() => {

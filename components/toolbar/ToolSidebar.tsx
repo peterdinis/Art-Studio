@@ -78,14 +78,6 @@ export const ToolSidebar: React.FC = () => {
 		try {
 			const entry = await undo();
 			if (entry?.canvasData) {
-				window.dispatchEvent(
-					new CustomEvent("artstudio:undo", {
-						detail: {
-							canvasData: entry.canvasData,
-							timestamp: entry.timestamp,
-						},
-					}),
-				);
 				toast.success("Undo successful");
 			}
 		} catch (error) {
@@ -99,14 +91,6 @@ export const ToolSidebar: React.FC = () => {
 		try {
 			const entry = await redo();
 			if (entry?.canvasData) {
-				window.dispatchEvent(
-					new CustomEvent("artstudio:redo", {
-						detail: {
-							canvasData: entry.canvasData,
-							timestamp: entry.timestamp,
-						},
-					}),
-				);
 				toast.success("Redo successful");
 			}
 		} catch (error) {
