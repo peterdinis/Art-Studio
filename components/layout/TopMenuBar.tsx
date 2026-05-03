@@ -58,6 +58,7 @@ import {
 	Ruler,
 	Check,
 	Download,
+	Archive,
 } from "lucide-react";
 import {
 	DropdownMenu,
@@ -80,6 +81,7 @@ import { toast } from "sonner";
 import { TemplatesDialog } from "../templates/TemplatesDialog";
 import { KeyboardShortcutsDialog } from "../dialogs/KeyboardSettingsDialog";
 import { ExportDialog } from "../dialogs/ExportDialog";
+import { CompressImageDialog } from "../dialogs/CompressImageDialog";
 import { CanvasSizeDialog } from "../dialogs/CanvasSizeDialog";
 import { useZoom } from "@/hooks/useZoom";
 
@@ -108,6 +110,7 @@ export const TopMenuBar: React.FC = () => {
 	const [showTemplates, setShowTemplates] = useState(false);
 	const [showShortcuts, setShowShortcuts] = useState(false);
 	const [showExport, setShowExport] = useState(false);
+	const [showCompress, setShowCompress] = useState(false);
 	const [showCanvasSize, setShowCanvasSize] = useState(false);
 
 	// Use the store at component level
@@ -1495,6 +1498,123 @@ export const TopMenuBar: React.FC = () => {
 		});
 	};
 
+	const dispatchKonvaRasterFilter = (filter: string) => {
+		const dispatch = (
+			effect: string,
+			opts?: Record<string, number | { r: number; g: number; b: number }>,
+		) => {
+			window.dispatchEvent(
+				new CustomEvent("artstudio:konva-raster-effect", {
+					detail: { effect, ...opts },
+				}),
+			);
+		};
+
+		switch (filter) {
+			case "Invert":
+				dispatch("invert");
+				return;
+			case "Desaturate":
+				dispatch("grayscale");
+				return;
+			case "Sepia":
+				dispatch("sepia");
+				return;
+			case "Remove Background":
+				dispatch("removeBackground", { tolerance: 45 });
+				return;
+			case "Auto Tone":
+				dispatch("autoLevels");
+				return;
+			case "Auto Contrast":
+				dispatch("autoContrast");
+				return;
+			case "Levels":
+				dispatch("autoLevels");
+				return;
+			case "Curves":
+				dispatch("autoLevels");
+				toast.info(
+					"Konva: curves approximated with auto levels on the flattened image.",
+					{ duration: 4000 },
+				);
+				return;
+			case "Color Balance":
+				dispatch("autoLevels");
+				toast.info(
+					"Konva: using auto tone as a color balance shortcut on pixels.",
+					{ duration: 4000 },
+				);
+				return;
+			case "Brightness/Contrast": {
+				const bStr = prompt("Brightness (-100 to 100):", "0");
+				const cStr = prompt("Contrast (-100 to 100):", "0");
+				if (bStr === null || cStr === null) return;
+				const brightness = Number.parseInt(bStr, 10);
+				const contrast = Number.parseInt(cStr, 10);
+				if (Number.isNaN(brightness) || Number.isNaN(contrast)) {
+					toast.error("Enter valid numbers.");
+					return;
+				}
+				dispatch("brightnessContrast", { brightness, contrast });
+				return;
+			}
+			case "Hue/Saturation": {
+				const hStr = prompt("Hue shift (-180 to 180):", "0");
+				const sStr = prompt("Saturation (-100 to 100):", "0");
+				if (hStr === null || sStr === null) return;
+				const hue = Number.parseInt(hStr, 10);
+				const saturation = Number.parseInt(sStr, 10);
+				if (Number.isNaN(hue) || Number.isNaN(saturation)) {
+					toast.error("Enter valid numbers.");
+					return;
+				}
+				dispatch("hueSaturation", { hue, saturation });
+				return;
+			}
+			case "Gaussian Blur":
+				dispatch("gaussianBlur", { blurRadius: 2 });
+				return;
+			case "Motion Blur":
+				dispatch("gaussianBlur", { blurRadius: 4 });
+				return;
+			case "Surface Blur":
+				dispatch("gaussianBlur", { blurRadius: 3 });
+				return;
+			case "Radial Blur":
+				dispatch("gaussianBlur", { blurRadius: 5 });
+				return;
+			case "Sharpen":
+			case "Unsharp Mask":
+			case "Smart Sharpen":
+				dispatch("sharpen");
+				return;
+			case "Upscale 2x":
+				window.dispatchEvent(
+					new CustomEvent("artstudio:konva-upscale", {
+						detail: { scale: 2 },
+					}),
+				);
+				return;
+			case "Posterize": {
+				const p = prompt("Posterize levels (2–32):", "8");
+				if (p === null) return;
+				const levels = Number.parseInt(p, 10);
+				if (Number.isNaN(levels) || levels < 2 || levels > 32) {
+					toast.error("Use a level between 2 and 32.");
+					return;
+				}
+				dispatch("posterize", { posterizeLevels: levels });
+				return;
+			}
+			default:
+				toast.info(
+					`"${filter}" is not wired up for the Konva canvas yet. Switch to the Fabric engine under View → Rendering Engine if you need this control.`,
+					{ duration: 6000 },
+				);
+		}
+	};
+
 	// Filter functions that actually apply effects
 	const handleApplyFilter = (filter: string) => {
 		const canvas = getCanvas();
@@ -1502,6 +1622,11 @@ export const TopMenuBar: React.FC = () => {
 			toast.error("No canvas available", {
 				duration: 3000,
 			});
+			return;
+		}
+
+		if (isKonva()) {
+			dispatchKonvaRasterFilter(filter);
 			return;
 		}
 
@@ -2056,6 +2181,11 @@ export const TopMenuBar: React.FC = () => {
 			action: () => setShowExport(true),
 		},
 		{
+			label: "Compress image…",
+			icon: Archive,
+			action: () => setShowCompress(true),
+		},
+		{
 			label: "Export (advanced)",
 			icon: FileImage,
 			submenu: [
@@ -2494,6 +2624,17 @@ export const TopMenuBar: React.FC = () => {
 					label: "Auto Contrast",
 					icon: Contrast,
 					action: () => handleApplyFilter("Auto Contrast"),
+				},
+				{ separator: true, label: "" },
+				{
+					label: "Sepia tone",
+					icon: Sun,
+					action: () => handleApplyFilter("Sepia"),
+				},
+				{
+					label: "Posterize…",
+					icon: SlidersHorizontal,
+					action: () => handleApplyFilter("Posterize"),
 				},
 			],
 		},
@@ -3068,6 +3209,11 @@ export const TopMenuBar: React.FC = () => {
 
 			{/* Export Dialog */}
 			<ExportDialog open={showExport} onOpenChange={setShowExport} />
+
+			<CompressImageDialog
+				open={showCompress}
+				onOpenChange={setShowCompress}
+			/>
 
 			{/* Canvas Size Dialog */}
 			<CanvasSizeDialog
