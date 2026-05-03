@@ -67,7 +67,9 @@ export const PenOptionsPanel: React.FC = () => {
 			<div className="space-y-2">
 				<div className="flex justify-between items-center">
 					<Label className="text-xs text-muted-foreground">Opacity</Label>
-					<span className="text-xs font-mono">{brushSettings.opacity ?? 100}%</span>
+					<span className="text-xs font-mono">
+						{brushSettings.opacity ?? 100}%
+					</span>
 				</div>
 				<Slider
 					value={[brushSettings.opacity ?? 100]}
@@ -81,7 +83,9 @@ export const PenOptionsPanel: React.FC = () => {
 			<div className="space-y-2">
 				<div className="flex justify-between items-center">
 					<Label className="text-xs text-muted-foreground">Hardness</Label>
-					<span className="text-xs font-mono">{brushSettings.hardness ?? 100}%</span>
+					<span className="text-xs font-mono">
+						{brushSettings.hardness ?? 100}%
+					</span>
 				</div>
 				<Slider
 					value={[brushSettings.hardness ?? 100]}

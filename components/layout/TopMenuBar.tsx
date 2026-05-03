@@ -218,7 +218,9 @@ export const TopMenuBar: React.FC = () => {
 
 	const saveBrowserProjects = (projects: BrowserProject[]) => {
 		localStorage.setItem(BROWSER_PROJECTS_KEY, JSON.stringify(projects));
-		setBrowserProjects(projects.sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 10));
+		setBrowserProjects(
+			projects.sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 10),
+		);
 	};
 
 	const getCurrentCanvasData = () => {
@@ -414,7 +416,10 @@ export const TopMenuBar: React.FC = () => {
 			return;
 		}
 
-		const name = prompt("Project name:", `Project ${new Date().toLocaleString()}`);
+		const name = prompt(
+			"Project name:",
+			`Project ${new Date().toLocaleString()}`,
+		);
 		if (!name) return;
 
 		const project: BrowserProject = {
@@ -508,7 +513,10 @@ export const TopMenuBar: React.FC = () => {
 			toast.error("No canvas to share");
 			return;
 		}
-		const payload = btoa(unescape(encodeURIComponent(canvasData))).slice(0, 120);
+		const payload = btoa(unescape(encodeURIComponent(canvasData))).slice(
+			0,
+			120,
+		);
 		const mockShareLink = `${window.location.origin}?shared=${payload}`;
 		await navigator.clipboard.writeText(mockShareLink);
 		toast.success("Mock review link copied to clipboard");
@@ -528,7 +536,9 @@ export const TopMenuBar: React.FC = () => {
 		toast.success("Reviewer comment added");
 	};
 
-	const handleApplyAdjustmentPreset = (preset: "cinematic" | "vintage" | "pop") => {
+	const handleApplyAdjustmentPreset = (
+		preset: "cinematic" | "vintage" | "pop",
+	) => {
 		if (preset === "cinematic") {
 			handleApplyFilter("Desaturate");
 			handleApplyFilter("Auto Contrast");
@@ -3466,7 +3476,10 @@ export const TopMenuBar: React.FC = () => {
 
 				<Tooltip>
 					<TooltipTrigger asChild>
-						<button onClick={handleQuickCommand} className="tool-button w-8 h-8">
+						<button
+							onClick={handleQuickCommand}
+							className="tool-button w-8 h-8"
+						>
 							<Command className="w-4 h-4" />
 						</button>
 					</TooltipTrigger>
@@ -3486,10 +3499,7 @@ export const TopMenuBar: React.FC = () => {
 			{/* Export Dialog */}
 			<ExportDialog open={showExport} onOpenChange={setShowExport} />
 
-			<CompressImageDialog
-				open={showCompress}
-				onOpenChange={setShowCompress}
-			/>
+			<CompressImageDialog open={showCompress} onOpenChange={setShowCompress} />
 
 			{/* Canvas Size Dialog */}
 			<CanvasSizeDialog

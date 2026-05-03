@@ -852,13 +852,8 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 			ctx.putImageData(imageData, 0, 0);
 
 			const dataUrl = tempCanvas.toDataURL("image/png");
-			const bgAfter =
-				effect === "removeBackground" ? "transparent" : undefined;
-			collapseToRasterImage(
-				dataUrl,
-				bgAfter,
-				`Raster: ${effect}`,
-			);
+			const bgAfter = effect === "removeBackground" ? "transparent" : undefined;
+			collapseToRasterImage(dataUrl, bgAfter, `Raster: ${effect}`);
 			toast.success(
 				effect === "removeBackground"
 					? "Background removed (edge color). Canvas flattened to one layer."
@@ -916,10 +911,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 				activeLayerId: "layer-1",
 			});
 
-			const bg =
-				canvasSize?.backgroundColor ??
-				actualBackground ??
-				"#2d3748";
+			const bg = canvasSize?.backgroundColor ?? actualBackground ?? "#2d3748";
 			setCanvasSize({
 				width: nw,
 				height: nh,

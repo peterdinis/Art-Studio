@@ -48,7 +48,10 @@ vi.mock("sonner", () => ({
 
 describe("HistoryPanel component", () => {
 	beforeEach(() => {
-		vi.stubGlobal("confirm", vi.fn(() => true));
+		vi.stubGlobal(
+			"confirm",
+			vi.fn(() => true),
+		);
 		useArtStudioStore.setState({
 			history: [
 				{
