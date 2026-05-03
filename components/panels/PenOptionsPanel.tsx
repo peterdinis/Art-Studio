@@ -63,6 +63,39 @@ export const PenOptionsPanel: React.FC = () => {
 				/>
 			</div>
 
+			{/* Opacity — same store keys as brush/pencil (Konva reads these on each segment) */}
+			<div className="space-y-2">
+				<div className="flex justify-between items-center">
+					<Label className="text-xs text-muted-foreground">Opacity</Label>
+					<span className="text-xs font-mono">
+						{brushSettings.opacity ?? 100}%
+					</span>
+				</div>
+				<Slider
+					value={[brushSettings.opacity ?? 100]}
+					onValueChange={([val]) => setBrushSettings({ opacity: val })}
+					min={1}
+					max={100}
+					step={1}
+				/>
+			</div>
+
+			<div className="space-y-2">
+				<div className="flex justify-between items-center">
+					<Label className="text-xs text-muted-foreground">Hardness</Label>
+					<span className="text-xs font-mono">
+						{brushSettings.hardness ?? 100}%
+					</span>
+				</div>
+				<Slider
+					value={[brushSettings.hardness ?? 100]}
+					onValueChange={([val]) => setBrushSettings({ hardness: val })}
+					min={0}
+					max={100}
+					step={1}
+				/>
+			</div>
+
 			{/* Smoothing */}
 			<div className="space-y-2">
 				<div className="flex justify-between items-center">

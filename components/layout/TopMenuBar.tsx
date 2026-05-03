@@ -58,6 +58,8 @@ import {
 	Ruler,
 	Check,
 	Download,
+	Archive,
+	Command,
 } from "lucide-react";
 import {
 	DropdownMenu,
@@ -80,6 +82,7 @@ import { toast } from "sonner";
 import { TemplatesDialog } from "../templates/TemplatesDialog";
 import { KeyboardShortcutsDialog } from "../dialogs/KeyboardSettingsDialog";
 import { ExportDialog } from "../dialogs/ExportDialog";
+import { CompressImageDialog } from "../dialogs/CompressImageDialog";
 import { CanvasSizeDialog } from "../dialogs/CanvasSizeDialog";
 import { useZoom } from "@/hooks/useZoom";
 
@@ -93,6 +96,21 @@ interface MenuItemConfig {
 	separator?: boolean;
 	checked?: boolean;
 }
+
+interface BrowserProject {
+	id: string;
+	name: string;
+	updatedAt: number;
+	canvasData: string;
+}
+
+interface CollaborationComment {
+	id: string;
+	text: string;
+	timestamp: number;
+}
+
+const BROWSER_PROJECTS_KEY = "artstudio:browser-projects:v1";
 
 // Get canvas reference from window for direct manipulation
 declare global {
@@ -108,7 +126,12 @@ export const TopMenuBar: React.FC = () => {
 	const [showTemplates, setShowTemplates] = useState(false);
 	const [showShortcuts, setShowShortcuts] = useState(false);
 	const [showExport, setShowExport] = useState(false);
+	const [showCompress, setShowCompress] = useState(false);
 	const [showCanvasSize, setShowCanvasSize] = useState(false);
+	const [browserProjects, setBrowserProjects] = useState<BrowserProject[]>([]);
+	const [collaborationComments, setCollaborationComments] = useState<
+		CollaborationComment[]
+	>([]);
 
 	// Use the store at component level
 	const store = useArtStudioStore();
@@ -166,9 +189,45 @@ export const TopMenuBar: React.FC = () => {
 		window.artStudioStore = store;
 	}, [store]);
 
+	useEffect(() => {
+		loadBrowserProjects();
+	}, []);
+
 	const getCanvas = () => window.fabricCanvas || window.konvaStage;
 	const isFabric = () => !!window.fabricCanvas;
 	const isKonva = () => !!window.konvaStage;
+
+	const loadBrowserProjects = () => {
+		try {
+			const raw = localStorage.getItem(BROWSER_PROJECTS_KEY);
+			if (!raw) {
+				setBrowserProjects([]);
+				return;
+			}
+			const parsed = JSON.parse(raw) as BrowserProject[];
+			setBrowserProjects(
+				parsed
+					.filter((p) => p.id && p.name && p.canvasData)
+					.sort((a, b) => b.updatedAt - a.updatedAt)
+					.slice(0, 10),
+			);
+		} catch {
+			setBrowserProjects([]);
+		}
+	};
+
+	const saveBrowserProjects = (projects: BrowserProject[]) => {
+		localStorage.setItem(BROWSER_PROJECTS_KEY, JSON.stringify(projects));
+		setBrowserProjects(
+			projects.sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 10),
+		);
+	};
+
+	const getCurrentCanvasData = () => {
+		const canvas = getCanvas();
+		if (!canvas) return null;
+		return JSON.stringify(canvas.toJSON());
+	};
 
 	const handleNewCanvas = () => {
 		setShowTemplates(true);
@@ -348,6 +407,150 @@ export const TopMenuBar: React.FC = () => {
 				duration: 3000,
 			});
 		}
+	};
+
+	const handleSaveProjectToBrowser = () => {
+		const canvasData = getCurrentCanvasData();
+		if (!canvasData) {
+			toast.error("No canvas to save");
+			return;
+		}
+
+		const name = prompt(
+			"Project name:",
+			`Project ${new Date().toLocaleString()}`,
+		);
+		if (!name) return;
+
+		const project: BrowserProject = {
+			id: `project-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+			name,
+			updatedAt: Date.now(),
+			canvasData,
+		};
+
+		const updated = [project, ...browserProjects];
+		saveBrowserProjects(updated);
+		toast.success(`Saved "${name}" to browser projects`);
+	};
+
+	const handleOpenBrowserProject = (projectId: string) => {
+		const project = browserProjects.find((p) => p.id === projectId);
+		if (!project) {
+			toast.error("Project not found");
+			return;
+		}
+
+		const canvas = getCanvas();
+		if (!canvas) {
+			toast.error("No canvas available");
+			return;
+		}
+
+		try {
+			if (isFabric()) {
+				canvas.loadFromJSON(project.canvasData).then(() => {
+					canvas.renderAll();
+					toast.success(`Opened "${project.name}"`);
+				});
+			} else {
+				window.dispatchEvent(
+					new CustomEvent("artstudio:restore-history", {
+						detail: { canvasData: project.canvasData, action: "open-project" },
+					}),
+				);
+				toast.success(`Opened "${project.name}"`);
+			}
+		} catch {
+			toast.error("Failed to open saved project");
+		}
+	};
+
+	const handleQuickCommand = () => {
+		const command = prompt(
+			"Quick command:\nnew | open | save | export | undo | redo | grid | rulers | share",
+			"",
+		);
+		if (!command) return;
+
+		const normalized = command.trim().toLowerCase();
+		switch (normalized) {
+			case "new":
+				handleNewCanvas();
+				return;
+			case "open":
+				handleOpenFile();
+				return;
+			case "save":
+				handleSave();
+				return;
+			case "export":
+				setShowExport(true);
+				return;
+			case "undo":
+				handleUndo();
+				return;
+			case "redo":
+				handleRedo();
+				return;
+			case "grid":
+				setShowGrid(!showGrid);
+				return;
+			case "rulers":
+				setShowRulers(!showRulers);
+				return;
+			case "share":
+				handleShare();
+				return;
+			default:
+				toast.info(`Unknown command: ${command}`);
+		}
+	};
+
+	const handleCreateShareLink = async () => {
+		const canvasData = getCurrentCanvasData();
+		if (!canvasData) {
+			toast.error("No canvas to share");
+			return;
+		}
+		const payload = btoa(unescape(encodeURIComponent(canvasData))).slice(
+			0,
+			120,
+		);
+		const mockShareLink = `${window.location.origin}?shared=${payload}`;
+		await navigator.clipboard.writeText(mockShareLink);
+		toast.success("Mock review link copied to clipboard");
+	};
+
+	const handleAddReviewerComment = () => {
+		const text = prompt("Reviewer comment:");
+		if (!text?.trim()) return;
+		setCollaborationComments((prev) => [
+			{
+				id: `comment-${Date.now()}`,
+				text: text.trim(),
+				timestamp: Date.now(),
+			},
+			...prev,
+		]);
+		toast.success("Reviewer comment added");
+	};
+
+	const handleApplyAdjustmentPreset = (
+		preset: "cinematic" | "vintage" | "pop",
+	) => {
+		if (preset === "cinematic") {
+			handleApplyFilter("Desaturate");
+			handleApplyFilter("Auto Contrast");
+			return;
+		}
+		if (preset === "vintage") {
+			handleApplyFilter("Sepia");
+			handleApplyFilter("Auto Tone");
+			return;
+		}
+		handleApplyFilter("Auto Contrast");
+		handleApplyFilter("Sharpen");
 	};
 
 	const handleExport = (format: string) => {
@@ -1495,6 +1698,123 @@ export const TopMenuBar: React.FC = () => {
 		});
 	};
 
+	const dispatchKonvaRasterFilter = (filter: string) => {
+		const dispatch = (
+			effect: string,
+			opts?: Record<string, number | { r: number; g: number; b: number }>,
+		) => {
+			window.dispatchEvent(
+				new CustomEvent("artstudio:konva-raster-effect", {
+					detail: { effect, ...opts },
+				}),
+			);
+		};
+
+		switch (filter) {
+			case "Invert":
+				dispatch("invert");
+				return;
+			case "Desaturate":
+				dispatch("grayscale");
+				return;
+			case "Sepia":
+				dispatch("sepia");
+				return;
+			case "Remove Background":
+				dispatch("removeBackground", { tolerance: 45 });
+				return;
+			case "Auto Tone":
+				dispatch("autoLevels");
+				return;
+			case "Auto Contrast":
+				dispatch("autoContrast");
+				return;
+			case "Levels":
+				dispatch("autoLevels");
+				return;
+			case "Curves":
+				dispatch("autoLevels");
+				toast.info(
+					"Konva: curves approximated with auto levels on the flattened image.",
+					{ duration: 4000 },
+				);
+				return;
+			case "Color Balance":
+				dispatch("autoLevels");
+				toast.info(
+					"Konva: using auto tone as a color balance shortcut on pixels.",
+					{ duration: 4000 },
+				);
+				return;
+			case "Brightness/Contrast": {
+				const bStr = prompt("Brightness (-100 to 100):", "0");
+				const cStr = prompt("Contrast (-100 to 100):", "0");
+				if (bStr === null || cStr === null) return;
+				const brightness = Number.parseInt(bStr, 10);
+				const contrast = Number.parseInt(cStr, 10);
+				if (Number.isNaN(brightness) || Number.isNaN(contrast)) {
+					toast.error("Enter valid numbers.");
+					return;
+				}
+				dispatch("brightnessContrast", { brightness, contrast });
+				return;
+			}
+			case "Hue/Saturation": {
+				const hStr = prompt("Hue shift (-180 to 180):", "0");
+				const sStr = prompt("Saturation (-100 to 100):", "0");
+				if (hStr === null || sStr === null) return;
+				const hue = Number.parseInt(hStr, 10);
+				const saturation = Number.parseInt(sStr, 10);
+				if (Number.isNaN(hue) || Number.isNaN(saturation)) {
+					toast.error("Enter valid numbers.");
+					return;
+				}
+				dispatch("hueSaturation", { hue, saturation });
+				return;
+			}
+			case "Gaussian Blur":
+				dispatch("gaussianBlur", { blurRadius: 2 });
+				return;
+			case "Motion Blur":
+				dispatch("gaussianBlur", { blurRadius: 4 });
+				return;
+			case "Surface Blur":
+				dispatch("gaussianBlur", { blurRadius: 3 });
+				return;
+			case "Radial Blur":
+				dispatch("gaussianBlur", { blurRadius: 5 });
+				return;
+			case "Sharpen":
+			case "Unsharp Mask":
+			case "Smart Sharpen":
+				dispatch("sharpen");
+				return;
+			case "Upscale 2x":
+				window.dispatchEvent(
+					new CustomEvent("artstudio:konva-upscale", {
+						detail: { scale: 2 },
+					}),
+				);
+				return;
+			case "Posterize": {
+				const p = prompt("Posterize levels (2–32):", "8");
+				if (p === null) return;
+				const levels = Number.parseInt(p, 10);
+				if (Number.isNaN(levels) || levels < 2 || levels > 32) {
+					toast.error("Use a level between 2 and 32.");
+					return;
+				}
+				dispatch("posterize", { posterizeLevels: levels });
+				return;
+			}
+			default:
+				toast.info(
+					`"${filter}" is not wired up for the Konva canvas yet. Switch to the Fabric engine under View → Rendering Engine if you need this control.`,
+					{ duration: 6000 },
+				);
+		}
+	};
+
 	// Filter functions that actually apply effects
 	const handleApplyFilter = (filter: string) => {
 		const canvas = getCanvas();
@@ -1502,6 +1822,11 @@ export const TopMenuBar: React.FC = () => {
 			toast.error("No canvas available", {
 				duration: 3000,
 			});
+			return;
+		}
+
+		if (isKonva()) {
+			dispatchKonvaRasterFilter(filter);
 			return;
 		}
 
@@ -2049,11 +2374,32 @@ export const TopMenuBar: React.FC = () => {
 		{ separator: true, label: "" },
 		{ label: "Save", icon: Save, shortcut: "⌘S", action: handleSave },
 		{ label: "Save As...", icon: Save, shortcut: "⇧⌘S", action: handleSaveAs },
+		{
+			label: "Save Project to Browser",
+			icon: Archive,
+			action: handleSaveProjectToBrowser,
+		},
+		{
+			label: "Open Recent Browser Project",
+			icon: FolderOpen,
+			submenu:
+				browserProjects.length > 0
+					? browserProjects.map((project) => ({
+							label: project.name,
+							action: () => handleOpenBrowserProject(project.id),
+						}))
+					: [{ label: "No saved browser projects", disabled: true }],
+		},
 		{ separator: true, label: "" },
 		{
 			label: "Export…",
 			icon: FileImage,
 			action: () => setShowExport(true),
+		},
+		{
+			label: "Compress image…",
+			icon: Archive,
+			action: () => setShowCompress(true),
 		},
 		{
 			label: "Export (advanced)",
@@ -2458,6 +2804,25 @@ export const TopMenuBar: React.FC = () => {
 			icon: Sliders,
 			submenu: [
 				{
+					label: "Quick Presets",
+					icon: Sparkles,
+					submenu: [
+						{
+							label: "Cinematic B&W",
+							action: () => handleApplyAdjustmentPreset("cinematic"),
+						},
+						{
+							label: "Vintage Warm",
+							action: () => handleApplyAdjustmentPreset("vintage"),
+						},
+						{
+							label: "Punchy Pop",
+							action: () => handleApplyAdjustmentPreset("pop"),
+						},
+					],
+				},
+				{ separator: true, label: "" },
+				{
 					label: "Brightness/Contrast",
 					icon: Sun,
 					action: () => handleApplyFilter("Brightness/Contrast"),
@@ -2494,6 +2859,17 @@ export const TopMenuBar: React.FC = () => {
 					label: "Auto Contrast",
 					icon: Contrast,
 					action: () => handleApplyFilter("Auto Contrast"),
+				},
+				{ separator: true, label: "" },
+				{
+					label: "Sepia tone",
+					icon: Sun,
+					action: () => handleApplyFilter("Sepia"),
+				},
+				{
+					label: "Posterize…",
+					icon: SlidersHorizontal,
+					action: () => handleApplyFilter("Posterize"),
 				},
 			],
 		},
@@ -2741,6 +3117,36 @@ export const TopMenuBar: React.FC = () => {
 		{ separator: true, label: "" },
 	];
 
+	const collaborateMenu: MenuItemConfig[] = [
+		{
+			label: "Create Share Link",
+			icon: Share2,
+			action: handleCreateShareLink,
+		},
+		{
+			label: "Share Image Now",
+			icon: Share2,
+			action: handleShare,
+		},
+		{ separator: true, label: "" },
+		{
+			label: "Add Reviewer Comment",
+			icon: MessageCircle,
+			action: handleAddReviewerComment,
+		},
+		{
+			label: "Recent Reviewer Comments",
+			icon: BookOpen,
+			submenu:
+				collaborationComments.length > 0
+					? collaborationComments.slice(0, 8).map((comment) => ({
+							label: comment.text,
+							disabled: true,
+						}))
+					: [{ label: "No comments yet", disabled: true }],
+		},
+	];
+
 	const menus = [
 		{ label: "File", items: fileMenu },
 		{ label: "Edit", items: editMenu },
@@ -2749,6 +3155,7 @@ export const TopMenuBar: React.FC = () => {
 		{ label: "Layer", items: layerMenu },
 		{ label: "Filter", items: filterMenu },
 		{ label: "Window", items: windowMenu },
+		{ label: "Collaborate", items: collaborateMenu },
 	];
 
 	// Listen for custom events from keyboard shortcuts hook
@@ -2903,6 +3310,17 @@ export const TopMenuBar: React.FC = () => {
 		handleFitToScreen,
 	]);
 
+	useEffect(() => {
+		const onKeyDown = (event: KeyboardEvent) => {
+			if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+				event.preventDefault();
+				handleQuickCommand();
+			}
+		};
+		window.addEventListener("keydown", onKeyDown);
+		return () => window.removeEventListener("keydown", onKeyDown);
+	}, [showGrid, showRulers]);
+
 	const renderMenuItems = (items: MenuItemConfig[]) => {
 		return items.map((item, index) => {
 			if (item.separator) {
@@ -3055,6 +3473,18 @@ export const TopMenuBar: React.FC = () => {
 					</TooltipTrigger>
 					<TooltipContent>Keyboard Shortcuts (⌘/)</TooltipContent>
 				</Tooltip>
+
+				<Tooltip>
+					<TooltipTrigger asChild>
+						<button
+							onClick={handleQuickCommand}
+							className="tool-button w-8 h-8"
+						>
+							<Command className="w-4 h-4" />
+						</button>
+					</TooltipTrigger>
+					<TooltipContent>Quick Command (⌘K)</TooltipContent>
+				</Tooltip>
 			</div>
 
 			{/* Templates Dialog */}
@@ -3068,6 +3498,8 @@ export const TopMenuBar: React.FC = () => {
 
 			{/* Export Dialog */}
 			<ExportDialog open={showExport} onOpenChange={setShowExport} />
+
+			<CompressImageDialog open={showCompress} onOpenChange={setShowCompress} />
 
 			{/* Canvas Size Dialog */}
 			<CanvasSizeDialog

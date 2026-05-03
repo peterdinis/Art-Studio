@@ -1,6 +1,7 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
+import { useLiveQuery } from "@tanstack/react-db";
 import { useArtStudioStore } from "@/stores/artStudioStore";
 import { History, RotateCcw, Trash2 } from "lucide-react";
 import {
@@ -9,21 +10,76 @@ import {
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Slider } from "@/components/ui/slider";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
+import {
+	canvasHistoryCollection,
+	replaceCanvasHistoryFrames,
+	type CanvasHistoryFrame,
+} from "@/lib/canvasHistoryCollection";
 
 export const HistoryPanel: React.FC = () => {
-	const { history, historyIndex, restoreToHistoryIndex, clearSessionHistory } =
-		useArtStudioStore();
+	const historyIndex = useArtStudioStore((s) => s.historyIndex);
+	const storeHistory = useArtStudioStore((s) => s.history);
+	const { restoreToHistoryIndex, clearSessionHistory } = useArtStudioStore();
+
+	const { data: liveFrames = [] } = useLiveQuery(
+		(q) =>
+			q
+				.from({ frame: canvasHistoryCollection })
+				.orderBy(({ frame }) => frame.timestamp, "asc")
+				.select(({ frame }) => ({
+					id: frame.id,
+					canvasData: frame.canvasData,
+					thumbnail: frame.thumbnail,
+					timestamp: frame.timestamp,
+					action: frame.action,
+				})),
+		[],
+	);
+
+	// Tests / dev: Zustand may be set without going through addToHistory — mirror into TanStack DB
+	useEffect(() => {
+		const dbSize = canvasHistoryCollection.size;
+		if (storeHistory.length !== dbSize) {
+			replaceCanvasHistoryFrames(storeHistory);
+		}
+	}, [storeHistory]);
+
+	const frames: CanvasHistoryFrame[] =
+		liveFrames.length > 0
+			? liveFrames.map((f) => ({
+					id: f.id,
+					canvasData: f.canvasData,
+					thumbnail: f.thumbnail,
+					timestamp: f.timestamp,
+					action: f.action,
+				}))
+			: storeHistory.map((e, i) => ({
+					id: e.id ?? `legacy-${i}-${e.timestamp}`,
+					canvasData: e.canvasData,
+					thumbnail: e.thumbnail,
+					timestamp: e.timestamp,
+					action: e.action,
+				}));
+
+	const frameCount = frames.length;
+	const maxIdx = Math.max(0, frameCount - 1);
+
+	const [scrubIndex, setScrubIndex] = useState(historyIndex);
+	useEffect(() => {
+		setScrubIndex(historyIndex);
+	}, [historyIndex]);
 
 	const handleRestore = (index: number) => {
 		if (index === historyIndex) return;
 		restoreToHistoryIndex(index);
-		toast.success(`Restored to state ${index + 1}`);
+		toast.success(`Restored to frame ${index + 1} / ${frameCount}`);
 	};
 
 	const handleClearHistory = async () => {
-		if (history.length === 0) return;
+		if (frameCount === 0) return;
 
 		if (
 			window.confirm(
@@ -46,16 +102,15 @@ export const HistoryPanel: React.FC = () => {
 				<div className="flex items-center gap-2">
 					<History className="w-4 h-4 text-muted-foreground" />
 					<h3 className="text-sm font-medium text-foreground">History</h3>
-					<span className="text-xs text-muted-foreground">
-						({history.length})
-					</span>
+					<span className="text-xs text-muted-foreground">({frameCount})</span>
 				</div>
 				<Tooltip>
 					<TooltipTrigger asChild>
 						<button
-							onClick={handleClearHistory}
+							type="button"
+							onClick={() => void handleClearHistory()}
 							className="tool-button w-7 h-7"
-							disabled={history.length === 0}
+							disabled={frameCount === 0}
 						>
 							<Trash2 className="w-4 h-4" />
 						</button>
@@ -64,9 +119,29 @@ export const HistoryPanel: React.FC = () => {
 				</Tooltip>
 			</div>
 
+			{frameCount > 0 && (
+				<div className="space-y-2 mb-4">
+					<div className="flex justify-between items-center text-xs text-muted-foreground">
+						<span>Timeline</span>
+						<span className="font-mono text-foreground">
+							Frame {historyIndex + 1} / {frameCount}
+						</span>
+					</div>
+					<Slider
+						value={[scrubIndex]}
+						min={0}
+						max={maxIdx}
+						step={1}
+						onValueChange={([v]) => setScrubIndex(v)}
+						onValueCommit={([v]) => handleRestore(v)}
+						disabled={frameCount <= 1}
+					/>
+				</div>
+			)}
+
 			<ScrollArea className="flex-1 max-h-100">
 				<div className="space-y-2 pr-2">
-					{history.length === 0 ? (
+					{frameCount === 0 ? (
 						<div className="text-center py-8 text-muted-foreground">
 							<History className="w-12 h-12 mx-auto mb-2 opacity-30" />
 							<p className="text-sm">No history yet</p>
@@ -75,9 +150,10 @@ export const HistoryPanel: React.FC = () => {
 							</p>
 						</div>
 					) : (
-						history.map((entry, index) => (
+						frames.map((entry, index) => (
 							<button
-								key={entry.timestamp}
+								type="button"
+								key={entry.id}
 								onClick={() => handleRestore(index)}
 								className={`w-full group relative rounded-lg border transition-all overflow-hidden ${
 									index === historyIndex
@@ -89,7 +165,7 @@ export const HistoryPanel: React.FC = () => {
 									{entry.thumbnail ? (
 										<img
 											src={entry.thumbnail}
-											alt={`State ${index + 1}`}
+											alt={`Frame ${index + 1}`}
 											className="w-full h-full object-cover"
 										/>
 									) : (
@@ -117,7 +193,7 @@ export const HistoryPanel: React.FC = () => {
 								<div className="p-2">
 									<div className="flex items-center justify-between">
 										<span className="text-xs font-medium text-foreground">
-											State {index + 1}
+											Frame {index + 1}
 										</span>
 										<span className="text-[10px] text-muted-foreground">
 											{formatDistanceToNow(entry.timestamp, {
@@ -137,10 +213,10 @@ export const HistoryPanel: React.FC = () => {
 				</div>
 			</ScrollArea>
 
-			{history.length > 0 && (
+			{frameCount > 0 && (
 				<div className="pt-3 mt-3 border-t border-border">
 					<p className="text-xs text-muted-foreground text-center">
-						Click any state to restore. Max 50 states stored.
+						Drag the timeline or click a frame to restore. Max 50 frames.
 					</p>
 				</div>
 			)}

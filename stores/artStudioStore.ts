@@ -3,6 +3,18 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { toast } from "sonner";
+import {
+	canvasHistoryCollection,
+	deleteAllCanvasHistoryFrames,
+} from "@/lib/canvasHistoryCollection";
+
+function newHistoryId(): string {
+	return typeof globalThis !== "undefined" &&
+		globalThis.crypto &&
+		typeof globalThis.crypto.randomUUID === "function"
+		? globalThis.crypto.randomUUID()
+		: `hist-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+}
 
 export type Tool =
 	| "brush"
@@ -195,6 +207,8 @@ export interface GradientObject {
 }
 
 export interface HistoryEntry {
+	/** Stable row id for TanStack DB + keyed UI */
+	id?: string;
 	canvasData: string;
 	thumbnail: string | null;
 	timestamp: number;
@@ -656,10 +670,11 @@ export const useArtStudioStore = create<ArtStudioState>()(
 			},
 
 			saveSession: async () => {
-				console.log("Session save called (no-op, IndexedDB removed)");
+				// Reserved for server/cloud persistence; canvas state stays in memory + TanStack history collection.
 			},
 
 			clearCurrentSession: async () => {
+				deleteAllCanvasHistoryFrames();
 				set({
 					sessionId: null,
 					layers: [
@@ -702,6 +717,7 @@ export const useArtStudioStore = create<ArtStudioState>()(
 					sessionId: state.sessionId,
 					canvasState,
 					history: state.history.map((entry) => ({
+						id: entry.id,
 						canvasData: entry.canvasData,
 						action: entry.action,
 						timestamp: entry.timestamp,
@@ -746,25 +762,60 @@ export const useArtStudioStore = create<ArtStudioState>()(
 
 			addToHistory: async (canvasData, thumbnail = "", action) => {
 				const state = get();
+				let { history, historyIndex } = state;
 
-				const { history, historyIndex } = state;
-				const newEntry = {
+				const newId = newHistoryId();
+
+				history = history.map((e) => (e.id ? e : { ...e, id: newHistoryId() }));
+
+				const newEntry: HistoryEntry = {
+					id: newId,
 					canvasData,
-					thumbnail,
+					thumbnail: thumbnail ?? "",
 					timestamp: Date.now(),
 					action,
 				};
 
-				const newHistory = history.slice(0, historyIndex + 1);
-				newHistory.push(newEntry);
+				const branch = history.slice(0, historyIndex + 1);
+				const redoBranch = history.slice(historyIndex + 1);
 
-				// Zväčšiť limit histórie na 50 záznamov pre lepšie undo/redo
-				const trimmedHistory = newHistory.slice(-50);
+				let combined = [...branch, newEntry];
+				const idsRemovedFromFront: string[] = [];
+
+				if (combined.length > 50) {
+					const overflow = combined.length - 50;
+					for (const e of combined.slice(0, overflow)) {
+						if (e.id) idsRemovedFromFront.push(e.id);
+					}
+					combined = combined.slice(-50);
+				}
+
+				const redoIds = redoBranch
+					.map((e) => e.id)
+					.filter((id): id is string => Boolean(id));
+
+				const trimmedHistory = combined;
 
 				set({
 					history: trimmedHistory,
 					historyIndex: trimmedHistory.length - 1,
 				});
+
+				try {
+					const toDelete = [...new Set([...redoIds, ...idsRemovedFromFront])];
+					if (toDelete.length > 0) {
+						canvasHistoryCollection.delete(toDelete);
+					}
+					canvasHistoryCollection.insert({
+						id: newId,
+						canvasData,
+						thumbnail: thumbnail ?? "",
+						timestamp: newEntry.timestamp,
+						action,
+					});
+				} catch (err) {
+					console.error("canvasHistoryCollection sync failed:", err);
+				}
 
 				console.log(
 					`History saved: ${action}, index: ${trimmedHistory.length - 1}, entries: ${trimmedHistory.length}`,
@@ -885,6 +936,7 @@ export const useArtStudioStore = create<ArtStudioState>()(
 			},
 
 			clearHistory: () => {
+				deleteAllCanvasHistoryFrames();
 				set({
 					history: [],
 					historyIndex: -1,
@@ -894,6 +946,7 @@ export const useArtStudioStore = create<ArtStudioState>()(
 			clearSessionHistory: async () => {
 				const { sessionId } = get();
 
+				deleteAllCanvasHistoryFrames();
 				set({
 					history: [],
 					historyIndex: -1,

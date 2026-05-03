@@ -45,6 +45,11 @@ import { toast } from "sonner";
 import { CanvasContextMenu } from "./CanvasContextMenu";
 import { GridOverlay } from "./GridOverlay";
 import { RulerOverlay } from "./RulerOverlay";
+import {
+	applyRasterEffect,
+	type RasterEffectName,
+	type RasterEffectOptions,
+} from "@/lib/rasterEffects";
 
 interface KonvaCanvasProps {
 	width?: number;
@@ -733,44 +738,277 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		[clearSelection, saveCanvasState, actualWidth, actualHeight, tempContext],
 	);
 
-	/* --- EVENT LISTENERS PRE UNDO/REDO --- */
+	const collapseToRasterImage = useCallback(
+		(
+			dataUrl: string,
+			nextBackground: string | undefined,
+			actionLabel: string,
+		) => {
+			const newId = generateId("img");
+			useArtStudioStore.setState({
+				layers: [
+					{
+						id: "layer-1",
+						name: "Background",
+						visible: true,
+						opacity: 100,
+						locked: false,
+					},
+				],
+				activeLayerId: "layer-1",
+			});
+			if (nextBackground !== undefined) {
+				setCanvasSize({
+					width: actualWidth,
+					height: actualHeight,
+					backgroundColor: nextBackground,
+				});
+			}
+			setLines([]);
+			setShapes([]);
+			setTextObjects([]);
+			setGradients([]);
+			setHealingData({
+				sourceX: 0,
+				sourceY: 0,
+				isActive: false,
+				brushSize: 20,
+			});
+			setBlurData({
+				isActive: false,
+				brushSize: 20,
+				intensity: 10,
+			});
+			setImages([
+				{
+					id: newId,
+					src: dataUrl,
+					x: 0,
+					y: 0,
+					width: actualWidth,
+					height: actualHeight,
+					layerId: "layer-1",
+				},
+			]);
+			setSelectedId(newId);
+			clearSelection();
+			saveCanvasState(actionLabel, true);
+		},
+		[
+			actualWidth,
+			actualHeight,
+			clearSelection,
+			generateId,
+			saveCanvasState,
+			setBlurData,
+			setCanvasSize,
+			setGradients,
+			setHealingData,
+			setImages,
+			setLines,
+			setSelectedId,
+			setShapes,
+			setTextObjects,
+		],
+	);
+
+	const applyKonvaRasterEffect = useCallback(
+		(effect: RasterEffectName, options: RasterEffectOptions = {}) => {
+			const layer = layerRef.current;
+			if (!layer) {
+				toast.error("Canvas not ready yet.");
+				return;
+			}
+
+			let tempCanvas: HTMLCanvasElement;
+			try {
+				tempCanvas = layer.toCanvas({
+					pixelRatio: 1,
+					x: 0,
+					y: 0,
+					width: actualWidth,
+					height: actualHeight,
+				});
+			} catch {
+				toast.error("Could not rasterize the canvas.");
+				return;
+			}
+
+			const ctx = tempCanvas.getContext("2d");
+			if (!ctx) {
+				toast.error("Could not read pixels.");
+				return;
+			}
+
+			let imageData: ImageData;
+			try {
+				imageData = ctx.getImageData(0, 0, actualWidth, actualHeight);
+			} catch {
+				toast.error("Could not read image data.");
+				return;
+			}
+
+			applyRasterEffect(imageData, effect, options);
+			ctx.putImageData(imageData, 0, 0);
+
+			const dataUrl = tempCanvas.toDataURL("image/png");
+			const bgAfter = effect === "removeBackground" ? "transparent" : undefined;
+			collapseToRasterImage(dataUrl, bgAfter, `Raster: ${effect}`);
+			toast.success(
+				effect === "removeBackground"
+					? "Background removed (edge color). Canvas flattened to one layer."
+					: `Applied ${effect.replace(/([A-Z])/g, " $1").trim()}. Canvas flattened to one layer.`,
+			);
+		},
+		[actualHeight, actualWidth, collapseToRasterImage],
+	);
+
+	const applyKonvaUpscale = useCallback(
+		(scale: number) => {
+			if (scale <= 1 || !Number.isFinite(scale)) return;
+			const layer = layerRef.current;
+			if (!layer) {
+				toast.error("Canvas not ready yet.");
+				return;
+			}
+
+			let tempCanvas: HTMLCanvasElement;
+			try {
+				tempCanvas = layer.toCanvas({
+					pixelRatio: 1,
+					x: 0,
+					y: 0,
+					width: actualWidth,
+					height: actualHeight,
+				});
+			} catch {
+				toast.error("Could not rasterize the canvas.");
+				return;
+			}
+
+			const nw = Math.round(actualWidth * scale);
+			const nh = Math.round(actualHeight * scale);
+			const out = document.createElement("canvas");
+			out.width = nw;
+			out.height = nh;
+			const octx = out.getContext("2d");
+			if (!octx) return;
+			octx.imageSmoothingEnabled = true;
+			octx.imageSmoothingQuality = "high";
+			octx.drawImage(tempCanvas, 0, 0, nw, nh);
+			const dataUrl = out.toDataURL("image/png");
+
+			useArtStudioStore.setState({
+				layers: [
+					{
+						id: "layer-1",
+						name: "Background",
+						visible: true,
+						opacity: 100,
+						locked: false,
+					},
+				],
+				activeLayerId: "layer-1",
+			});
+
+			const bg = canvasSize?.backgroundColor ?? actualBackground ?? "#2d3748";
+			setCanvasSize({
+				width: nw,
+				height: nh,
+				backgroundColor: bg,
+			});
+
+			const newId = generateId("img");
+			setLines([]);
+			setShapes([]);
+			setTextObjects([]);
+			setGradients([]);
+			setHealingData({
+				sourceX: 0,
+				sourceY: 0,
+				isActive: false,
+				brushSize: 20,
+			});
+			setBlurData({
+				isActive: false,
+				brushSize: 20,
+				intensity: 10,
+			});
+			setImages([
+				{
+					id: newId,
+					src: dataUrl,
+					x: 0,
+					y: 0,
+					width: nw,
+					height: nh,
+					layerId: "layer-1",
+				},
+			]);
+			setSelectedId(newId);
+			clearSelection();
+			saveCanvasState(`Upscale ${scale}x`, true);
+			toast.success(`Canvas upscaled ${scale}× (flattened to one layer).`);
+		},
+		[
+			actualBackground,
+			actualHeight,
+			actualWidth,
+			canvasSize?.backgroundColor,
+			clearSelection,
+			generateId,
+			saveCanvasState,
+			setBlurData,
+			setCanvasSize,
+			setGradients,
+			setHealingData,
+			setImages,
+			setLines,
+			setSelectedId,
+			setShapes,
+			setTextObjects,
+		],
+	);
+
 	useEffect(() => {
-		// Event listener pre undo
-		const handleUndoEvent = (e: CustomEvent) => {
-			if (e.detail?.canvasData) {
-				restoreCanvasState(e.detail.canvasData);
-			}
+		const onRaster = (e: Event) => {
+			const d = (e as CustomEvent).detail as {
+				effect?: RasterEffectName;
+			} & RasterEffectOptions;
+			if (!d?.effect) return;
+			const { effect, ...rest } = d;
+			applyKonvaRasterEffect(effect, rest);
 		};
-
-		// Event listener pre redo
-		const handleRedoEvent = (e: CustomEvent) => {
-			if (e.detail?.canvasData) {
-				restoreCanvasState(e.detail.canvasData);
-			}
+		const onUpscale = (e: Event) => {
+			const scale = (e as CustomEvent).detail?.scale ?? 2;
+			applyKonvaUpscale(scale);
 		};
-
-		// Event listener pre restore-history (general)
-		const handleRestoreHistory = (e: CustomEvent) => {
-			if (e.detail?.canvasData) {
-				restoreCanvasState(e.detail.canvasData);
-			}
+		window.addEventListener(
+			"artstudio:konva-raster-effect",
+			onRaster as EventListener,
+		);
+		window.addEventListener(
+			"artstudio:konva-upscale",
+			onUpscale as EventListener,
+		);
+		return () => {
+			window.removeEventListener(
+				"artstudio:konva-raster-effect",
+				onRaster as EventListener,
+			);
+			window.removeEventListener(
+				"artstudio:konva-upscale",
+				onUpscale as EventListener,
+			);
 		};
+	}, [applyKonvaRasterEffect, applyKonvaUpscale]);
 
-		const handleSelectTextEvent = (e: CustomEvent) => {
-			const { textId } = e.detail;
-			handleSelectText(textId);
-		};
-
+	/* --- DELETE SELECTION (undo/redo/restore use artstudio:restore-history below) --- */
+	useEffect(() => {
 		const handleDeleteSelectedEvent = () => {
 			handleDeleteSelected();
 		};
 
-		window.addEventListener("artstudio:undo", handleUndoEvent as EventListener);
-		window.addEventListener("artstudio:redo", handleRedoEvent as EventListener);
-		window.addEventListener(
-			"artstudio:restore-history",
-			handleRestoreHistory as EventListener,
-		);
 		window.addEventListener(
 			"artstudio:delete-selected",
 			handleDeleteSelectedEvent as EventListener,
@@ -778,23 +1016,11 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 
 		return () => {
 			window.removeEventListener(
-				"artstudio:undo",
-				handleUndoEvent as EventListener,
-			);
-			window.removeEventListener(
-				"artstudio:redo",
-				handleRedoEvent as EventListener,
-			);
-			window.removeEventListener(
-				"artstudio:restore-history",
-				handleRestoreHistory as EventListener,
-			);
-			window.removeEventListener(
 				"artstudio:delete-selected",
 				handleDeleteSelectedEvent as EventListener,
 			);
 		};
-	}, [restoreCanvasState, handleDeleteSelected]);
+	}, [handleDeleteSelected]);
 
 	/* --- EVENT LISTENERS FOR TEXT --- */
 	useEffect(() => {
@@ -2136,7 +2362,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		[
 			activeTool,
 			primaryColor,
-			brushSettings.size,
+			brushSettings,
 			activeLayerId,
 			tempContext,
 			actualWidth,
@@ -3825,11 +4051,28 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 										points={currentPenLine.points}
 										stroke={currentPenLine.stroke}
 										strokeWidth={currentPenLine.strokeWidth}
+										tension={0}
+										lineCap="round"
+										lineJoin="round"
+										perfectDrawEnabled={false}
 										opacity={
-											layerOpacities[
-												currentPenLine?.layerId || activeLayerId || "layer-1"
-											] || 1
+											(layerOpacities[
+												currentPenLine.layerId || activeLayerId || "layer-1"
+											] || 1) * (currentPenLine.opacity ?? 1)
 										}
+										shadowBlur={
+											currentPenLine.hardness !== undefined
+												? (1 - currentPenLine.hardness) *
+													currentPenLine.strokeWidth
+												: 0
+										}
+										shadowColor={
+											currentPenLine.hardness !== undefined &&
+											currentPenLine.hardness < 1
+												? currentPenLine.stroke
+												: undefined
+										}
+										listening={false}
 									/>
 								)}
 
