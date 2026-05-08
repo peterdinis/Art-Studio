@@ -178,12 +178,14 @@ const ImageNode = ({
 	onDragEnd,
 	draggable,
 	opacity = 1,
+	listening = true,
 }: {
 	image: ImageObject;
 	onClick: (id: string) => void;
 	onDragEnd?: (id: string, x: number, y: number) => void;
 	draggable?: boolean;
 	opacity?: number;
+	listening?: boolean;
 }) => {
 	const [img, setImg] = useState<HTMLImageElement | null>(null);
 
@@ -206,6 +208,7 @@ const ImageNode = ({
 			onTap={() => onClick(image.id)}
 			draggable={draggable}
 			opacity={opacity}
+			listening={listening}
 		/>
 	);
 };
@@ -3277,6 +3280,9 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 		if (activeTool === "crop") applyCrop();
 	};
 
+	const isObjectInteractionTool =
+		activeTool === "select" || activeTool === "move";
+
 	const handleObjectClick = (
 		id: string,
 		e?: Konva.KonvaEventObject<MouseEvent>,
@@ -3544,6 +3550,8 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 														? "destination-out"
 														: "source-over"
 												}
+												listening={isObjectInteractionTool}
+												zIndex={100}
 												draggable={
 													activeTool === "select" || activeTool === "move"
 												}
@@ -3605,6 +3613,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 												: "source-over"
 										}
 										listening={false}
+										zIndex={101}
 										opacity={
 											(layerOpacities[activeDrawingLine.layerId] || 1) *
 											(activeDrawingLine.opacity ?? 1)
@@ -3630,6 +3639,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 										const commonProps = {
 											draggable:
 												activeTool === "select" || activeTool === "move",
+											listening: isObjectInteractionTool,
 											onClick: () => handleObjectClick(shape.id),
 											onTap: () => handleObjectClick(shape.id),
 											onDragEnd: (e: any) => {
@@ -3770,6 +3780,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 												saveCanvasState("Image moved");
 											}}
 											opacity={layerOpacities[img.layerId] || 1}
+											listening={isObjectInteractionTool}
 										/>
 									))}
 
@@ -3812,7 +3823,7 @@ const KonvaCanvas: React.FC<KonvaCanvasProps> = ({
 												saveCanvasState("Text moved");
 											},
 											perfectDrawEnabled: false,
-											listening: !text.isEditing,
+											listening: isObjectInteractionTool && !text.isEditing,
 											opacity: combinedOpacity,
 										};
 
