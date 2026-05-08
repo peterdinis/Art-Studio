@@ -1,24 +1,20 @@
-import { render, screen } from "@testing-library/react";
-import { describe, it, expect, vi } from "vitest";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import HomeWrapper from "@/components/home/HomeWrapper";
+import { useArtStudioStore } from "@/stores/artStudioStore";
 
-interface MockResizablePanelGroupProps {
-	children: React.ReactNode;
-}
+vi.mock("@/stores/artStudioStore", () => ({
+	useArtStudioStore: vi.fn(),
+}));
 
-interface MockResizablePanelProps {
-	children: React.ReactNode;
-}
-
-// Mock all sub-components using their absolute paths as they are imported in HomeWrapper
 vi.mock("@/components/layout/TopMenuBar", () => ({
 	TopMenuBar: () => <div data-testid="top-menu-bar" />,
 }));
 vi.mock("@/components/toolbar/ToolSidebar", () => ({
 	ToolSidebar: () => <div data-testid="tool-sidebar" />,
 }));
-vi.mock("@/components/canvas/DrawingCanvas", () => ({
-	DrawingCanvas: () => <div data-testid="drawing-canvas" />,
+vi.mock("@/components/canvas/KonvaCanvas", () => ({
+	default: () => <div data-testid="drawing-canvas" />,
 }));
 vi.mock("@/components/panels/BrushPanel", () => ({
 	BrushPanel: () => <div data-testid="brush-panel" />,
@@ -35,27 +31,65 @@ vi.mock("@/components/panels/LayersPanel", () => ({
 vi.mock("@/components/layout/StatusBar", () => ({
 	StatusBar: () => <div data-testid="status-bar" />,
 }));
-vi.mock("@/components/ui/resizable", () => ({
-	ResizablePanelGroup: ({ children }: MockResizablePanelGroupProps) => (
-		<div data-testid="resizable-group">{children}</div>
-	),
-	ResizablePanel: ({ children }: MockResizablePanelProps) => (
-		<div data-testid="resizable-panel">{children}</div>
-	),
-	ResizableHandle: () => <div data-testid="resizable-handle" />,
+vi.mock("@/hooks/useKeyboardShortcuts", () => ({
+	useKeyboardShortcuts: vi.fn(),
 }));
 
 describe("HomeWrapper component", () => {
-	it("should render all main layout sections", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		Object.defineProperty(window, "localStorage", {
+			value: {
+				getItem: vi.fn(() => null),
+				setItem: vi.fn(),
+			},
+			configurable: true,
+		});
+
+		(useArtStudioStore as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+			showGrid: false,
+			showRulers: false,
+			showGuides: false,
+			showLeftPanel: true,
+			showRightPanel: true,
+			showBrushesPanel: true,
+			showColorsPanel: true,
+			showLayersPanel: true,
+			showStarPanel: false,
+			showLinePanel: true,
+			showGradientPanel: false,
+			activeTool: "brush",
+			initializeSession: vi.fn().mockResolvedValue(undefined),
+			sessionId: "session-1",
+		});
+	});
+
+	it("should render all main layout sections", async () => {
 		render(<HomeWrapper />);
 
-		expect(screen.getByTestId("top-menu-bar")).toBeInTheDocument();
+		await waitFor(() =>
+			expect(screen.getByTestId("top-menu-bar")).toBeInTheDocument(),
+		);
 		expect(screen.getByTestId("tool-sidebar")).toBeInTheDocument();
 		expect(screen.getByTestId("drawing-canvas")).toBeInTheDocument();
 		expect(screen.getByTestId("brush-panel")).toBeInTheDocument();
 		expect(screen.getByTestId("color-panel")).toBeInTheDocument();
-		expect(screen.getByTestId("history-panel")).toBeInTheDocument();
 		expect(screen.getByTestId("layers-panel")).toBeInTheDocument();
 		expect(screen.getByTestId("status-bar")).toBeInTheDocument();
+	});
+
+	it("should show cookie options and save preference", async () => {
+		render(<HomeWrapper />);
+		await waitFor(() =>
+			expect(screen.getByText("Cookie Preferences")).toBeInTheDocument(),
+		);
+
+		fireEvent.click(screen.getByRole("button", { name: "Accept all" }));
+
+		expect(window.localStorage.setItem).toHaveBeenCalledWith(
+			"artstudio:cookie-preference:v1",
+			"all",
+		);
+		expect(screen.getByRole("button", { name: "Cookies: All" })).toBeInTheDocument();
 	});
 });

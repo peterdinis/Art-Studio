@@ -290,7 +290,7 @@ export const ToolSidebar: React.FC = () => {
 
 	return (
 		<div className="flex h-full">
-			<div className="w-16 h-full bg-gradient-to-b from-card via-card to-muted/40 border-r border-border/60 flex flex-col items-center py-3 gap-1 animate-fade-in overflow-y-auto scrollbar-thin">
+			<div className="w-16 h-full bg-linear-to-b from-card via-card to-muted/40 border-r border-border/60 flex flex-col items-center py-3 gap-1 animate-fade-in overflow-y-auto scrollbar-thin">
 				<div className="mb-2 flex flex-col items-center gap-1">
 					<div className="w-8 h-8 rounded-lg bg-primary/15 text-primary flex items-center justify-center border border-primary/20">
 						<Sparkles className="w-4 h-4" />

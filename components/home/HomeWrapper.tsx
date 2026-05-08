@@ -12,9 +12,16 @@ import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useState, useEffect } from "react";
 import KonvaCanvas from "../canvas/KonvaCanvas";
 
+const COOKIE_PREFERENCE_KEY = "artstudio:cookie-preference:v1";
+
+type CookiePreference = "all" | "essential";
+
 const HomeWrapper = () => {
 	const [isSessionInitialized, setIsSessionInitialized] = useState(false);
 	const [isClient, setIsClient] = useState(false);
+	const [cookiePreference, setCookiePreference] =
+		useState<CookiePreference | null>(null);
+	const [showCookieBanner, setShowCookieBanner] = useState(false);
 
 	const {
 		showGrid,
@@ -56,6 +63,32 @@ const HomeWrapper = () => {
 
 		initSession();
 	}, [initializeSession, isClient]);
+
+	useEffect(() => {
+		if (!isClient) return;
+		try {
+			const savedPreference = localStorage.getItem(COOKIE_PREFERENCE_KEY);
+			if (savedPreference === "all" || savedPreference === "essential") {
+				setCookiePreference(savedPreference);
+				setShowCookieBanner(false);
+				return;
+			}
+			setShowCookieBanner(true);
+		} catch {
+			setShowCookieBanner(true);
+		}
+	}, [isClient]);
+
+	const updateCookiePreference = (preference: CookiePreference) => {
+		setCookiePreference(preference);
+		setShowCookieBanner(false);
+		localStorage.setItem(COOKIE_PREFERENCE_KEY, preference);
+		window.dispatchEvent(
+			new CustomEvent("artstudio:cookie-preference", {
+				detail: { preference },
+			}),
+		);
+	};
 
 	// Loading stav - show minimal loading on server
 	if (!isClient) {
@@ -235,6 +268,44 @@ const HomeWrapper = () => {
 
 			{/* Status Bar */}
 			<StatusBar />
+
+			{showCookieBanner && (
+				<div className="fixed bottom-4 left-4 right-4 md:left-auto md:w-[420px] rounded-lg border border-border bg-card p-4 shadow-lg z-50">
+					<p className="text-sm font-medium text-foreground mb-1">
+						Cookie Preferences
+					</p>
+					<p className="text-xs text-muted-foreground mb-3">
+						We use essential cookies for core functionality. You can also allow
+						additional cookies for analytics and product improvements.
+					</p>
+					<div className="flex items-center gap-2">
+						<button
+							type="button"
+							onClick={() => updateCookiePreference("essential")}
+							className="px-3 py-1.5 text-xs rounded-md border border-border hover:bg-muted transition-colors"
+						>
+							Essential only
+						</button>
+						<button
+							type="button"
+							onClick={() => updateCookiePreference("all")}
+							className="px-3 py-1.5 text-xs rounded-md bg-primary text-primary-foreground hover:opacity-90 transition-opacity"
+						>
+							Accept all
+						</button>
+					</div>
+				</div>
+			)}
+
+			{cookiePreference && !showCookieBanner && (
+				<button
+					type="button"
+					onClick={() => setShowCookieBanner(true)}
+					className="fixed bottom-4 right-4 px-3 py-1.5 text-xs rounded-md border border-border bg-card hover:bg-muted transition-colors z-40"
+				>
+					Cookies: {cookiePreference === "all" ? "All" : "Essential"}
+				</button>
+			)}
 		</div>
 	);
 };
